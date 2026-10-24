@@ -4,7 +4,7 @@ Notes for whoever works on the game next, human or Claude. `README.md` covers th
 
 ## Start here (Claude)
 
-In the simulation fork, every session is development until the referee is built (`PLAN.md`, step 19); there is no in-game reminder hook and no need for `ooc:`.
+In the simulation fork, the owner's messages are development or questions; Claude acts as the referee only inside `/rounds` (`.claude/skills/rounds/SKILL.md`, with `gm-turn` for each turn). There is no in-game reminder hook and no need for `ooc:`.
 - Never test in the real `state/save.json`; that's the player's game. Use a scratch copy (below).
 - Run `sh tools/check.sh` before and after changes.
 - If `HANDOFF.md` exists, read it next: it says where an in-progress build stands and what was decided.
