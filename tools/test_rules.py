@@ -12,6 +12,8 @@ import subprocess
 import sys
 import tempfile
 import unittest
+import urllib.error
+import urllib.request
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -921,6 +923,54 @@ class Engine(unittest.TestCase):
         self.rpg("move", "west")  # back to Harbor Square, where Morwen is
         self.assertIn("The keeper's lamp", self.rpg("pane", "wren"))
         self.assertEqual(self.save()["players"]["wren"]["heard"], ["The keeper's lamp burned blue last night."])
+
+    def test_the_dashboard_shows_the_run_and_asks_rpg_to_pause_it(self):
+        self.rpg("game", "switch", "dark_lighthouse")
+        self.rpg("newgame", seed=43)
+        self.play_round()
+        self.rpg("round", "start")
+        server = subprocess.Popen([sys.executable, "tools/dashboard.py", "--port", "0"], cwd=self.dir,
+                                  stdout=subprocess.PIPE, text=True)
+        try:
+            url = server.stdout.readline().split("DASHBOARD: ")[1].strip()
+
+            def get(path, **headers):
+                req = urllib.request.Request(url + path.lstrip("/"), headers=headers)
+                with urllib.request.urlopen(req, timeout=10) as r:
+                    return r.read().decode("utf-8")
+
+            def post(path, **headers):
+                req = urllib.request.Request(url + path.lstrip("/"), data=b"", method="POST", headers=headers)
+                try:
+                    with urllib.request.urlopen(req, timeout=10) as r:
+                        return r.status, json.loads(r.read())
+                except urllib.error.HTTPError as e:
+                    return e.code, None
+
+            self.assertIn("<title>Run dashboard</title>", get("/"))
+            live = json.loads(get("/api/live"))
+            self.assertEqual(live["game"]["title"], self.save()["adventure"])
+            self.assertEqual((live["run"]["round"], live["run"]["played"], live["run"]["open"]), (2, 1, True))
+            self.assertEqual([p["id"] for p in live["people"]], ["wren", "corin"])
+            self.assertEqual(sum(p["now"] for p in live["people"]), 1)
+            wren = live["people"][0]
+            self.assertEqual((wren["coins"], wren["journal"], wren["journal_round"]), (3, "Getting my bearings.", 1))
+            turns = [f for f in live["feed"] if f["kind"] == "turn"]
+            self.assertEqual(len(turns), 2)
+            self.assertTrue(all(t["story"].startswith("Moment 1 for") and t["do"] == "I look around." for t in turns))
+            self.assertEqual(live["feed"][0], {"kind": "round", "key": "r2", "round": 2, "order": live["run"]["order"]})
+            with self.assertRaises(urllib.error.HTTPError):
+                get("/api/live", Host="elsewhere.example")
+            self.assertEqual(post("/api/run/pause")[0], 403, "no ask without the page's own header")
+            self.assertIsNone(self.save()["run"].get("stop"))
+            code, said = post("/api/run/pause", **{"X-Dashboard": "1"})
+            self.assertEqual((code, said["ok"]), (200, True))
+            self.assertEqual(self.save()["run"]["stop"], "pause")
+            self.assertEqual(json.loads(get("/api/live"))["run"]["stop"], "pause")
+        finally:
+            server.terminate()
+            server.wait(timeout=10)
+            server.stdout.close()
 
     def play_round(self):
         order = self.rpg("round", "start").split(": ", 1)[1].strip()
