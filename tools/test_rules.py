@@ -1036,6 +1036,8 @@ class Engine(unittest.TestCase):
         self.assertIn("hasn't replied", self.rpg("narrate", first, "proposals/story.txt", ok=False))
         self.write("proposals/reply.txt", "I just wait, no labels.")
         self.assertIn("no DO: line", self.rpg("reply", first, "proposals/reply.txt", ok=False))
+        self.write("proposals/reply.txt", "DO: %s\nJOURNAL: Too much." % ("I wait. " * 160))
+        self.assertIn("the DO line is at most 1200 characters", self.rpg("reply", first, "proposals/reply.txt", ok=False))
         self.assertIn("Next: %s." % second, self.take_turn(first))
         self.assertIn("still to act: %s" % second, self.rpg("round", "end", ok=False))
         status = self.rpg("run", "status", as_=False)

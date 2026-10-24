@@ -108,7 +108,7 @@
     ]
   },
   "turns": {
-    "do_chars": 600,
+    "do_chars": 1200,
     "journal_chars": 600,
     "said_chars": 600,
     "narration_chars": 4000,
