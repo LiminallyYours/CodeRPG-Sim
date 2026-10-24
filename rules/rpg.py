@@ -68,8 +68,8 @@ class Refused(Exception):
 
 
 # ---------------------------------------------------------------- who is acting
-# The save holds a list of players (`players`, keyed by id). A command acts for one of them: the one named with
-# `--as <id>`, or the only one when there is just one. Everything about a player (where they are, what they carry,
+# The save holds a list of players (`players`, keyed by id, from the game's cast). A command that acts for one of
+# them, or reads the world as one of them sees it, needs `--as <id>`; it is refused without. Everything about a player (where they are, what they carry,
 # their stats, the map of where they've been, who they've met) is read through me(state); the world is shared.
 
 ACTOR = None  # the id given with --as; set by main()
@@ -82,8 +82,6 @@ def actor_id(state):
         if ACTOR not in players:
             raise Refused("no one called %r is playing (players: %s)" % (ACTOR, ", ".join(players)))
         return ACTOR
-    if len(players) == 1:
-        return next(iter(players))
     raise Refused("say who acts: --as <%s>" % "|".join(players))
 
 
@@ -665,16 +663,19 @@ def note_friends(state):
     later runs, remembering one line (their last memory of the player, or the job done)."""
     run = state["run"]
     done = run.setdefault("befriended", [])
-    flags = condition_flags(state)
-    new = [(q, rec["meta"].get("giver")) for q, rec in run["quests"].items()
-           if rec["meta"].get("giver") in run["characters"] and rec["meta"].get("giver") not in done
-           and quest_view(q, flags)["complete"]]
+    new = []
+    for pid in state["players"]:  # by any player: the quest's flags are the world's
+        with acting(pid):
+            flags = condition_flags(state)
+            new += [(q, rec["meta"].get("giver"), npc_memory_of(state, rec["meta"].get("giver")))
+                    for q, rec in run["quests"].items()
+                    if rec["meta"].get("giver") in run["characters"] and rec["meta"].get("giver") not in done
+                    and rec["meta"].get("giver") not in [g for _, g, _ in new] and quest_view(q, flags)["complete"]]
     if not new:
         return
     data = lib()
-    for q, giver in new:
+    for q, giver, memory in new:
         name = ent("quests", q).get("name", q)
-        memory = npc_memory_of(state, giver)
         library.befriend(data, giver, "finished their side quest (%s)" % name, memory[-1] if memory else "Did right by me once: %s." % name)
         done.append(giver)
     lib_save(data)
@@ -1249,20 +1250,15 @@ def cmd_newgame(args):
         seed = want
     else:
         seed = "%s-%04d" % (dice.fresh_choice(SEED_WORDS), dice.fresh_choice(range(10000)))
+    cast = content.cast()
+    if not cast:
+        raise Refused("this world has no cast (games/%s/cast.json): nobody to play it" % content.game_id())
     dice.use_stream("%s:%s" % (content.game_id(), seed), 0)
     w = world()
     run = empty_run()
     run.update(seed=seed, started=today, daily=want == "daily", dice_n=0)
     _RUN = run
-    stats = dict(w.get("stats") or {})
-    for k in STATS + ("max_hp",):
-        stats.setdefault(k, 0)
-    for k, spec in (w.get("rolls") or {}).items():
-        total, _, _ = dice.roll(spec)
-        stats[k] = total
-        run["rolls"][k] = total
-    stats["hp"] = stats["max_hp"]
-    stats["coins"] = int(w.get("coins", 0))
+    players = {p["id"]: cast_player(p, w, run) for p in cast}
     flags = list(w.get("flags") or [])
     for name, opts in (w.get("variants") or {}).items():
         choice = pick(options_of(opts))
@@ -1279,9 +1275,7 @@ def cmd_newgame(args):
         "version": STATE_VERSION,
         "game": content.game_id(),
         "adventure": w.get("title", "Untitled"),
-        "players": {"player": {"name": "you", "status": "playing", "location": w["start_room"], "stats": stats,
-                               "inventory": list(w.get("inventory") or []), "equipped": w.get("equipped"),
-                               "map": {}, "met": [], "present": None}},
+        "players": players,
         "flags": flags,
         "room_items": {r: content.visible(content.load("rooms", r).get("items"), flags) for r in content.ids("rooms")},
         "npcs": {},
@@ -1289,21 +1283,49 @@ def cmd_newgame(args):
         "run": run,
     }
     back = carry_over(state)
-    save_state(state)
+    first = ACTOR if ACTOR in players else next(iter(players))
+    with acting(first):  # the look that ends a new game is the first player's, or the one named with --as
+        save_state(state)
     write_json(ACTIVE, {"game": state["game"]})
     for stale in (ROOT / "proposals").glob("*.json"):
         stale.unlink()
     print("NEW GAME: %s" % state["adventure"])
     print("SEED: %s%s (the same seed rolls the same run)" % (seed, ", today's daily world" if run["daily"] else ""))
-    if run["rolls"]:
-        print("ROLLED: %s" % ", ".join("%s %d" % kv for kv in run["rolls"].items()))
+    for pid, rolled in run["rolls"].items():
+        print("ROLLED for %s: %s" % (pid, ", ".join("%s %d" % kv for kv in rolled.items())))
     if run["variants"]:
         print("THIS RUN (secret from the player): %s" % ", ".join("%s=%s" % kv for kv in run["variants"].items()))
     if run["clock"]:
         print("CLOCK: %s in %s" % (run["clock"]["name"], moves_text(run["clock"]["total"])))
     if back:
         print("FROM EARLIER RUNS (they're part of this world now): %s" % "; ".join(back))
-    cmd_look([])
+    with acting(first):
+        cmd_look([])
+
+
+def cast_player(entry, w, run):
+    """One player's record at the start of a run, from their cast entry. What the entry leaves out comes from the
+    world file's starting character: stats (rolled by its `rolls:` when the entry gives no `attributes`), coins,
+    belongings and the weapon in hand."""
+    if entry.get("attributes") is None:
+        stats = dict(w.get("stats") or {})
+        for k in STATS + ("max_hp",):
+            stats.setdefault(k, 0)
+        rolled = {}
+        for k, spec in (w.get("rolls") or {}).items():
+            stats[k] = rolled[k] = dice.roll(spec)[0]
+        if rolled:
+            run["rolls"][entry["id"]] = rolled
+    else:
+        stats = {k: int(entry["attributes"].get(k, 0)) for k in STATS}
+        stats["max_hp"] = int(entry["hp"])
+    stats["hp"] = stats["max_hp"]
+    stats["coins"] = int(entry.get("coins", w.get("coins", 0)))
+    inventory = list(entry.get("inventory", w.get("inventory") or []))
+    equipped = entry.get("equipped", w.get("equipped") if "inventory" not in entry else None)
+    return {"name": entry["name"], "model": entry["model"], "status": "playing", "location": entry["home"],
+            "stats": stats, "inventory": inventory, "equipped": equipped if equipped in inventory else None,
+            "map": {}, "met": [], "present": None}
 
 
 def cmd_look(args):
@@ -2530,6 +2552,7 @@ def validate_game(kit=False):
                 problems.append("%s: nothing in the game sets %r, so the curse can't be cured" % (where, term))
     validate_plans(w, flag_text, problems)
     validate_scenes(problems)
+    validate_cast(problems)
     validate_soundness(w, problems)
     if kit:
         validate_kit_complete(w, problems)
@@ -2627,6 +2650,82 @@ def validate_plans(w, flag_text, problems):
                         if not rooms_with(start + sorted(nxt)):
                             problems.append("%s: after %s (%s), %s stands nowhere; a room's characters need a condition "
                                             "for it" % (where, st["step"], ", ".join(sorted(nxt)) or "no plan flags", c))
+
+
+CAST_ID = re.compile(r"^[a-z][a-z0-9_]{0,23}$")
+CAST_TEXT = ("name", "personality", "voice", "opening")
+
+
+def validate_cast(problems):
+    """The cast file (`cast.json`), if the game has one: a list of the people who play it."""
+    try:
+        data = content.game_json("cast.json")
+    except ValueError as e:
+        problems.append("cast.json: not valid JSON (%s)" % e)
+        return
+    if data == {}:
+        return  # no cast file
+    limits = BALANCE["cast"]
+    if not isinstance(data, list) or not data:
+        problems.append("cast.json must be a list of one entry per player")
+        return
+    if len(data) > int(limits["max_players"]):
+        problems.append("cast.json: at most %d players (has %d)" % (int(limits["max_players"]), len(data)))
+    seen_ids, seen_names = set(), set()
+    known = {"id", "model", "motivations", "attributes", "hp", "coins", "inventory", "equipped", "home"} | set(CAST_TEXT)
+    for n, e in enumerate(data, 1):
+        if not isinstance(e, dict):
+            problems.append("cast.json entry %d is not an object" % n)
+            continue
+        ident = e.get("id")
+        where = "cast.json %s" % (ident if isinstance(ident, str) else "entry %d" % n)
+        for k in sorted(set(e) - known):
+            problems.append("%s: unknown key %r" % (where, k))
+        if not isinstance(ident, str) or not CAST_ID.match(ident):
+            problems.append("%s: id must be lowercase letters, digits and underscores, starting with a letter" % where)
+        elif ident in seen_ids:
+            problems.append("%s: the id is used twice" % where)
+        elif content.exists("characters", ident):
+            problems.append("%s: the id is also a character's in this world" % where)
+        seen_ids.add(ident)
+        for k in CAST_TEXT:
+            if not isinstance(e.get(k), str) or not e[k].strip():
+                problems.append("%s: %s must be some text" % (where, k))
+        if isinstance(e.get("name"), str):
+            if e["name"].lower() in seen_names:
+                problems.append("%s: the name %r is used twice" % (where, e["name"]))
+            seen_names.add(e["name"].lower())
+        motives = e.get("motivations")
+        if not isinstance(motives, list) or not motives or not all(isinstance(m, str) and m.strip() for m in motives):
+            problems.append("%s: motivations must be a list of short lines" % where)
+        if e.get("model") not in limits["models"]:
+            problems.append("%s: model must be one of %s" % (where, ", ".join(limits["models"])))
+        if not content.exists("rooms", str(e.get("home", ""))):
+            problems.append("%s: home %r is not a room" % (where, e.get("home")))
+        attrs = e.get("attributes")
+        if attrs is not None:
+            if not isinstance(attrs, dict) or set(attrs) - set(STATS):
+                problems.append("%s: attributes must give %s" % (where, ", ".join(STATS)))
+            elif not all(isinstance(v, int) and limits["stat_min"] <= v <= limits["stat_max"] for v in attrs.values()):
+                problems.append("%s: attributes must be whole numbers from %d to %d" % (where, limits["stat_min"], limits["stat_max"]))
+            if not isinstance(e.get("hp"), int) or not 1 <= e["hp"] <= limits["hp_max"]:
+                problems.append("%s: hp must be a whole number from 1 to %d" % (where, limits["hp_max"]))
+        elif "hp" in e:
+            problems.append("%s: hp comes with attributes (without them both are the world's)" % where)
+        if "coins" in e and (not isinstance(e["coins"], int) or not 0 <= e["coins"] <= limits["coins_max"]):
+            problems.append("%s: coins must be a whole number from 0 to %d" % (where, limits["coins_max"]))
+        inventory = e.get("inventory", [])
+        if not isinstance(inventory, list):
+            problems.append("%s: inventory must be a list of item ids" % where)
+            inventory = []
+        for i in inventory:
+            if not content.exists("items", str(i)):
+                problems.append("%s: inventory: unknown item %r" % (where, i))
+        if e.get("equipped") is not None:
+            if e["equipped"] not in inventory:
+                problems.append("%s: equipped %r isn't in their inventory" % (where, e["equipped"]))
+            elif not content.load("items", e["equipped"]).get("damage"):
+                problems.append("%s: equipped %r is not a weapon" % (where, e["equipped"]))
 
 
 def validate_scenes(problems):
@@ -2808,7 +2907,7 @@ def terrain_art_problems(folder, terrains):
 
 KIT_ROOMS = (5, 8)
 KIT_CHARACTERS = (3, 4)
-KIT_TOP_FILES = ("world.md", "look.json", "balance.json", "settings.json", "forged.json")
+KIT_TOP_FILES = ("world.md", "look.json", "balance.json", "settings.json", "forged.json", "cast.json")
 KIT_MAX_FILES = 80
 KIT_MAX_CHARS = 20000
 
@@ -3068,7 +3167,8 @@ def cmd_game(args):
         print("SWITCHED to %s. No game yet: start one with /newgame." % title_of(target))
         return
     print("SWITCHED to %s. The saved game continues." % title_of(target))
-    cmd_look([])
+    with acting(next(iter((read_json(SAVE) or {}).get("players") or {"": None}))):  # as its first player sees it
+        cmd_look([])
 
 
 # ---------------------------------------------------------------- the forge: new worlds on demand (Stage 8)
@@ -3289,6 +3389,9 @@ COMMANDS = {
 }
 
 
+WORLD_COMMANDS = ("game", "validate", "settings", "meter", "forge")  # commands no player acts in; --as is ignored
+
+
 def take_actor(argv):
     """Take `--as <id>` out of the arguments, wherever it is, and remember who acts."""
     global ACTOR
@@ -3312,6 +3415,9 @@ def main(argv):
         for name, (_, _, help_text) in COMMANDS.items():
             print("  %-11s %s" % (name, help_text))
         return 2
+    if argv[0] in WORLD_COMMANDS:
+        global ACTOR
+        ACTOR = None  # about the installed games, not anyone in them
     fn, nargs, help_text = COMMANDS[argv[0]]
     if len(argv) - 1 < nargs:
         print("usage: %s" % help_text)

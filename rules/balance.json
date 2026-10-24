@@ -90,5 +90,18 @@
   },
   "scenes": {
     "max_reward_coins": 2
+  },
+  "cast": {
+    "max_players": 6,
+    "stat_min": -1,
+    "stat_max": 3,
+    "hp_max": 30,
+    "coins_max": 50,
+    "models": [
+      "haiku",
+      "sonnet",
+      "opus",
+      "fable"
+    ]
   }
 }

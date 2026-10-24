@@ -29,8 +29,16 @@ class Engine(unittest.TestCase):
     def tearDown(self):
         shutil.rmtree(self.dir)
 
-    def rpg(self, *args, seed=None, ok=True):
-        """Run one rpg.py command; by default it must succeed. Returns its output."""
+    def rpg(self, *args, seed=None, ok=True, as_=None):
+        """Run one rpg.py command; by default it must succeed. Returns its output. It acts as `as_`, by default
+        the save's first player (the shipped games' first cast member plays as the original's one player did);
+        `as_=False` passes no --as."""
+        if as_ is None:
+            save = self.dir / "state" / "save.json"
+            players = json.loads(save.read_text()).get("players") if save.is_file() else None
+            as_ = next(iter(players)) if isinstance(players, dict) and players else False
+        if as_ and "--as" not in args:
+            args += ("--as", as_)
         env = dict(os.environ)
         env.pop("RPG_SEED", None)
         if seed is not None:
@@ -46,7 +54,7 @@ class Engine(unittest.TestCase):
         return json.loads((self.dir / "state" / "save.json").read_text())
 
     def player(self, save):
-        """The only player's record in a save (the shipped games' runs have one player until they get a cast)."""
+        """The first player's record in a save: the one the tests act as."""
         return next(iter(save["players"].values()))
 
     def me(self):
@@ -735,11 +743,42 @@ class Engine(unittest.TestCase):
         self.rpg("game", "switch", "dark_lighthouse")
         self.rpg("newgame", seed=43)
         s = self.save()
-        self.assertEqual(list(s["players"]), ["player"])
-        self.assertEqual(s["view"]["players"]["player"]["location"], s["players"]["player"]["location"])
-        self.assertIn("STATUS: playing", self.rpg("look", "--as", "player"))
-        self.assertIn("no one called 'nell' is playing", self.rpg("look", "--as", "nell", ok=False))
+        self.assertEqual(list(s["players"]), ["wren", "corin"])
+        self.assertEqual(s["players"]["corin"]["location"], "gull_tavern")
+        self.assertEqual(s["players"]["corin"]["stats"]["coins"], 4)
+        self.assertEqual(s["view"]["players"]["corin"]["location_name"], "The Gull")
+        self.assertIn("LOCATION: The Gull", self.rpg("look", as_="corin"))
+        self.assertIn("say who acts: --as <wren|corin>", self.rpg("look", ok=False, as_=False))
+        self.assertIn("no one called 'nell' is playing", self.rpg("look", as_="nell", ok=False))
         self.assertIn("--as needs a player id", self.rpg("look", "--as", ok=False))
+
+    def test_two_players_share_a_room_and_its_things(self):
+        self.rpg("game", "switch", "dark_lighthouse")
+        self.rpg("newgame", seed=43)
+        self.rpg("move", "south", as_="corin")  # from the Gull to Harbor Square, where Wren is
+        self.assertEqual(self.save()["players"]["corin"]["location"], "harbor_square")
+        self.rpg("drop", "healing_tonic", as_="corin")
+        self.assertIn("healing_tonic", self.rpg("look", as_="wren").split("ITEMS HERE:")[1].split("\n")[0])
+        self.rpg("take", "healing_tonic", as_="wren")
+        self.assertIn("is not here", self.rpg("take", "healing_tonic", as_="corin", ok=False))
+        s = self.save()
+        self.assertEqual(s["players"]["wren"]["inventory"].count("healing_tonic"), 2)
+        self.assertNotIn("healing_tonic", s["players"]["corin"]["inventory"])
+
+    def test_validate_checks_the_cast(self):
+        d = "games/dark_lighthouse/cast.json"
+        cast = json.loads((self.dir / d).read_text())
+        cast[1].update(id="morwen", model="gpt", home="atlantis", inventory=["kipper"], hp=99, attributes={"might": 9})
+        cast.append(dict(cast[0], extra=1))
+        self.write(d, json.dumps(cast))
+        out = self.rpg("validate", "--game", "dark_lighthouse", ok=False)
+        for problem in ("the id is also a character's", "model must be one of", "home 'atlantis' is not a room",
+                        "unknown item 'kipper'", "hp must be a whole number", "attributes must be whole numbers",
+                        "the id is used twice", "unknown key 'extra'"):
+            self.assertIn(problem, out)
+        (self.dir / d).unlink()
+        self.rpg("validate", "--game", "dark_lighthouse")  # a world without a cast is valid content
+        self.assertIn("has no cast", self.rpg("newgame", ok=False))
 
     def test_a_save_from_the_original_game_is_refused(self):
         self.rpg("game", "switch", "dark_lighthouse")
@@ -871,7 +910,7 @@ class Engine(unittest.TestCase):
         self.assertIn("FROM EARLIER RUNS (they're part of this world now): Old Tamsin (a friend, at harbor_square", out)
         self.assertIn("old_tamsin [minor, generated]", out)
         s = self.save()
-        self.assertEqual(s["npc_memory"]["old_tamsin"], {"player": ["Brought twine for my creels without being asked twice."]})
+        self.assertEqual(s["npc_memory"]["old_tamsin"], {"wren": ["Brought twine for my creels without being asked twice."], "corin": ["Brought twine for my creels without being asked twice."]})
         self.assertIn("creel_charm", s["run"]["items"])  # her wares
         self.assertNotIn("tamsins_creels", s["run"]["quests"])  # the quest was that run's
         self.assertEqual(s["run"]["generated"], 0)  # what comes back doesn't use up this run's allowance

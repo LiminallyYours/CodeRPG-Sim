@@ -117,6 +117,12 @@ def settings():
     return dict(deep_merge(presets[preset], own.get("overrides") or {}), preset=preset)
 
 
+def cast():
+    """The game's cast (`cast.json`): the people who play it, one entry each, in order. Empty if it has none."""
+    data = _json(game_dir() / "cast.json")
+    return data if isinstance(data, list) else []
+
+
 def game_json(name):
     """One of the game's own JSON files, unmerged (for validation)."""
     return _json(game_dir() / name)
