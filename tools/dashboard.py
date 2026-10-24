@@ -2,12 +2,16 @@
 """The owner's dashboard: a live view of the run, served on this machine only.
 
     python3 tools/dashboard.py [--port N]     then open http://127.0.0.1:<port>/ (the port is dashboard.port)
+    python3 tools/dashboard.py --csv [run]    the run's log as CSV on stdout (the current run if none is named)
 
 It reads the save and the run's log, and refreshes every few seconds: the round and its order, each person's
 place, health, money, belongings and latest journal line, and a feed of what each did, why, and the story they
 were told. Its two buttons ask `rpg.py run pause` and `run end`; the dashboard never writes a game file itself.
+The log is also served as CSV, one row per entry, for analysis elsewhere (`/export.csv`, or `--csv`).
 Python's standard library only.
 """
+import csv
+import io
 import json
 import subprocess
 import sys
@@ -43,6 +47,22 @@ def log_entries(run_id):
         except ValueError:
             pass
     return out
+
+
+FIRST_COLUMNS = ("kind", "t", "round", "order_position", "player", "move")  # every entry has these (rpg.log)
+
+
+def csv_of(entries):
+    """The log as CSV, one row per entry: the fields every entry has, then every other field any entry has, in
+    name order. Lists and objects are written as JSON; a missing field is empty."""
+    others = sorted({k for e in entries for k in e} - set(FIRST_COLUMNS))
+    out = io.StringIO()
+    writer = csv.writer(out, lineterminator="\n")
+    writer.writerow(FIRST_COLUMNS + tuple(others))
+    for e in entries:
+        writer.writerow(["" if e.get(k) is None else json.dumps(e[k], ensure_ascii=False)
+                         if isinstance(e[k], (list, dict)) else e[k] for k in FIRST_COLUMNS + tuple(others)])
+    return out.getvalue()
 
 
 def feed_of(entries, names):
@@ -140,6 +160,17 @@ class Handler(BaseHTTPRequestHandler):
             return self.send(200, PAGE, "text/html; charset=utf-8")
         if self.path == "/api/live":
             return self.send(200, json.dumps(live(), ensure_ascii=False), "application/json")
+        if self.path == "/export.csv":
+            save = read_save()
+            if not save or "run" not in save:
+                return self.send(404, "no run yet", "text/plain")
+            data = csv_of(log_entries(save["run"]["id"])).encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "text/csv; charset=utf-8")
+            self.send_header("Content-Disposition", 'attachment; filename="%s-%s.csv"' % (save["game"], save["run"]["id"]))
+            self.send_header("Content-Length", str(len(data)))
+            self.end_headers()
+            return self.wfile.write(data)
         self.send(404, "not found", "text/plain")
 
     def do_POST(self):
@@ -202,7 +233,10 @@ button:focus-visible, summary:focus-visible { outline: 2px solid var(--brass); o
 .journal { font: italic 17px/1.45 var(--serif); margin: 14px 0 0; }
 .journal small { display: block; font: 13px var(--sans); font-style: normal; color: var(--slate); margin-top: 4px; }
 .feed { max-width: 74ch; margin-top: 28px; }
-.feed h3 { font: 600 15px var(--sans); color: var(--slate); margin: 0 0 8px; }
+.feed h3 { font: 600 15px var(--sans); color: var(--slate); margin: 0 0 8px; display: flex; flex-wrap: wrap;
+           justify-content: space-between; gap: 4px 16px; }
+.feed h3 a { font-weight: 400; color: var(--ink); }
+.feed h3 a:focus-visible { outline: 2px solid var(--brass); outline-offset: 2px; }
 .turn { padding: 14px 0 16px 16px; border-left: 3px solid var(--who); margin: 0 0 14px; background: var(--sheet); border-radius: 0 6px 6px 0; padding-right: 16px; }
 .turn .who { font: 600 14px var(--sans); color: var(--who); margin: 0 0 6px; }
 .turn .who span { color: var(--slate); font-weight: 400; }
@@ -234,7 +268,7 @@ details .story p { margin: 0 0 10px; }
   </header>
   <section class="people" id="people" aria-label="The people"></section>
   <section class="feed" aria-label="What happened">
-    <h3>What happened, newest first</h3>
+    <h3>What happened, newest first <a href="/export.csv" id="csv">Download the whole log as CSV</a></h3>
     <div id="feed"></div>
   </section>
 </main>
@@ -377,6 +411,16 @@ setInterval(refresh, 3000);
 
 
 def main(argv):
+    if "--csv" in argv:
+        i = argv.index("--csv")
+        save = read_save()
+        run_id = argv[i + 1] if i + 1 < len(argv) else (save or {}).get("run", {}).get("id")
+        if not run_id or not (rpg.LOG / ("%s.jsonl" % run_id)).is_file():
+            known = ", ".join(sorted(p.stem for p in rpg.LOG.glob("*.jsonl"))) if rpg.LOG.is_dir() else ""
+            print("dashboard: no log for run %r (runs logged: %s)" % (run_id, known or "none"), file=sys.stderr)
+            return 1
+        sys.stdout.write(csv_of(log_entries(run_id)))
+        return 0
     port = None
     if "--port" in argv:
         i = argv.index("--port")

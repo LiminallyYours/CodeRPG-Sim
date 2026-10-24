@@ -4,6 +4,8 @@
 Each test gets a fresh temp copy of rules/, games/ and proposals/ with an empty state/, and drives
 rules/rpg.py as the game master would, through its command line. The real save is never touched.
 """
+import csv
+import io
 import json
 import os
 import re
@@ -967,10 +969,32 @@ class Engine(unittest.TestCase):
             self.assertEqual((code, said["ok"]), (200, True))
             self.assertEqual(self.save()["run"]["stop"], "pause")
             self.assertEqual(json.loads(get("/api/live"))["run"]["stop"], "pause")
+            rows = list(csv.DictReader(io.StringIO(get("/export.csv"))))
+            self.assertEqual(len(rows), len(self.log_of()))
         finally:
             server.terminate()
             server.wait(timeout=10)
             server.stdout.close()
+
+    def test_the_log_exports_as_csv_one_row_per_entry(self):
+        self.rpg("game", "switch", "dark_lighthouse")
+        self.rpg("newgame", seed=43)
+        self.play_round()
+        run = self.save()["run"]["id"]
+        out = self.run_py("tools/dashboard.py", "--csv", run)
+        rows = list(csv.DictReader(io.StringIO(out.stdout)))
+        entries = self.log_of()
+        self.assertEqual(len(rows), len(entries))
+        self.assertEqual(list(rows[0])[:6], ["kind", "t", "round", "order_position", "player", "move"])
+        self.assertEqual([r["kind"] for r in rows], [e["kind"] for e in entries])
+        narration = next(r for r in rows if r["kind"] == "narration")
+        self.assertTrue(narration["text"].startswith("Moment 1 for"))
+        start = next(r for r in rows if r["kind"] == "round" and r["phase"] == "start")
+        self.assertEqual(json.loads(start["order"]), next(e for e in entries if e["kind"] == "round")["order"])
+        self.assertEqual(self.run_py("tools/dashboard.py", "--csv").stdout, out.stdout, "the current run by default")
+        missing = self.run_py("tools/dashboard.py", "--csv", "nosuchrun")
+        self.assertEqual(missing.returncode, 1)
+        self.assertIn("no log for run 'nosuchrun'", missing.stderr)
 
     def play_round(self):
         order = self.rpg("round", "start").split(": ", 1)[1].strip()
