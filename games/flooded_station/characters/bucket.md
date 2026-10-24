@@ -58,4 +58,4 @@ rumor: Bucket is back on the Common Deck, mopping the galley again.
 - **Orders:** it makes things to order from scrap. What it is and what it costs come from the rules; it states the price as a status message.
 - **Building:** it will build out from the gap in the railing to the northeast. The rules say what it costs and how long it takes; it takes credits only for building.
 - It accepts a tin of sardines instead of credits for any one made item ("Sardine oil: ACCEPTABLE LUBRICANT").
-- **Sale:** at most once per game: `coins -2`, then `gain med_patch`, then `flag set bucket_sold_patch`.
+- **Sale:** at most once per game: `coins -2 purchase`, then `gain med_patch`, then `flag set bucket_sold_patch`.

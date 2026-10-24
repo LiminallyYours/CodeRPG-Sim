@@ -195,7 +195,7 @@ One or two sentences.
 How things stand for her while that holds (shown to her as "right now").
 
 ## GM only
-- **Selling flour:** `coins -2`, then `gain flour_sack`.
+- **Selling flour:** `coins -2 purchase`, then `gain flour_sack`.
 - **Persuading her to open the sluice:** `check wits 12`. On a success, `flag set sluice_open`.
 ```
 - **minor:** `yes` means the game master voices them directly from this file (shopkeepers, creatures, passers-by). `no` means they speak through their own agent, which sees this file without `## GM only` and plan sections, the scene, and its memory of the player. A world needs **at least two** with `minor: no`: the people who matter.
@@ -345,7 +345,7 @@ A little silly scene for two characters with `minor: no`, both of whom can stand
 - **Everything that matters is written down.** The game master invents only small harmless colour. If the player can get past someone, the file says how, in commands. If a character sells something, the price is written. If a search can find something, the room says where and with what check.
 - **Mechanics are commands in backticks**, exactly as the rules script takes them, in `## GM only` sections and room `## Details`:
   - `` `flag set <name>` ``, `` `flag unset <name>` ``
-  - `` `coins +3` ``, `` `coins -2` ``
+  - `` `coins +3 reward` ``, `` `coins -2 purchase` `` (every change of money names its reason: job, work, sale, purchase, trade, toll, order, reward, gift)
   - `` `gain <item>` `` (from a character), `` `lose <item>` `` (given away or used up), `` `take <item>` `` (from the room)
   - `` `check <might|agility|wits> <number>` `` (8 easy, 12 normal, 16 hard), and what happens on success and on failure
   - `` `hurt <dice>` ``, `` `heal <dice>` ``, `` `attack <character>` ``

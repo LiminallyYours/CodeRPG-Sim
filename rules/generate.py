@@ -221,7 +221,7 @@ def character(p, ctx, patch=None, ids=None, room=None):
         item(t["item"], ctx, patch, ids, place=False)
         iid = t["item"]["id"]
         body.append("- Sells %s for %d coins." % (patch["items"][iid]["meta"]["name"], price))
-        gm.append("- Sale: `coins -%d`, then `gain %s`." % (price, iid))
+        gm.append("- Sale: `coins -%d purchase`, then `gain %s`." % (price, iid))
     tier = p.get("tier")
     if tier is not None:
         tiers = ctx.balance["foe_tiers"]
@@ -321,7 +321,7 @@ def quest(p, ctx):
     gm = ["## GM only",
           "- Generated side quest. Set its flags as the player does each step: %s." % (", ".join(sorted(flags)) or "none"),
           "- It never touches the main quest."]
-    pay = ["`coins +%d`" % coins] if coins else []
+    pay = ["`coins +%d job`" % coins] if coins else []
     if reward.get("item"):
         item(_obj(reward["item"], "the reward item"), ctx, patch, ids, place=False)
         pay.append("`gain %s`" % reward["item"]["id"])

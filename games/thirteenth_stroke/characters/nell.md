@@ -42,7 +42,7 @@ Bettie's awake. You're laughing again and giving away gumdrops to everyone.
 Bettie's awake but has no shadow. You've stopped offering sweets.
 
 ## GM only
-- **The bottled laugh:** `coins -3`, then `gain bottled_giggle`. If the player explains it might save the shadows, a Wits check (`check wits 10`) convinces her: `coins -1`, then `gain bottled_giggle`. On a failure, she still sells it for 3. She has only the one.
-- **Ginger snaps:** `coins -1`, then `gain ginger_snaps`.
+- **The bottled laugh:** `coins -3 purchase`, then `gain bottled_giggle`. If the player explains it might save the shadows, a Wits check (`check wits 10`) convinces her: `coins -1 purchase`, then `gain bottled_giggle`. On a failure, she still sells it for 3. She has only the one.
+- **Ginger snaps:** `coins -1 purchase`, then `gain ginger_snaps`.
 - **Orders:** she makes things to order; the rules set what and for how much. She'll take a bag of ginger snaps in place of money for one order ("Mine are better, but it's the thought").
 - **The Drain-Echo:** if the player asks for help with it, she has them gargle peppermint: `flag set drain_hushed`.

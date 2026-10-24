@@ -11,6 +11,8 @@ state/library/
 state/forge/
 state/worlds/
 state/*.tmp
+# each run's log: the record for study, written as the run goes
+state/log/
 # world-agent proposals waiting to be applied; the script deletes them
 proposals/*.json
 # generated or local

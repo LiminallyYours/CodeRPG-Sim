@@ -13,7 +13,9 @@ over authored ones (their ids can't collide), they only add.
 state/save.json is the active game's save. Other games' saves wait in state/shelf/<game>.json and
 are swapped in by `game switch`, so switching loses nothing.
 """
+import contextlib
 import datetime
+import io
 import json
 import os
 import re
@@ -37,6 +39,7 @@ SAVE = ROOT / "state" / "save.json"
 SHELF = ROOT / "state" / "shelf"
 ACTIVE = ROOT / "state" / "active.json"
 METER = ROOT / "state" / "meter.json"
+LOG = ROOT / "state" / "log"  # one JSON-lines file per run: the record for study (state/log/<run id>.jsonl)
 FORGE = ROOT / "state" / "forge"  # drafts of new worlds, each written by a worldsmith agent (Stage 8)
 BALANCE = {}  # the active game's rule numbers; set by choose_game()
 SETTINGS = {}  # the owner's switches for the active game (preset + overrides); set by choose_game()
@@ -102,6 +105,62 @@ class acting:
     def __exit__(self, *exc):
         global ACTOR
         ACTOR = self.was
+
+
+# ---------------------------------------------------------------- the log: the record for study
+# Everything that happens in a run is written to state/log/<run id>.jsonl as it happens, one JSON object per
+# line, by the code that made the change: never from anyone's description of events. The save holds where
+# things stand; the log holds how they got there.
+
+COIN_REASONS = ("job", "work", "sale", "purchase", "trade", "toll", "order", "reward", "gift", "encounter")
+
+
+_PENDING = []  # entries made by this command, written with the save, so a refused command leaves none
+
+
+def log(state, kind, **fields):
+    """One entry for the run's log, written when the save is (flush_log). Each carries the round, the acting
+    player's place in its order, the player and the move count, then its own fields."""
+    run = state["run"]
+    pid = ACTOR if ACTOR in state.get("players", {}) else None
+    entry = {"kind": kind, "t": datetime.datetime.now().isoformat(timespec="seconds"),
+             "round": run.get("round"), "order_position": order_position(run, pid), "player": pid,
+             "move": run.get("moves", 0)}
+    entry.update(fields)
+    _PENDING.append((run["id"], entry))
+
+
+def flush_log():
+    """Write the entries waiting, each to its run's file."""
+    if not _PENDING:
+        return
+    LOG.mkdir(parents=True, exist_ok=True)
+    for run_id, entry in _PENDING:
+        with (LOG / ("%s.jsonl" % run_id)).open("a", encoding="utf-8") as f:
+            f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+    del _PENDING[:]
+
+
+def log_entries(run_id):
+    """Every entry of a run's log, in order."""
+    path = LOG / ("%s.jsonl" % run_id)
+    if not path.is_file():
+        return []
+    return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+
+
+def order_position(run, pid):
+    """Where `pid` stands in this round's order (1 = first), or None outside a round."""
+    order = (run.get("round_state") or {}).get("order") or []
+    return order.index(pid) + 1 if pid in order else None
+
+
+def change_coins(state, delta, reason, note=None):
+    """The one way money moves: the acting player gains or loses `delta`, and the log says why."""
+    s = me(state)["stats"]
+    s["coins"] += delta
+    log(state, "coins", delta=delta, reason=reason, balance=s["coins"], **({"note": note} if note else {}))
+    return s["coins"]
 
 
 def npc_memory_of(state, npc):
@@ -581,7 +640,7 @@ def end_scene(state, ident, reward):
     out = ["SCENE ENDED: %s" % sc.get("name", ident)]
     coins = scene_reward(sc) if reward else 0
     if coins:
-        me(state)["stats"]["coins"] += coins
+        change_coins(state, coins, "reward", "scene %s" % ident)
         rec["rewarded"] = coins
         out.append("REWARD: %+d %s -> %d" % (coins, currency(), me(state)["stats"]["coins"]))
     if sc.get("chronicle"):
@@ -970,6 +1029,7 @@ def save_state(state):
     note_friends(state)
     refresh_view(state)
     write_json(SAVE, state)
+    flush_log()
 
 
 def require_playing(state):
@@ -1136,7 +1196,7 @@ def apply_effect(state, effect):
         delta = max(int(arg), -s["coins"])
         if delta == 0:
             return "COINS: nothing to take, the purse is empty"
-        s["coins"] += delta
+        change_coins(state, delta, "encounter")
         return "COINS %+d -> %d" % (delta, s["coins"])
     if verb == "gain":
         try:
@@ -1640,8 +1700,12 @@ def cmd_heal(args):
 
 
 def cmd_coins(args):
+    """coins <+n|-n> <reason>: money changes hands in the story; the reason goes in the log."""
     state = load_state()
     require_playing(state)
+    reason = args[1]
+    if reason not in COIN_REASONS:
+        raise Refused("the reason must be one of %s" % ", ".join(COIN_REASONS))
     try:
         delta = int(args[0])
     except ValueError:
@@ -1651,7 +1715,7 @@ def cmd_coins(args):
     s = me(state)["stats"]
     if s["coins"] + delta < 0:
         raise Refused("not enough coins: have %d, need %d" % (s["coins"], -delta))
-    s["coins"] += delta
+    change_coins(state, delta, reason)
     save_state(state)
     print("COINS %+d -> %d" % (delta, s["coins"]))
 
@@ -2008,7 +2072,7 @@ def cmd_pay(args):
     else:
         if s["coins"] < com["price"]:
             raise Refused("not enough %s: the price is %d and the player has %d" % (currency(), com["price"], s["coins"]))
-        s["coins"] -= com["price"]
+        change_coins(state, -com["price"], "order", ident)
         paid = "COINS -%d -> %d" % (com["price"], s["coins"])
     if com["kind"] == "room":
         wait = int(BALANCE["generation"]["build_moves"])
@@ -2854,8 +2918,8 @@ def command_problem(words):
     if cmd == "flag" and (args[0] not in ("set", "unset") or not re.fullmatch(r"[a-z0-9_]+", args[1])
                           or args[1].startswith(("has_", "met_"))):
         return "use flag set|unset <name> (has_ and met_ are automatic)"
-    if cmd == "coins" and not re.fullmatch(r"[+-]\d+", args[0]):
-        return "use coins +N or coins -N"
+    if cmd == "coins" and (not re.fullmatch(r"[+-]\d+", args[0]) or args[1] not in COIN_REASONS):
+        return "use coins +N <reason> or coins -N <reason> (%s)" % ", ".join(COIN_REASONS)
     if cmd == "check" and (args[0] not in STATS or not (args[1].isdigit() or args[1] in ("easy", "normal", "hard"))):
         return "use check <%s> <number|easy|normal|hard>" % "|".join(STATS)
     if cmd in ("hurt", "heal", "roll"):
@@ -3016,6 +3080,22 @@ def validate_kit_complete(w, problems):
         problems.append("kit: needs a curse")
     if not content.ids("scenes"):
         problems.append("kit: needs a side scene")
+
+
+def cmd_log(args):
+    """log [n]: the last entries of this run's log, one line each."""
+    state = load_state()
+    n = int(args[0]) if args and args[0].isdigit() else 10
+    for e in log_entries(state["run"]["id"])[-n:]:
+        head = "r%s.%s %s" % (e.get("round") or "-", e.get("order_position") or "-", e.get("player") or "-")
+        if e["kind"] == "command":
+            first = (e["output"].splitlines() or [""])[0]
+            print("%s command %s: %s" % (head, " ".join([e["command"]] + e["args"]), first[:100]))
+        elif e["kind"] == "coins":
+            print("%s coins %+d (%s) -> %d" % (head, e["delta"], e["reason"], e["balance"]))
+        else:
+            rest = {k: v for k, v in e.items() if k not in ("kind", "t", "round", "order_position", "player", "move")}
+            print("%s %s %s" % (head, e["kind"], json.dumps(rest, ensure_ascii=False)[:160]))
 
 
 def cmd_validate(args):
@@ -3379,7 +3459,7 @@ COMMANDS = {
     "attack": (cmd_attack, 1, "attack <character>   one exchange of blows"),
     "hurt": (cmd_hurt, 1, "hurt <dice>   damage the player"),
     "heal": (cmd_heal, 1, "heal <dice>   heal the player"),
-    "coins": (cmd_coins, 1, "coins <+n|-n>"),
+    "coins": (cmd_coins, 2, "coins <+n|-n> <%s>" % "|".join(COIN_REASONS)),
     "flag": (cmd_flag, 2, "flag set|unset <name>"),
     "npc-brief": (cmd_npc_brief, 1, "npc-brief <character>   what an NPC agent may know (prompt for its subagent)"),
     "remember": (cmd_remember, 2, "remember <character> <text>   add a line to that NPC's memory of the player"),
@@ -3394,6 +3474,7 @@ COMMANDS = {
     "library": (cmd_library, 1, "library suggest <id> <why>   tell the owner a generated or player-made thing deserves keeping"),
     "note": (cmd_note, 1, "note <text>   keep a detail you established about this room"),
     "chronicle": (cmd_chronicle, 1, "chronicle <text>   add a line to the story so far"),
+    "log": (cmd_log, 0, "log [n]   the run's last n log entries (default 10), one line each, for checking"),
     "validate": (cmd_validate, 0, "validate [--game <id> | --dir <folder>] [--kit-complete]   check games' content, soundness and settings"),
     "game": (cmd_game, 0, "game [list | show | switch <id>]   the installed games; switching keeps each one's save"),
     "meter": (cmd_meter, 0, "meter [refill]   the meter, or fill it (the SessionStart hook refills it)"),
@@ -3402,7 +3483,7 @@ COMMANDS = {
 }
 
 
-WORLD_COMMANDS = ("game", "validate", "settings", "meter", "forge")  # commands no player acts in; --as is ignored
+WORLD_COMMANDS = ("game", "validate", "settings", "meter", "forge")  # about the installed games: --as is ignored, nothing logged
 
 
 def take_actor(argv):
@@ -3435,13 +3516,30 @@ def main(argv):
     if len(argv) - 1 < nargs:
         print("usage: %s" % help_text)
         return 2
-    try:
-        choose_game(active_game())
-        fn(argv[1:])
-    except (Refused, ValueError) as e:
-        print("REFUSED: %s" % e)
-        return 1
-    return 0
+    out, code = io.StringIO(), 0
+    with contextlib.redirect_stdout(out):
+        try:
+            choose_game(active_game())
+            fn(argv[1:])
+        except (Refused, ValueError) as e:
+            print("REFUSED: %s" % e)
+            code = 1
+            del _PENDING[:]  # it didn't happen
+        except SystemExit as e:  # a command that sets its own exit status (validate)
+            code = e.code if isinstance(e.code, int) else 1
+    sys.stdout.write(out.getvalue())
+    if argv[0] not in WORLD_COMMANDS + ("log",):
+        log_command(argv, out.getvalue(), code)
+    return code
+
+
+def log_command(argv, output, code):
+    """Every rules command run in a game, with what it printed, goes in that run's log."""
+    state = read_json(SAVE)
+    if not isinstance(state, dict) or state.get("version") != STATE_VERSION:
+        return
+    log(state, "command", command=argv[0], args=argv[1:], output=output.rstrip("\n"), refused=code != 0)
+    flush_log()
 
 
 if __name__ == "__main__":

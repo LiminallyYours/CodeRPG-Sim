@@ -27,7 +27,7 @@ Work out what the player is trying to do, then use the matching command:
 |---|---|
 | go somewhere | `move <direction>` |
 | pick up / put down | `take <item>` / `drop <item>` |
-| buy, trade or receive / give away | `gain <item>` / `lose <item>` (and `coins -N` / `coins +N`) |
+| buy, trade or receive / give away | `gain <item>` / `lose <item>` (and `coins -N <reason>` / `coins +N <reason>`: purchase, sale, reward, gift, ...) |
 | pay a maker or builder for an order | `pay <id>`, or `pay <id> <item>` to pay a maker in trade |
 | wield a weapon | `equip <item>` |
 | drink or eat something with a `heal` value | `use <item>` |
@@ -67,7 +67,7 @@ Work out what the player is trying to do, then use the matching command:
 ## 5. Write state
 Record anything the content says should change, in the same turn. Make these calls before you write the narration, so the narration stays the turn's final text:
 - `python3 rules/rpg.py flag set <name>` when a content file says to set a flag. Content files are the only source of flag names.
-- Trades and gifts: `coins ±N`, `gain <item>`, `lose <item>`.
+- Trades and gifts: `coins ±N <reason>`, `gain <item>`, `lose <item>`.
 
 - **Chronicle:** when something significant happens (a quest step, a big choice, a fight won or lost), add one line to the story so far: `python3 rules/rpg.py chronicle "<one line, past tense>"`.
 - **Details:** when you invent a small, harmless detail the player may come back to, such as a boat's name or the colour of a door, keep it true: `python3 rules/rpg.py note "<the detail>"`.

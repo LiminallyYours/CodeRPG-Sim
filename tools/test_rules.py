@@ -778,6 +778,25 @@ class Engine(unittest.TestCase):
         self.assertNotIn("player", brief.lower())
         self.assertNotIn("Asked about the lens", self.rpg("show", "characters", "ysolde", as_="corin"))
 
+    def test_every_coin_change_is_logged_with_its_reason_and_refused_commands_leave_none(self):
+        self.rpg("game", "switch", "dark_lighthouse")
+        self.rpg("newgame", seed=43)
+        self.assertIn("the reason must be one of", self.rpg("coins", "+2", "luck", ok=False))
+        self.rpg("coins", "+2", "gift")
+        self.rpg("coins", "-1", "purchase", as_="corin")
+        self.assertIn("not enough coins", self.rpg("coins", "-99", "purchase", ok=False))
+        run = self.save()["run"]["id"]
+        lines = (self.dir / "state" / "log" / ("%s.jsonl" % run)).read_text().splitlines()
+        entries = [json.loads(line) for line in lines]  # every line is one JSON object
+        coins = [e for e in entries if e["kind"] == "coins"]
+        self.assertEqual([(e["player"], e["delta"], e["reason"], e["balance"]) for e in coins],
+                         [("wren", 2, "gift", 5), ("corin", -1, "purchase", 3)])
+        commands = [(e["command"], e["refused"]) for e in entries if e["kind"] == "command"]
+        self.assertEqual(commands, [("newgame", False), ("coins", True), ("coins", False), ("coins", False), ("coins", True)])
+        self.assertTrue(all(e["kind"] in ("command", "coins") and "round" in e and "move" in e for e in entries))
+        self.assertIn("coins +2 (gift) -> 5", self.rpg("log"))
+        self.assertIn("command coins +2 gift", self.rpg("log"))
+
     def test_validate_checks_the_cast(self):
         d = "games/dark_lighthouse/cast.json"
         cast = json.loads((self.dir / d).read_text())
@@ -834,7 +853,7 @@ class Engine(unittest.TestCase):
         self.assertIn("COMMISSIONED: The Net-Loft (net_loft), to be built southwest of here by Morwen", out)
         self.assertIn("PRICE: 5 coins.", out)
         self.assertIn("not enough coins", self.rpg("pay", "net_loft", ok=False))
-        self.rpg("coins", "+5")
+        self.rpg("coins", "+5", "gift")
         self.assertIn("builds for coins only", self.rpg("pay", "net_loft", "worn_dagger", ok=False))
         self.assertIn("ready in 3 moves", self.rpg("pay", "net_loft"))
         look = self.rpg("look")
@@ -964,7 +983,7 @@ class Engine(unittest.TestCase):
         self.rpg("world-brief", "build", "morwen")
         self.write("proposals/b.json", json.dumps({"id": "net_loft", "name": "The Net-Loft", "direction": "southwest", "description": "A tarred loft."}))
         self.rpg("generate", "build", "proposals/b.json")
-        self.rpg("coins", "+5")
+        self.rpg("coins", "+5", "gift")
         self.rpg("pay", "net_loft")
         for d in ("north", "south", "north", "south"):
             self.rpg("move", d)
@@ -1286,12 +1305,12 @@ near: stuck
         g = "games/dark_lighthouse"
         road, pell = self.dir / g / "rooms/coast_road.md", self.dir / g / "characters/pell.md"
         road.write_text(road.read_text().replace("east: greywater_bridge", "east: greywater_bridge (if bridge_mended or has_rope)"))
-        pell.write_text(pell.read_text().replace("`coins -2`", "`coins 2`").replace("`gain honey_cake`", "`gain honey_cak`")
+        pell.write_text(pell.read_text().replace("`coins -2 purchase`", "`coins -2 bribe`").replace("`gain honey_cake`", "`gain honey_cak`")
                         .replace("`flag set tongue_salted`", "`flag sett tongue_salted`"))
         out = self.rpg("validate", "--game", "dark_lighthouse", ok=False)
         for want in ("rooms/coast_road.md: a condition uses 'bridge_mended', but nothing in the game sets it",
                      "rooms/coast_road.md: condition 'has_rope': no item 'rope'",
-                     "characters/pell.md: `coins 2`: use coins +N or coins -N",
+                     "characters/pell.md: `coins -2 bribe`: use coins +N <reason> or coins -N <reason>",
                      "characters/pell.md: `gain honey_cak`: no item 'honey_cak'",
                      "characters/pell.md: `flag sett tongue_salted`: use flag set|unset"):
             self.assertIn(want, out)

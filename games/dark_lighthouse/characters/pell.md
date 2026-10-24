@@ -45,5 +45,5 @@ This person is talking backwards. You recognise it at once: mirror-tongue, from 
 He's overjoyed and insists the player's next drink is on the house. That is only flavour and gives no items.
 
 ## GM only
-- **Sale:** `coins -2`, then `gain honey_cake` or `gain smoked_fish`.
+- **Sale:** `coins -2 purchase`, then `gain honey_cake` or `gain smoked_fish`.
 - **Mirror-tongue:** if the player asks him for help with their backwards talk, he throws the salt: `flag set tongue_salted`.
