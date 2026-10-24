@@ -883,6 +883,28 @@ class Engine(unittest.TestCase):
         self.write("proposals/story.txt", story)
         return self.rpg("narrate", pid, "proposals/story.txt")
 
+    def test_words_said_aloud_reach_the_others_here_on_their_next_turn(self):
+        self.rpg("game", "switch", "flooded_station")  # Sol and Ade both start on the Landing
+        self.rpg("newgame", seed=44)
+        first, second = [p.split("(")[1].rstrip(")") for p in self.rpg("round", "start").split(": ", 1)[1].strip().split(", ")]
+        names = {pid: pl["name"] for pid, pl in self.save()["players"].items()}
+        self.write("proposals/reply.txt", "DO: I ask whether the lift still works.\nJOURNAL: I need to get down.\n")
+        self.rpg("reply", first, "proposals/reply.txt")
+        self.write("proposals/words.txt", '"Does the lift still work?"')
+        self.assertIn("they'll read it on their next turn", self.rpg("say", "proposals/words.txt", as_=first))
+        self.write("proposals/words.txt", "Hello?")
+        self.assertIn("it's %s's turn" % first, self.rpg("say", "proposals/words.txt", as_=second, ok=False))
+        heard = self.rpg("brief", second)
+        self.assertIn('What you were told: %s says: "Does the lift still work?"' % names[first], heard)
+        self.assertIn("How it begins", heard, "words heard before a first turn don't take the opening away")
+        self.assertNotIn("What you were told", self.rpg("brief", first))
+        speech = [e for e in self.log_of() if e["kind"] == "speech"]
+        self.assertEqual([(e["player"], e["text"], e["heard_by"]) for e in speech], [(first, "Does the lift still work?", [second])])
+        exits = self.save()["players"][first]["map"][self.save()["players"][first]["location"]]["exits"]
+        self.rpg("move", next(iter(exits)), as_=first)
+        self.write("proposals/words.txt", "Anyone?")
+        self.assertIn("no one else is here to hear it", self.rpg("say", "proposals/words.txt", as_=first, ok=False))
+
     def play_round(self):
         order = self.rpg("round", "start").split(": ", 1)[1].strip()
         ids = [part.split("(")[1].rstrip(")") for part in order.split(", ")]

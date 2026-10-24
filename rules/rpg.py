@@ -1535,7 +1535,8 @@ def cmd_look(args):
     print("CHARACTERS HERE: %s" % (", ".join(chars) or "none"))
     others = players_here(state)[1:]
     if others:
-        print("PEOPLE HERE: %s. Each acts on their own turn: never speak or decide for them." % ", ".join(
+        print("PEOPLE HERE: %s. Each acts on their own turn: never speak or decide for them. What the player says "
+              "aloud, they hear: `say <file>`." % ", ".join(
             "%s (%s)" % (state["players"][p]["name"], p) for p in others))
     makers = [c for c in here if makes(c)]
     if makers and not why_no_order(state):
@@ -3605,6 +3606,24 @@ def cmd_narrate(args):
           "Next: %s." % whose_turn(state) if whose_turn(state) else "Everyone has had their turn: `round end`."))
 
 
+def cmd_say(args):
+    """say <file>: the player's words, spoken aloud. Everyone else playing in the room hears them: they go into
+    each listener's memory, to be read on their next turn and answered then if they like (proposal 6.5)."""
+    state = load_state()
+    require_playing(state)
+    listeners = players_here(state)[1:]
+    if not listeners:
+        raise Refused("no one else is here to hear it")
+    words = text_arg(args[0], "words", BALANCE["turns"]["said_chars"]).strip('"“” ')
+    speaker = me(state)["name"]
+    for pid in listeners:
+        remember(state["players"][pid], "told", '%s says: "%s"' % (speaker, words), state["run"].get("round", 0))
+    log(state, "speech", text=words, heard_by=listeners)
+    save_state(state)
+    print("SAID by %s, heard by %s: they'll read it on their next turn, and may answer then." % (
+        speaker, ", ".join("%s (%s)" % (state["players"][p]["name"], p) for p in listeners)))
+
+
 def memory_rounds(pl):
     return sorted({e["round"] for e in pl.get("memory", {}).get("recent", [])})
 
@@ -3773,7 +3792,7 @@ def cmd_brief(args):
     out = ["## Who I am (a note to myself)", "I'm %s. %s" % (pl["name"], entry.get("personality", "")),
            "How I talk: %s" % entry.get("voice", ""),
            "What drives me: %s." % "; ".join(entry.get("motivations") or []), ""]
-    if not mem["recent"] and not mem["condensed"]:
+    if not mem["condensed"] and not any(e["kind"] == "did" for e in mem["recent"]):  # words heard before a first turn
         out += ["## How it begins", entry.get("opening", ""), ""]
     if mem["condensed"]:
         out += ["## What you remember from before"] + [c["text"] for c in mem["condensed"]] + [""]
@@ -4191,6 +4210,7 @@ COMMANDS = {
     "pay": (cmd_pay, 1, "pay <order> [material]   the player pays a maker or builder for an order"),
     "work": (cmd_work, 0, "work   the player works here for pay, once per visit (a check first)"),
     "sell": (cmd_sell, 1, "sell <item> [buyer]   the player sells something with a tier to a buyer here"),
+    "say": (cmd_say, 1, "say <file>   the player's words aloud: the other players here hear them on their next turn"),
     "scene": (cmd_scene, 2, "scene start <id> | scene end <id> [reward]   play a side scene between two characters"),
     "forge": (cmd_forge, 1, "forge quote | start [sentence] | resume <draft> | status | install <draft> | discard <draft>   new worlds"),
     "world-turn": (cmd_world_turn, 1, "world-turn <file>   apply the world agent's off-screen turn (a JSON file)"),
