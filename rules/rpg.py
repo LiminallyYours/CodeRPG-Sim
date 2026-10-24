@@ -1533,6 +1533,10 @@ def cmd_look(args):
     voice = {c: "minor" if is_minor(c) else "minor, agent resting" if agents_resting(c) else "agent" for c in here}
     chars = ["%s [%s%s]" % (c, voice[c], ", generated" if is_generated("characters", c) else "") for c in here]
     print("CHARACTERS HERE: %s" % (", ".join(chars) or "none"))
+    others = players_here(state)[1:]
+    if others:
+        print("PEOPLE HERE: %s. Each acts on their own turn: never speak or decide for them." % ", ".join(
+            "%s (%s)" % (state["players"][p]["name"], p) for p in others))
     makers = [c for c in here if makes(c)]
     if makers and not why_no_order(state):
         print("MAKERS HERE: %s. If the player orders something made: `world-brief craft <maker>` (see gm-turn)."

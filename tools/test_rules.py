@@ -823,8 +823,11 @@ class Engine(unittest.TestCase):
     def test_two_players_share_a_room_and_its_things(self):
         self.rpg("game", "switch", "dark_lighthouse")
         self.rpg("newgame", seed=43)
+        self.assertNotIn("PEOPLE HERE", self.rpg("look", as_="wren"))
         self.rpg("move", "south", as_="corin")  # from the Gull to Harbor Square, where Wren is
         self.assertEqual(self.save()["players"]["corin"]["location"], "harbor_square")
+        self.assertIn("PEOPLE HERE: Corin (corin).", self.rpg("look", as_="wren"))
+        self.assertIn("PEOPLE HERE: Wren (wren).", self.rpg("look", as_="corin"))
         self.rpg("drop", "healing_tonic", as_="corin")
         self.assertIn("healing_tonic", self.rpg("look", as_="wren").split("ITEMS HERE:")[1].split("\n")[0])
         self.rpg("take", "healing_tonic", as_="wren")
