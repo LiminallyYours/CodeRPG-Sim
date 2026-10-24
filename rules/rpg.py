@@ -1169,6 +1169,19 @@ def players_here(state):
                       if pid != me_id and pl["location"] == here and pl["status"] == "playing"]
 
 
+def overhear(state):
+    """The acting player hears the talk going around when they're among the world's people: every rumor they
+    haven't heard yet joins what they have. Alone, or with only other players, they hear nothing new."""
+    if not characters_here(state):
+        return False
+    kept = BALANCE["world"]["rumors_kept"]
+    heard = me(state).setdefault("heard", [])
+    new = [r for r in state["run"]["rumors"][-kept:] if r not in heard]
+    heard.extend(new)
+    del heard[:-kept]
+    return bool(new)
+
+
 def is_minor(ident):
     return str(ent("characters", ident).get("minor", "no")).lower() == "yes"
 
@@ -1545,7 +1558,8 @@ def cmd_look(args):
     # A turn begins with a look or a move: who is here now may still speak this turn, even after a flag takes them
     # out of the scene (npc-brief).
     present = {"room": room["id"], "characters": here}
-    if me(state).get("present") != present:
+    heard = overhear(state)
+    if heard or me(state).get("present") != present:
         me(state)["present"] = present
         save_state(state)
     voice = {c: "minor" if is_minor(c) else "minor, agent resting" if agents_resting(c) else "agent" for c in here}
@@ -3788,8 +3802,8 @@ def pane_text(state):
     places = [e["name"] for r, e in me(state)["map"].items() if r != pl["location"]]
     if places:
         lines += ["", "## Places you've been", ", ".join(places)]
-    if state["view"]["rumors"]:
-        lines += ["", "## Talk going around"] + ["- " + r for r in state["view"]["rumors"]]
+    if pl.get("heard"):  # only what they've heard, among people (overhear)
+        lines += ["", "## Talk going around"] + ["- " + r for r in pl["heard"]]
     return "\n".join(lines)
 
 
@@ -3826,6 +3840,7 @@ def cmd_brief(args):
         out += ["## What you remember from before"] + [c["text"] for c in mem["condensed"]] + [""]
     if mem["recent"]:
         out += ["## Lately", memory_text(mem["recent"]), ""]
+    overhear(state)  # waking into the turn among people, they hear what's being said
     out.append(pane_text(state))
     if SETTINGS["brief"]["dice_lines"]:
         lines = dice_lines(state, args[0])

@@ -908,6 +908,20 @@ class Engine(unittest.TestCase):
         self.write("proposals/words.txt", "Anyone?")
         self.assertIn("no one else is here to hear it", self.rpg("say", "proposals/words.txt", as_=first, ok=False))
 
+    def test_a_player_hears_the_talk_going_around_only_among_people(self):
+        self.rpg("game", "switch", "dark_lighthouse")
+        self.rpg("newgame", seed=43)
+        self.rpg("move", "east")  # Wren to the Coast Road, where nobody is; Corin stays in the Gull with Pell
+        self.write("proposals/wt.json", json.dumps({"rumors": ["The keeper's lamp burned blue last night."], "moves": []}))
+        self.rpg("world-turn", "proposals/wt.json", as_=False)
+        self.rpg("look")
+        self.assertNotIn("The keeper's lamp", self.rpg("pane", "wren"))
+        self.assertNotIn("The keeper's lamp", self.rpg("brief", "wren"))
+        self.assertIn("## Talk going around\n- The keeper's lamp burned blue last night.", self.rpg("brief", "corin"))
+        self.rpg("move", "west")  # back to Harbor Square, where Morwen is
+        self.assertIn("The keeper's lamp", self.rpg("pane", "wren"))
+        self.assertEqual(self.save()["players"]["wren"]["heard"], ["The keeper's lamp burned blue last night."])
+
     def play_round(self):
         order = self.rpg("round", "start").split(": ", 1)[1].strip()
         ids = [part.split("(")[1].rstrip(")") for part in order.split(", ")]
