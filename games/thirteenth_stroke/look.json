@@ -1,0 +1,49 @@
+{
+  "palette": {
+    "accent": "#c74a6b",
+    "warn": "#e3c75a",
+    "heal": "#8fd6c4",
+    "accent_by_time": {
+      "half past ten": "#d0607e",
+      "eleven o'clock": "#c74a6b",
+      "a quarter to twelve": "#a83d5c",
+      "a minute to midnight": "#8a3550"
+    }
+  },
+  "resource": {
+    "name": "Candle",
+    "icon": "✺",
+    "low": "Your candle is burning down to a stub, and the shadows lean closer.",
+    "spent": "Your candle gutters out. Wumbleby goes still and dark: nobody answers, nothing stirs, until you come back with a fresh one."
+  },
+  "stat_labels": {
+    "might": "Gumption",
+    "agility": "Wiggle",
+    "wits": "Noggin"
+  },
+  "stat_short": {
+    "might": "GUM",
+    "agility": "WIG",
+    "wits": "NOG"
+  },
+  "currency": "buttons",
+  "tagline": "a crooked bedtime story for CodeRPG",
+  "terrain": {
+    "gloomgrass": {
+      "bg": "#2c2a3d",
+      "fg": "#b9b3d6",
+      "moves": false
+    }
+  },
+  "phrases": {
+    "idle": [
+      "Tick, tock, tick",
+      "The clock runs a little fast",
+      "A lullaby hums down the hill",
+      "Something in the drain clears its throat",
+      "A shadow slips past the lamp",
+      "The crooked houses lean in to listen",
+      "Somewhere a tin key turns"
+    ]
+  }
+}
