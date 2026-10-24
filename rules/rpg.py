@@ -176,7 +176,9 @@ def meter_state(m=None):
 
 def active_curses(state):
     """The curses on the player now, in id order: each while its `caused_by` holds and its `cured_by` doesn't.
-    They follow from flags, so none survives a new game."""
+    They follow from flags, so none survives a new game. The owner's `curses.on` switch turns them all off."""
+    if not SETTINGS["curses"]["on"]:
+        return []
     flags = condition_flags(state)
     out = []
     for c in content.ids("curses"):
@@ -1211,7 +1213,7 @@ def cmd_newgame(args):
         choice = pick(options_of(opts))
         run["variants"][name] = choice
         flags.append(choice)
-    if w.get("clock"):
+    if w.get("clock") and SETTINGS["clock"]["on"]:  # the owner's switch: off, the deadline never comes
         c = w["clock"]
         total = max(1, dice.roll(c["moves"])[0])
         run["clock"] = {"name": c["name"], "flag": c["flag"], "total": total, "left": total,
@@ -2270,6 +2272,11 @@ def validate_game(kit=False):
         problems.append("settings.json: unknown preset %r (presets: %s)" % (own.get("preset"), ", ".join(presets)))
     overrides = own.get("overrides") or {}
     unknown_keys(overrides, presets["normal"], "settings.json overrides", problems)
+    merged = content.deep_merge(presets.get(own.get("preset", "normal"), presets["normal"]), overrides)
+    for key, allowed in (("rounds.clock", ("move", "round")), ("memory.condenser", ("self", "neutral"))):
+        section, name = key.split(".")
+        if (merged.get(section) or {}).get(name) not in allowed:
+            problems.append("settings.json: %s must be %s" % (key, " or ".join(allowed)))
     for c in ((overrides.get("npc_agents") or {}).get("characters") or {}):
         if not content.exists("characters", c):
             problems.append("settings.json npc_agents characters: unknown character %r" % c)

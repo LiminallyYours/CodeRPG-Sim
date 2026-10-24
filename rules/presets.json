@@ -44,6 +44,27 @@
     },
     "new_worlds": {
       "on": false
+    },
+    "clock": {
+      "on": true
+    },
+    "curses": {
+      "on": true
+    },
+    "rounds": {
+      "clock": "move"
+    },
+    "memory": {
+      "recent_rounds": 5,
+      "condense_every": 5,
+      "max_chars": 12000,
+      "condenser": "self"
+    },
+    "brief": {
+      "dice_lines": false
+    },
+    "dashboard": {
+      "port": 8765
     }
   },
   "normal": {
@@ -91,6 +112,27 @@
     },
     "new_worlds": {
       "on": true
+    },
+    "clock": {
+      "on": true
+    },
+    "curses": {
+      "on": true
+    },
+    "rounds": {
+      "clock": "move"
+    },
+    "memory": {
+      "recent_rounds": 5,
+      "condense_every": 5,
+      "max_chars": 12000,
+      "condenser": "self"
+    },
+    "brief": {
+      "dice_lines": false
+    },
+    "dashboard": {
+      "port": 8765
     }
   },
   "rich": {
@@ -138,6 +180,95 @@
     },
     "new_worlds": {
       "on": true
+    },
+    "clock": {
+      "on": true
+    },
+    "curses": {
+      "on": true
+    },
+    "rounds": {
+      "clock": "move"
+    },
+    "memory": {
+      "recent_rounds": 5,
+      "condense_every": 5,
+      "max_chars": 12000,
+      "condenser": "self"
+    },
+    "brief": {
+      "dice_lines": false
+    },
+    "dashboard": {
+      "port": 8765
+    }
+  },
+  "simulation": {
+    "meter": {
+      "capacity": 30
+    },
+    "npc_agents": {
+      "on": true,
+      "lines_per_exchange": 4,
+      "characters": {}
+    },
+    "world_turns": {
+      "on": true,
+      "every_moves": 2,
+      "plans": true
+    },
+    "generation": {
+      "on": true,
+      "max_per_run": 16,
+      "kinds": {
+        "extras": true,
+        "rooms": false,
+        "items": false,
+        "characters": true,
+        "side_quests": true
+      }
+    },
+    "crafting": {
+      "on": true,
+      "max_per_run": 10
+    },
+    "building": {
+      "on": true,
+      "max_per_run": 5
+    },
+    "promotion": {
+      "on": true,
+      "max_per_run": 2,
+      "after_conversations": 3
+    },
+    "side_scenes": {
+      "on": false,
+      "max_per_run": 2,
+      "replies": 6
+    },
+    "new_worlds": {
+      "on": false
+    },
+    "clock": {
+      "on": false
+    },
+    "curses": {
+      "on": false
+    },
+    "rounds": {
+      "clock": "round"
+    },
+    "memory": {
+      "recent_rounds": 5,
+      "condense_every": 5,
+      "max_chars": 12000,
+      "condenser": "self"
+    },
+    "brief": {
+      "dice_lines": false
+    },
+    "dashboard": {
+      "port": 8765
     }
   }
 }

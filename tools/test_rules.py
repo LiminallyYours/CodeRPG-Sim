@@ -280,9 +280,21 @@ class Engine(unittest.TestCase):
 
         def shape(d):
             return {k: shape(v) if isinstance(v, dict) and k != "characters" else type(v).__name__ for k, v in d.items()}
-        self.assertEqual({"thrifty", "normal", "rich"}, set(presets))
+        self.assertEqual({"thrifty", "normal", "rich", "simulation"}, set(presets))
         for name, p in presets.items():
             self.assertEqual(shape(p), shape(presets["normal"]), name)
+
+    def test_the_simulation_preset_switches_off_the_deadline_curses_and_free_growth(self):
+        self.rpg("game", "switch", "dark_lighthouse")
+        self.settings_tool("preset", "simulation")
+        self.rpg("newgame", seed=42)
+        v = self.save()
+        self.assertIsNone(v["run"]["clock"])
+        self.assertEqual(v["view"]["settings"]["generation"]["kinds"], ["extras", "characters", "side_quests"])
+        self.rpg("flag", "set", "mirror_cursed")
+        self.assertNotIn("CURSE:", self.rpg("look"))
+        self.assertIn("rounds.clock must be move or round", self.settings_tool("set", "rounds.clock", "tick", ok=False))
+        self.assertIn("unknown setting 'memory.recent'", self.settings_tool("set", "memory.recent", "3", ok=False))
 
     def test_only_extras_drain_the_meter_and_it_refills(self):
         self.at_the_lighthouse()

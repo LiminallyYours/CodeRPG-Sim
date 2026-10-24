@@ -2,7 +2,7 @@
 """The game owner's cost switches, per game:  python3 tools/settings.py <command> [--game <id>]
 
     show                      the switches in effect (the preset with its overrides) and the prices
-    preset <thrifty|normal|rich>
+    preset <thrifty|normal|rich|simulation>
                               pick a preset; keeps the overrides
     set <key> <value>         override one switch, e.g.  set world_turns.every_moves 8
                                                          set npc_agents.on false
