@@ -78,6 +78,8 @@ class Refused(Exception):
 # their stats, the map of where they've been, who they've met) is read through me(state); the world is shared.
 
 ACTOR = None  # the id given with --as; set by main()
+COMMAND = None  # the command being run; set by main()
+REFEREE_COMMANDS = ("round", "log", "brief", "pane", "reply", "narrate", "memory")  # they name the player themselves
 
 
 def actor_id(state):
@@ -835,6 +837,9 @@ def load_state():
     _RUN = state["run"]
     if _RUN.get("seed"):
         dice.use_stream(stream_key(state), _RUN.get("dice_n", 0))
+    whose = whose_turn(state)
+    if whose and ACTOR in state["players"] and ACTOR != whose and COMMAND not in REFEREE_COMMANDS:
+        raise Refused("it's %s's turn in round %d, not %s's" % (whose, _RUN["round"], ACTOR))
     return state
 
 
@@ -3151,10 +3156,12 @@ def balanced_order(state, number):
                   "tied": sum(1 for o in orders if imbalance(o) == imbalance(best))}
 
 
-def acted_this_round(state, number):
-    """The players who have run a command this round that wasn't refused."""
-    return {e["player"] for e in log_entries(state["run"]["id"])
-            if e["kind"] == "command" and e.get("round") == number and e.get("player") and not e["refused"]}
+def whose_turn(state):
+    """The player whose turn it is in the open round (the first in its order not yet narrated), or None."""
+    rs = state["run"].get("round_state")
+    if not rs:
+        return None
+    return next((p for p in rs["order"] if p not in rs.get("done", []) and state["players"][p]["status"] == "playing"), None)
 
 
 def cmd_round(args):
@@ -3173,7 +3180,7 @@ def cmd_round(args):
             for b in order[i + 1:]:
                 pair = run["before"].setdefault(a, {})
                 pair[b] = pair.get(b, 0) + 1
-        run["round"], run["round_state"] = number, {"order": order}
+        run["round"], run["round_state"] = number, {"order": order, "done": []}
         log(state, "round", phase="start", order=order, draw=draw)
         save_state(state)
         print("ROUND %d: %s" % (number, ", ".join("%s (%s)" % (state["players"][p]["name"], p) for p in order)))
@@ -3183,7 +3190,7 @@ def cmd_round(args):
     if not open_round:
         raise Refused("no round is open: `round start` first")
     number = run["round"]
-    missing = [p for p in open_round["order"] if p not in acted_this_round(state, number)]
+    missing = [p for p in open_round["order"] if p not in open_round.get("done", []) and state["players"][p]["status"] == "playing"]
     if missing:
         raise Refused("round %d isn't over: still to act: %s" % (number, ", ".join(missing)))
     events = tick_move(state) if by_rounds() else []
@@ -3193,6 +3200,191 @@ def cmd_round(args):
     print("ROUND %d ENDS." % number)
     for line in events:
         print(line)
+
+
+# ---------------------------------------------------------------- a player's turn, and what they remember
+# A player's turn in a round: the referee hands the player's reply to `reply` (what they do, and why, in their own
+# words), runs the rules commands for it with --as, and hands the story they're told to `narrate`, which ends the
+# turn. Both come as files in proposals/ (written with the Write tool), so their words never pass through the shell.
+# Each player's memory (players[<id>].memory) is written only here: `recent`, entries kept word for word, each with
+# the round it was made, its kind (seen, told, did, reasoned) and how many briefs it has been handed back in; and
+# `condensed`, older stretches in the player's own words (memory condense / memory store). The log keeps it all.
+
+def player_arg(state, ident):
+    """The player a referee command names, made the acting player."""
+    global ACTOR
+    if ident not in state["players"]:
+        raise Refused("no one called %r is playing (players: %s)" % (ident, ", ".join(state["players"])))
+    ACTOR = ident
+    return state["players"][ident]
+
+
+def text_arg(path, what, limit):
+    """The text in a file the referee wrote (normally proposals/<name>.txt), used up once read."""
+    if not Path(path).is_file():
+        raise Refused("no %s file at %s" % (what, path))
+    try:
+        text = Path(path).read_text(encoding="utf-8").strip()
+    finally:
+        done_with([path])
+    if not text:
+        raise Refused("the %s is empty" % what)
+    if len(text) > limit:
+        raise Refused("the %s is at most %d characters (got %d)" % (what, limit, len(text)))
+    return text
+
+
+_REPLY = re.compile(r"^\s*(DO|JOURNAL)\s*:\s*", re.M)
+
+
+def parse_reply(text):
+    """{"do": ..., "journal": ...} from a player's reply, or Refused."""
+    parts = _REPLY.split(text)
+    found = {}
+    for label, body in zip(parts[1::2], parts[2::2]):
+        found[label.lower()] = " ".join(body.split())
+    if not found.get("do"):
+        raise Refused("the reply has no DO: line")
+    return {"do": found["do"], "journal": found.get("journal", "")}
+
+
+def remember(pl, kind, text, number):
+    pl.setdefault("memory", {"recent": [], "condensed": []})["recent"].append(
+        {"round": number, "kind": kind, "text": text, "uses": 0})
+
+
+def open_turn(state, pid):
+    """Refused unless it's `pid`'s turn and they have replied this round; returns the turn record."""
+    run = state["run"]
+    if whose_turn(state) != pid:
+        raise Refused("it isn't %s's turn%s" % (pid, " (it's %s's)" % whose_turn(state) if whose_turn(state) else ": no round is open"))
+    turn = state["players"][pid].get("turn") or {}
+    return turn if turn.get("round") == run["round"] else None
+
+
+def cmd_reply(args):
+    """reply <player> <file>: the player's reply this turn: what they do (DO:) and why (JOURNAL:)."""
+    state = load_state()
+    pl = player_arg(state, args[0])
+    if open_turn(state, args[0]):
+        raise Refused("%s has already replied this round" % args[0])
+    if len(args) < 2:
+        raise Refused("usage: reply <player> <file>")
+    limits = BALANCE["turns"]
+    reply = parse_reply(text_arg(args[1], "reply", limits["do_chars"] + limits["journal_chars"] + 40))
+    for k in ("do", "journal"):
+        if len(reply[k]) > limits[k + "_chars"]:
+            raise Refused("the %s line is at most %d characters" % (k.upper(), limits[k + "_chars"]))
+    number = state["run"]["round"]
+    pl["turn"] = {"round": number, "do": reply["do"], "journal": reply["journal"]}
+    remember(pl, "did", reply["do"], number)
+    if reply["journal"]:
+        remember(pl, "reasoned", reply["journal"], number)
+    log(state, "action", do=reply["do"], journal=reply["journal"], model=pl.get("model"))
+    save_state(state)
+    print("REPLY from %s: DO: %s" % (pl["name"], reply["do"]))
+    if reply["journal"]:
+        print("JOURNAL: %s" % reply["journal"])
+    print("Now run the turn for it with --as %s, then `narrate %s <file>`." % (args[0], args[0]))
+
+
+def cmd_narrate(args):
+    """narrate <player> <file>: the story the player is told this turn. It ends their turn."""
+    state = load_state()
+    pl = player_arg(state, args[0])
+    if not open_turn(state, args[0]):
+        raise Refused("%s hasn't replied this round: `reply %s <file>` first" % (args[0], args[0]))
+    if len(args) < 2:
+        raise Refused("usage: narrate <player> <file>")
+    text = text_arg(args[1], "narration", BALANCE["turns"]["narration_chars"])
+    run = state["run"]
+    remember(pl, "seen", text, run["round"])
+    pl.pop("noticed", None)  # what they noticed has been woven into the story
+    run["round_state"]["done"].append(args[0])
+    log(state, "narration", text=text)
+    save_state(state)
+    print("NARRATED for %s (round %d). %s" % (pl["name"], run["round"],
+          "Next: %s." % whose_turn(state) if whose_turn(state) else "Everyone has had their turn: `round end`."))
+
+
+def memory_rounds(pl):
+    return sorted({e["round"] for e in pl.get("memory", {}).get("recent", [])})
+
+
+def memory_chars(pl):
+    return sum(len(e["text"]) for e in pl.get("memory", {}).get("recent", []))
+
+
+def condensing_due(pl):
+    """The rounds to condense now (the oldest, leaving `memory.recent_rounds`), or []."""
+    m, rounds = SETTINGS["memory"], memory_rounds(pl)
+    keep = int(m["recent_rounds"])
+    if len(rounds) >= keep + int(m["condense_every"]) or (memory_chars(pl) > int(m["max_chars"]) and len(rounds) > keep):
+        return rounds[:len(rounds) - keep]
+    return []
+
+
+def cmd_memory(args):
+    """memory condense <player> | memory store <player> <file>: fold older rounds into the player's own words."""
+    state = load_state()
+    if len(args) < 2 or args[0] not in ("condense", "store"):
+        raise Refused("use: memory condense <player> | memory store <player> <file>")
+    pl = player_arg(state, args[1])
+    mem = pl.setdefault("memory", {"recent": [], "condensed": []})
+    if args[0] == "condense":
+        if SETTINGS["memory"]["condenser"] != "self":
+            raise Refused("only the self condenser is built so far (memory.condenser: self)")
+        rounds = condensing_due(pl)
+        if not rounds:
+            print("NOTHING TO CONDENSE for %s: %d rounds held word for word." % (pl["name"], len(memory_rounds(pl))))
+            return
+        mem["condensing"] = rounds
+        save_state(state)
+        print(condensing_brief(pl, rounds))
+        return
+    rounds = mem.get("condensing")
+    if not rounds:
+        raise Refused("no condensing is waiting for %s: `memory condense %s` first" % (args[1], args[1]))
+    if rounds != condensing_due(pl)[:len(rounds)] or not set(rounds) <= set(memory_rounds(pl)):
+        mem.pop("condensing")
+        save_state(state)
+        raise Refused("%s's memory has changed since; run `memory condense %s` again" % (args[1], args[1]))
+    if len(args) < 3:
+        raise Refused("usage: memory store <player> <file>")
+    raw = text_arg(args[2], "memory", BALANCE["turns"]["memory_chars"] + 20)
+    text = " ".join(re.sub(r"^\s*MEMORY\s*:\s*", "", raw).split())
+    before = [e for e in mem["recent"] if e["round"] in rounds]
+    mem["recent"] = [e for e in mem["recent"] if e["round"] not in rounds]
+    mem["condensed"].append({"rounds": [rounds[0], rounds[-1]], "kind": "condensed", "text": text,
+                             "round": state["run"]["round"], "uses": 0})
+    mem.pop("condensing")
+    log(state, "memory", rounds=[rounds[0], rounds[-1]], text=text, replaced=len(before))
+    save_state(state)
+    print("REMEMBERED by %s, rounds %d-%d, in their own words (%d entries folded in)." % (pl["name"], rounds[0], rounds[-1], len(before)))
+
+
+def memory_text(entries):
+    """Memory entries as the player reads them: round by round, in the second person."""
+    lines, current = [], None
+    label = {"did": "What you did", "reasoned": "Why", "seen": "What happened", "told": "What you were told"}
+    for e in entries:
+        if e["round"] != current:
+            current = e["round"]
+            lines.append("")
+            lines.append("### Moment %d" % current)
+        lines.append("%s: %s" % (label.get(e["kind"], e["kind"]), e["text"]))
+    return "\n".join(lines).strip()
+
+
+def condensing_brief(pl, rounds):
+    """What the player is asked to do to remember a stretch: in their own voice, first person."""
+    mem = pl["memory"]
+    entries = [e for e in mem["recent"] if e["round"] in rounds]
+    return "\n".join([
+        "Some time has passed. Think back over this stretch of your days and say what you remember of it now: in the "
+        "first person, in your own way of speaking, in a few sentences. Keep what mattered to you; you needn't keep the rest.",
+        "", "## That stretch", memory_text(entries), "",
+        "Reply with one line, exactly in this form:", "MEMORY: <what you remember of that time>"])
 
 
 def cmd_log(args):
@@ -3588,6 +3780,9 @@ COMMANDS = {
     "note": (cmd_note, 1, "note <text>   keep a detail you established about this room"),
     "chronicle": (cmd_chronicle, 1, "chronicle <text>   add a line to the story so far"),
     "round": (cmd_round, 1, "round start | round end   open the next round (draws its order) or close it (the world's clock moves)"),
+    "reply": (cmd_reply, 2, "reply <player> <file>   the player's reply this turn (DO: and JOURNAL: lines), from a file in proposals/"),
+    "narrate": (cmd_narrate, 2, "narrate <player> <file>   the story told to the player this turn, from a file; ends their turn"),
+    "memory": (cmd_memory, 2, "memory condense <player> | memory store <player> <file>   fold older rounds into the player's own words"),
     "log": (cmd_log, 0, "log [n]   the run's last n log entries (default 10), one line each, for checking"),
     "validate": (cmd_validate, 0, "validate [--game <id> | --dir <folder>] [--kit-complete]   check games' content, soundness and settings"),
     "game": (cmd_game, 0, "game [list | show | switch <id>]   the installed games; switching keeps each one's save"),
@@ -3626,6 +3821,8 @@ def main(argv):
     if argv[0] in WORLD_COMMANDS:
         global ACTOR
         ACTOR = None  # about the installed games, not anyone in them
+    global COMMAND
+    COMMAND = argv[0]
     fn, nargs, help_text = COMMANDS[argv[0]]
     if len(argv) - 1 < nargs:
         print("usage: %s" % help_text)

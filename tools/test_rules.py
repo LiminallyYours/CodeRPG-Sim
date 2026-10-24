@@ -805,11 +805,19 @@ class Engine(unittest.TestCase):
         self.write(d, json.dumps(cast))
         self.rpg("game", "switch", "dark_lighthouse")
 
+    def take_turn(self, pid, do="I look around.", journal="Getting my bearings.", story="You look around."):
+        self.write("proposals/reply.txt", "DO: %s\nJOURNAL: %s\n" % (do, journal))
+        self.rpg("reply", pid, "proposals/reply.txt")
+        self.rpg("look", as_=pid)
+        self.write("proposals/story.txt", story)
+        return self.rpg("narrate", pid, "proposals/story.txt")
+
     def play_round(self):
         order = self.rpg("round", "start").split(": ", 1)[1].strip()
         ids = [part.split("(")[1].rstrip(")") for part in order.split(", ")]
+        n = self.save()["run"]["round"]
         for pid in ids:
-            self.rpg("look", as_=pid)
+            self.take_turn(pid, story="Moment %d for %s." % (n, pid))
         return ids, self.rpg("round", "end")
 
     def test_rounds_draw_a_balanced_order_from_the_seed(self):
@@ -831,17 +839,56 @@ class Engine(unittest.TestCase):
         looks = [e for e in log if e["kind"] == "command" and e["command"] == "look" and e["round"] == 1]
         self.assertEqual([e["order_position"] for e in looks], [1, 2, 3])
 
-    def test_a_round_ends_only_when_everyone_has_acted(self):
+    def test_a_round_goes_in_order_and_ends_when_everyone_has_had_their_turn(self):
         self.rpg("game", "switch", "dark_lighthouse")
         self.rpg("newgame", seed=43)
         self.assertIn("no round is open", self.rpg("round", "end", ok=False))
-        self.rpg("round", "start")
+        first, second = [p.split("(")[1].rstrip(")") for p in self.rpg("round", "start").split(": ", 1)[1].strip().split(", ")]
         self.assertIn("still open", self.rpg("round", "start", ok=False))
-        self.rpg("look", as_="wren")
-        self.rpg("take", "no_such_thing", as_="corin", ok=False)  # refused: it doesn't count as acting
-        self.assertIn("still to act: corin", self.rpg("round", "end", ok=False))
-        self.rpg("look", as_="corin")
+        self.assertIn("it's %s's turn" % first, self.rpg("look", as_=second, ok=False))
+        self.write("proposals/reply.txt", "DO: I wait.")
+        self.assertIn("it isn't %s's turn" % second, self.rpg("reply", second, "proposals/reply.txt", ok=False))
+        self.write("proposals/story.txt", "You wait.")
+        self.assertIn("hasn't replied", self.rpg("narrate", first, "proposals/story.txt", ok=False))
+        self.write("proposals/reply.txt", "I just wait, no labels.")
+        self.assertIn("no DO: line", self.rpg("reply", first, "proposals/reply.txt", ok=False))
+        self.assertIn("Next: %s." % second, self.take_turn(first))
+        self.assertIn("still to act: %s" % second, self.rpg("round", "end", ok=False))
+        self.assertIn("Everyone has had their turn", self.take_turn(second))
         self.assertIn("ROUND 1 ENDS.", self.rpg("round", "end"))
+        log = self.rpg("log", "40")
+        self.assertIn("action", log)
+        entries = [json.loads(line) for line in (self.dir / "state" / "log" / ("%s.jsonl" % self.save()["run"]["id"])).read_text().splitlines()]
+        actions = [e for e in entries if e["kind"] == "action"]
+        self.assertEqual([(e["player"], e["do"], e["model"], e["order_position"]) for e in actions],
+                         [(first, "I look around.", self.save()["players"][first]["model"], 1), (second, "I look around.", self.save()["players"][second]["model"], 2)])
+        self.assertEqual(len([e for e in entries if e["kind"] == "narration"]), 2)
+
+    def test_memory_keeps_recent_rounds_and_condenses_older_ones_in_their_own_words(self):
+        self.rpg("game", "switch", "dark_lighthouse")
+        self.settings_tool("preset", "simulation")  # 5 kept, condensed every 5
+        self.rpg("newgame", seed=43)
+        for _ in range(9):
+            self.play_round()
+        self.assertIn("NOTHING TO CONDENSE for Wren: 9 rounds", self.rpg("memory", "condense", "wren"))
+        self.write("proposals/m.txt", "MEMORY: Nothing.")
+        self.assertIn("no condensing is waiting", self.rpg("memory", "store", "wren", "proposals/m.txt", ok=False))
+        self.play_round()
+        brief = self.rpg("memory", "condense", "wren")
+        self.assertIn("### Moment 1", brief)
+        self.assertIn("Moment 5 for wren.", brief)
+        self.assertNotIn("Moment 6 for wren.", brief)
+        self.assertIn("MEMORY: <what you remember", brief)
+        self.write("proposals/m.txt", "MEMORY: I spent those first nights looking around and learning nothing.")
+        self.assertIn("rounds 1-5", self.rpg("memory", "store", "wren", "proposals/m.txt"))
+        mem = self.save()["players"]["wren"]["memory"]
+        self.assertEqual(sorted({e["round"] for e in mem["recent"]}), [6, 7, 8, 9, 10])
+        self.assertEqual(mem["condensed"], [{"rounds": [1, 5], "kind": "condensed", "round": 10, "uses": 0,
+                                             "text": "I spent those first nights looking around and learning nothing."}])
+        self.assertEqual(sorted({e["round"] for e in self.save()["players"]["corin"]["memory"]["recent"]}), list(range(1, 11)))
+        entries = [json.loads(line) for line in (self.dir / "state" / "log" / ("%s.jsonl" % self.save()["run"]["id"])).read_text().splitlines()]
+        self.assertEqual([(e["rounds"], e["replaced"]) for e in entries if e["kind"] == "memory"], [([1, 5], 15)])
+        self.assertEqual(len([e for e in entries if e["kind"] == "narration" and e["player"] == "wren"]), 10, "the log forgets nothing")
 
     def test_in_a_simulation_the_clock_moves_by_rounds_not_moves(self):
         self.rpg("game", "switch", "dark_lighthouse")
