@@ -3450,7 +3450,9 @@ def condensing_brief(pl, rounds):
     """What the player is asked to do to remember a stretch: in their own voice, first person."""
     mem = pl["memory"]
     entries = [e for e in mem["recent"] if e["round"] in rounds]
+    entry = cast_entry(ACTOR)  # memory condense made them the acting player
     return "\n".join([
+        "You are %s. How you speak: %s" % (pl["name"], entry.get("voice", "")), "",
         "Some time has passed. Think back over this stretch of your days and say what you remember of it now: in the "
         "first person, in your own way of speaking, in a few sentences. Keep what mattered to you; you needn't keep the rest.",
         "", "## That stretch", memory_text(entries), "",
@@ -3533,9 +3535,12 @@ def cmd_brief(args):
     state = load_state()
     pl = player_arg(state, args[0])
     mem = pl.setdefault("memory", {"recent": [], "condensed": []})
-    out = []
+    entry = cast_entry(args[0])
+    out = ["## Who you are", "You are %s. %s" % (pl["name"], entry.get("personality", "")),
+           "How you speak: %s" % entry.get("voice", ""),
+           "What drives you: %s." % "; ".join(entry.get("motivations") or []), ""]
     if not mem["recent"] and not mem["condensed"]:
-        out += ["## How it begins", pl_opening(state, args[0]), ""]
+        out += ["## How it begins", entry.get("opening", ""), ""]
     if mem["condensed"]:
         out += ["## What you remember from before"] + [c["text"] for c in mem["condensed"]] + [""]
     if mem["recent"]:
@@ -3556,10 +3561,9 @@ def cmd_brief(args):
     print(text)
 
 
-def pl_opening(state, pid):
-    """What the player knows at the start: their cast entry's opening."""
-    entry = next((e for e in content.cast() if e.get("id") == pid), {})
-    return entry.get("opening", "")
+def cast_entry(pid):
+    """The player's entry in the game's cast: who they are, and what they know at the start (`opening`)."""
+    return next((e for e in content.cast() if e.get("id") == pid), {})
 
 
 def cmd_log(args):
