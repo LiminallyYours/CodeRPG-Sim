@@ -1,13 +1,14 @@
-# Developing CodeRPG
+# Developing CodeRPG-Sim
 
-Notes for whoever works on the game next, human or Claude. `README.md` covers the layout, formats and features; this file covers how to work on it safely, and what was learned building it.
+Notes for whoever works on the fork next, human or Claude. `README.md` covers running a simulation, the layout, formats and features; this file covers how to work on it safely, and what was learned building it (the original's lessons included).
 
 ## Start here (Claude)
 
 In the simulation fork, the owner's messages are development or questions; Claude acts as the referee only inside `/rounds` (`.claude/skills/rounds/SKILL.md`, with `gm-turn` for each turn). There is no in-game reminder hook and no need for `ooc:`.
 - Never test in the real `state/save.json`; that's the player's game. Use a scratch copy (below).
 - Run `sh tools/check.sh` before and after changes.
-- If `HANDOFF.md` exists, read it next: it says where an in-progress build stands and what was decided.
+- Read `HANDOFF.md` next (where the build stands and what was decided), then `PLAN.md` and `SIMULATION-FORK-PROPOSAL.md`.
+- Anything that spends real tokens (a dry run, a live session) waits for the owner's say-so.
 
 ## The invariants
 
@@ -15,10 +16,11 @@ Break these and the design falls apart:
 1. **Only `rules/rpg.py` writes `state/save.json`.** Claude, agents and the mod never do. The library (`state/library/`) is written only by `rpg.py` and the owner's `tools/library.py`.
 2. **Code decides uncertain outcomes.** Claude never rolls or does damage math. Generated content gets its stats from tier tables in `balance.json`, never from the world agent.
 3. **Content holds world facts; instructions hold procedure.** No world facts in `CLAUDE.md`, the skills or the agent definitions. Story branching lives in content flags.
-4. **The mod is presentation only.** It reads the save and `rpg.py`'s printed output, and never writes game files. The game must work without it.
-5. **Narration is the last text of a turn.** The mod relies on this to tell story from notes (see *How the mod classifies text*).
-6. **NPC and world agents have no tools** (`tools: []`, `omitClaudeMd: true`). They propose; the GM checks and applies through `rpg.py`.
-7. **The kit knows no game.** `rules/`, `mod/`, `CLAUDE.md` and the skills never name a room, character, item or flag of a particular game. Anything particular to a game lives in `games/<id>/`: its content, its `look.json` and its `balance.json`. Both shipped games must keep passing every check, so the second one proves nothing slipped through.
+4. **The dashboard and the mod are presentation only.** They read the save, the log and `rpg.py`'s printed output, and never write game files; the dashboard's buttons ask `rpg.py run pause | end`. The game must work without them.
+5. **The story is stored last.** `narrate` records how things stand after the turn into the person's memory, so every state write of a turn comes before it. (For the original's mod, narration was the last text of a turn; see *How the mod classifies text*.)
+6. **Player, NPC and world agents have no tools** (`tools: []`, `omitClaudeMd: true`). They propose; the referee checks and applies through `rpg.py`.
+7. **The kit knows no game.** `rules/`, `mod/`, `CLAUDE.md` and the skills never name a room, character, item or flag of a particular game. Anything particular to a game lives in `games/<id>/`: its content, its `look.json` and its `balance.json`. Every game in `games/` must keep passing every check, so the others prove nothing slipped through.
+8. **It is the same game** (proposal section 2). A cast member decides only from what `rpg.py brief` prints, built from the same data a human player's screen is drawn from, and is told only the stories stored with `narrate`. Nothing they read names the machinery: `test_rules.py`'s `FORBIDDEN` pattern (game, rules, dice, flag, agent, model, player, log, d20, DC, roll, check, ids with underscores, …) is checked against every brief in the tests, and a dry run reads the real ones.
 
 ## Checks
 
@@ -40,7 +42,29 @@ RPG_SEED=7 python3 rules/rpg.py attack grukk
 ```
 `RPG_SEED` makes rolls repeatable, and overrides a run's own seed (`newgame <seed>`), which does the same thing for players across separate commands. `rpg.py game switch <id>` picks the game; each keeps its own save in the scratch copy's `state/`. Proposals for `generate` and `world-turn` are JSON files: write one to `proposals/x.json`, then run `rpg.py generate extra proposals/x.json`. Also test malformed shapes; the script must refuse them, never crash. Behaviour worth keeping belongs in `tools/test_rules.py`, which drives the CLI the same way.
 
-## Testing live
+A round by hand, with the reply and the story in files (the referee writes them with the Write tool; quotes and apostrophes don't survive the shell):
+```
+python3 rules/rpg.py game switch thirteenth_stroke && RPG_SEED=3 python3 rules/rpg.py newgame test-1
+python3 rules/rpg.py round start                      # ROUND 1: Hester Gimbal (hester), ...
+python3 rules/rpg.py brief hester                     # what she knows
+printf 'DO: I go north.\nJOURNAL: To see the square.\n' > proposals/reply.txt
+python3 rules/rpg.py reply hester proposals/reply.txt
+python3 rules/rpg.py move north --as hester           # the turn: --as on every rules command
+echo 'You climb to the square.' > proposals/story.txt
+python3 rules/rpg.py narrate hester proposals/story.txt   # ends her turn
+python3 rules/rpg.py round end                        # once everyone has had theirs
+```
+In a shell script, drive this from Python (`subprocess`), not zsh: zsh doesn't split an unquoted variable into words, so `for p in $order` runs once.
+
+## A dry run of the referee
+
+The check for anything that changes what the cast is told (`PLAN.md`: a step marked **dry run**). It spends real tokens: ask the owner first.
+1. A scratch copy without git: `cp -R . <scratch>/dry && rm -rf <scratch>/dry/.git <scratch>/dry/state/log`. Cut the cast in its `cast.json` if fewer people will do; `game switch <id>` and `newgame <seed>` there.
+2. The referee, headless, in the background: `cd <scratch>/dry && CLAUDE_CODE_FORCE_SESSION_PERSISTENCE=1 claude -p "/rounds 3" --model sonnet --settings .claude/settings.json --output-format stream-json --verbose > run.jsonl`. An untrusted scratch folder warns that its `permissions.allow` entries are ignored; the commands still ran (2026-10-24). Its last line carries the duration and cost.
+3. Read the log (`state/log/<run>.jsonl`): every `brief`, `narration` and `speech` against the `FORBIDDEN` pattern and by eye; every `coins` entry's reason; the `command` sequence against `gm-turn` and `/rounds`. Read `run.jsonl` for the agents spawned (each `player` with its cast model) and the referee's own text.
+4. `tools/dashboard.py --port <n>` on the scratch copy shows the run; for a screenshot, a Chromium browser runs headless (`--headless=new --screenshot=<png> --window-size=1280,1700 --virtual-time-budget=4000 <url>`; for phone width, load the page in a 390px iframe, since desktop Chromium won't lay out a window narrower than about 500px).
+
+## Testing live (the original's mod)
 
 `tools/play.py` drives a real interactive Claude Code session in a pseudo-terminal and captures everything it draws:
 ```
@@ -60,11 +84,11 @@ python3 tools/play.py /tmp/rpg-test '[[12, "I walk north into the tavern.\r"], [
 
 ## Debugging a real session
 
-Every session's transcript is a JSONL file in `~/.claude/projects/<project path with dashes>/`. To see what the GM actually did in a turn (tool calls, the exact text it wrote), find the file with `grep -l "<a phrase from the turn>"`, then walk its rows: `type` is `user` or `assistant`, and `message.content` holds the text, tool_use and tool_result blocks. Most display bugs so far were diagnosed this way.
+Every session's transcript is a JSONL file in `~/.claude/projects/<project path with dashes>/`. To see what the referee actually did in a turn (tool calls, the exact text it wrote), find the file with `grep -l "<a phrase from the turn>"`, then walk its rows: `type` is `user` or `assistant`, and `message.content` holds the text, tool_use and tool_result blocks. Most display bugs so far were diagnosed this way.
 
 ## How the mod classifies text
 
-This is the subtlest part of `mod/hooks/register.tsx`. If narration goes missing or notes leak, start here.
+The original's mod, unused in phase 1 of the fork but kept passing its tests. This is the subtlest part of `mod/hooks/register.tsx`. If narration goes missing or notes leak, start here.
 - **`turn.start`:** resets the per-turn bookkeeping, unless a GM turn is already running. A prompt typed mid-turn must not reset it.
 - **Every assistant text block of a non-`ooc:` turn is held `pending`,** hidden until the turn ends. Text still streaming is hidden while `running` is set.
 - **Each game tool call** (`isPlumbing`) moves the narration start forward, except recording-only commands (`WRITE_COMMANDS`: chronicle, remember, note, flag, coins, gain, lose, equip, library). The narration may come before those. A shell call that chains several commands is recording-only only if every one of them is (`onlyRecords`): the GM chains `remember …; scene end …`.
@@ -80,11 +104,11 @@ This is the subtlest part of `mod/hooks/register.tsx`. If narration goes missing
 
 ## Claude Code and mod API gotchas
 
-- **Subagents run in the background by default.** `.claude/settings.json` sets `CLAUDE_CODE_FORK_SUBAGENT=0` so the GM waits for NPC replies.
+- **Subagents run in the background by default.** `.claude/settings.json` sets `CLAUDE_CODE_FORK_SUBAGENT=0` so the referee waits for agents' replies.
 - **A subagent's reply arrives as a message of its own** (`<agent-message from="…">[Subagent hand-back]…`), even from a blocking spawn, and it raises the UserPromptSubmit hook like a typed prompt. The prompt hook skips those, task notifications and command output, so they neither pay a turn nor get the in-game reminder.
 - **SendMessage doesn't wait for a reply,** so every NPC line is a fresh spawn with the recent scene passed in.
 - **`tools: []` works** for a tool-less agent, and **`omitClaudeMd: true`** keeps `CLAUDE.md` out of it (verified).
-- **The shell refuses commands mixing braces and quotes** ("expansion obfuscation"), so JSON can't be passed through a heredoc. The GM writes proposals with the Write tool into `proposals/`, which needs an `Edit(proposals/**)` permission rule. `Write(...)` rules are ignored.
+- **The shell refuses commands mixing braces and quotes** ("expansion obfuscation"), so JSON can't be passed through a heredoc. The referee writes proposals and replies with the Write tool into `proposals/`, which needs an `Edit(proposals/**)` permission rule. `Write(...)` rules are ignored.
 - **Claude Code nudges long silent turns** to post a status update. That text is GM text like any other, and the classification above keeps it out of the story.
 - **`turn.complete` fires for subagent turns too,** with `agentId` set. `turn.start` doesn't carry one.
 - **Tool rows draw before their input has streamed in** (input `{}`), so unfinished game calls are hidden on suspicion and judged again when the input arrives.
@@ -110,15 +134,21 @@ This is the subtlest part of `mod/hooks/register.tsx`. If narration goes missing
 ## Changing things
 
 - **New feature that spends tokens:** if it goes beyond playing the game as written (baseline play is never charged), give its kind a price in `rules/balance.json` `meter.prices`, charge it with `charge(kind)` where the spending happens (after every check that could refuse), refuse with an in-fiction reason when `can_pay(kind)` is false, and give it a switch in `rules/presets.json` (all three presets, the same keys) read through `SETTINGS`.
-- **New `rpg.py` command:** add it to `COMMANDS`. If its output should show in the dice tray, add it to `TRAY_COMMANDS` and teach `trayLines` (`mod/hooks/tray.ts`) its format. If it only records something, add it to `WRITE_COMMANDS`.
-- **New save field:** bump `STATE_VERSION`, add a migration to `MIGRATIONS` (saves from version 7 on upgrade on load; older ones are refused), extend `refresh_view` if the mod needs it, and mirror it in `mod/types/index.d.ts`.
+- **New `rpg.py` command:** add it to `COMMANDS`. A referee command that names the person itself (`brief <id>`) goes in `REFEREE_COMMANDS`; one that may also run for no one, between rounds, in `NO_ONE_COMMANDS` (world turns). Anything a person is told needs a `FORBIDDEN` check in the tests and a dry run. For the original's mod: If its output should show in the dice tray, add it to `TRAY_COMMANDS` and teach `trayLines` (`mod/hooks/tray.ts`) its format. If it only records something, add it to `WRITE_COMMANDS`.
+- **New save field:** for a field read with `.get`, nothing more; otherwise bump `STATE_VERSION` and add a migration to `MIGRATIONS` (the fork starts at version 10, and refuses the original's saves). Extend `refresh_view` if an interface needs it.
 - **New content field:** document it in the README, teach `rpg.py validate` to check it, and use it in both shipped games.
 - **Writing JSON from Python:** use `ensure_ascii=False`, or icons such as ✦ are written as `\u2726`.
 - **New look or balance setting:** add it with a default to `rules/look.default.json` or `rules/balance.json` (validate rejects keys the defaults don't have), mirror look keys in `CoderpgLook` and `DEFAULT_LOOK` (`mod/hooks/look.ts`), and read it from the save's `view.look`, never from a game folder.
 - **New game:** a folder in `games/` with a `world.md`; everything else is optional. `validate` and `test_rules.py` pick it up automatically. It should also pass `validate --game <id> --kit-complete`, as both shipped games do.
-- **The GM's behaviour:** `CLAUDE.md` holds standing orders (keep it short), and `.claude/skills/gm-turn/SKILL.md` the procedure (the fork has no per-message reminder hook). Sonnet at medium effort cuts corners on short turns, so test procedure changes with it.
+- **The referee's behaviour:** `CLAUDE.md` holds the standing orders (keep it short), `.claude/skills/rounds/SKILL.md` the round and `.claude/skills/gm-turn/SKILL.md` the turn (there is no per-message reminder hook). Sonnet at medium effort cuts corners on short turns, so test procedure changes with it, in a dry run.
 
 ## Known limits
+
+- **Between people, only words for now.** Handing something over, trading, contests and harm wait for phase 2; the referee treats an attempt as refused.
+- **Rumors are heard among people,** not when someone tells them: the referee voices `[minor]` characters without a command the engine could catch, so a person hears the talk going around whenever any of the world's people is with them at their brief or `look`.
+- **The meter refills per Claude Code session.** A long run on one meter slows to the game as written once it's spent (no world turns, no new orders), and the cast sees only that the maker is busy.
+
+The original's mod (unused in phase 1):
 
 - **Narration appears all at once** at the end of a turn, because text is held back so GM notes can't leak; it then shows a paragraph at a time (`page.tsx`, 150 ms each, dim then full: a terminal has no opacity, and `Markdown` draws only plain or dim). A key pressed meanwhile (`prompt.edit`) shows it whole.
 - **A render's `viewport.columns` is the transcript's column** (narrower beside a docked pane); `$.ui.panes()` says whether the pane is placed and shown. Render hooks may not write state.

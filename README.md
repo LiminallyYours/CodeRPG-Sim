@@ -1,81 +1,99 @@
-# CodeRPG
+# CodeRPG-Sim
 
-A text RPG that runs inside Claude Code. Claude is the game master, and you type what you do at the normal prompt.
+A fork of CodeRPG, the text RPG that runs inside Claude Code, in which nobody plays by typing. A cast of AI characters plays the game as its players, in rounds, and the owner watches the run on a dashboard. Each character has a personality, motivations, attributes and money; each can pay people in the world to make things or build places, and has to find out for themselves how to earn more. Everything they are told, what they do, why, and what it costs is logged.
 
-## How to play
-1. Open Claude Code in this folder with the interface mod: `cd CodeRPG && claude --plugin-dir ./mod`. Plain `claude` works too, without the game look.
-2. Type `/newgame`. Add a seed to replay a run exactly (`/newgame ember-4821`), or `daily` for today's world, the same for everyone; the title card shows the date and seed. Type `/game` to see the installed games, and `/game <id>` to switch; each game keeps its own save.
-3. Type actions in plain English, for example "look around", "go to the tavern", "ask Pell about the troll", "attack the troll".
-4. To talk to Claude as a developer instead of the GM, start your message with `ooc:`. Without it, a hook reminds the GM that the message is an in-game action.
-5. Instant commands (no Claude turn, no cost): `/inventory`, `/map`, `/sheet` (reopens the margin, the pane beside the story), `/sound` (turns sound effects on or off) and `/budget` (what's left of the meter, what the extras cost, what's switched on, and what the session really used in tokens).
+The game is the instrument, so it stays the same game: a character's turn is a human player's turn with a name attached. It goes through the same turn procedure (`gm-turn`) and the same rules commands, and the character decides from the same information a human would see. The design is `SIMULATION-FORK-PROPOSAL.md`; the build plan is `PLAN.md`; where the build stands is `HANDOFF.md`.
 
-Two games ship on the kit:
-- **The Dark Lighthouse** (`dark_lighthouse`): a fishing village with a stolen lamp lens. Six rooms, three characters, six items and one quest with three branches.
-- **The Flooded Station** (`flooded_station`): a half-flooded research station and a rising tide. Six rooms, three characters, five items and one quest with two branches. It's deliberately different: its own colors, stat names (Grit, Reflex, Know-how), currency (credits), tab names and a faster world clock, with no time of day.
+## Running a simulation
+1. Open Claude Code in this folder: `cd CodeRPG-Sim && claude`. Your messages are development requests or questions; Claude acts as the **referee** only inside `/rounds`.
+2. `/newgame [seed | daily]` starts a fresh run of the active game with its cast, and tells you the world, the seed and who is in the cast, with their models and where each starts. The same seed rolls the same run. `/game <id>` switches games.
+3. `/rounds 3` runs three rounds; `/rounds` alone runs until the run stops (nobody is still playing, or `rounds.max_per_run` is reached, 50 in every preset). The referee writes one line to you per round.
+4. Watch it: `python3 tools/dashboard.py` and open `http://127.0.0.1:8765/` (the port is the `dashboard.port` setting). It refreshes every few seconds: the round and its order, each person's place, health, money, belongings and latest journal line, and a feed of what each did, why, and the story they were told.
+5. Stop it gracefully, three ways, each letting the round in progress finish: type to the referee during a run (it finishes the round, then answers); press **Pause after this round** or **End the run** on the dashboard; or run `python3 rules/rpg.py run pause | end` from any terminal. `/rounds` resumes a paused run; an ended run is closed for good, and `/newgame` starts another. Esc is the hard stop: the next `/rounds` finishes the open round from whoever's turn it was.
+6. For analysis elsewhere: the dashboard's **Download the whole log as CSV**, or `python3 tools/dashboard.py --csv [run] > run.csv`, one row per log entry.
+
+What a run costs in real tokens: roughly one referee turn and one player-agent reply per person per round, plus the characters' and the world's agents when they're called. The dry run (two people, three rounds, a Sonnet referee) took 4 minutes and about $1.20.
+
+Three games ship on the kit, each with a cast:
+- **The Thirteenth Stroke** (`thirteenth_stroke`), the simulation's world: the town of Wumbleby, where the children won't wake, with the whole economy the simulation needs (a maker, a builder with two build spots, paid work at Nell's fizz-still and in the Gearloft, and Mags Ragwort, who buys). Its cast: Marigold Thimble (Sonnet), Hobb Ashcombe (Sonnet), Dilly Quickstep (Haiku) and Hester Gimbal (Opus). It uses the `simulation` preset.
+- **The Dark Lighthouse** (`dark_lighthouse`) and **The Flooded Station** (`flooded_station`), the original's two games, each with a cast of two, so the tests prove nothing in the kit is tied to one world.
+
+## The cast and a round
+- **The cast** (`games/<id>/cast.json`) is fixed per game and changes only when the owner has Claude redesign a character. Each entry gives an id, a name, the model its agent runs on, a personality, a voice and motivations (written in the person's own first person), attributes, health, money, belongings, a home room and an `opening`: the only thing they know at the start. `validate` checks it.
+- **A round:** `rpg.py round start` draws the order, a shuffle from the run's seed and the round number, balanced so that over a run each person goes before each other one about equally often. For each person in turn the referee runs `rpg.py brief <id>`, spawns the `player` agent with it (fresh, blocking, on that person's model), stores the reply (`DO:` and `JOURNAL:`) with `rpg.py reply`, runs the turn through `gm-turn` with `--as <id>` on every rules command, and stores the story with `rpg.py narrate`. `round end` closes the round, moves the world's clock, and says when a world turn is due (every 2 rounds in the simulation preset), which the referee then runs.
+- **The brief** is everything a person knows, from the same data a human player's screen is drawn from: a note to themselves about who they are, how it began for them (their first turn only), what they remember, where they are and who is with them, their health, money and belongings, their places and orders, what they're working on, the people they've met, the places they've been, and the talk they've heard. Never game words, rules, dice, flags, other people's private state, the log or the meter: to them it's a life, and the others are people.
+- **Memory:** the last `memory.recent_rounds` rounds word for word (what they did and why, what they were told, what happened, how things stood after); every `memory.condense_every` rounds, or past `memory.max_chars`, the referee has the person condense the older ones in their own voice (`rpg.py memory condense | store`). The log keeps the originals.
+- **People speaking to people:** what a person says aloud (`rpg.py say`) goes into the memory of everyone else in the room, who read it on their next turn and may answer then. Trades between people, contests and harm wait for phase 2.
+
+## The log
+`state/log/<run id>.jsonl`, one JSON object per line, written only by `rpg.py` as things happen; the save holds where things stand, the log how they got there. Every entry carries the round, the acting person's place in the order, who acted and the move count. Kinds: `brief` (the full text handed over), `action` (the DO and JOURNAL lines and the model), `command` (each rules command and what it printed), `narration`, `speech`, `coins` (every change, with its reason), `order` (each step of an order from `asked` to `used`), `memory` (each condensing), `round` (the order drawn, and the end), and `run` (pauses, resumes, the end). `rpg.py log [n]` prints the last entries.
 
 ## Layout
 ```
-CLAUDE.md                     GM role + standing orders (procedure only, no world facts)
-.claude/skills/gm-turn/       the turn-by-turn procedure
-.claude/skills/newgame/       /newgame
+CLAUDE.md                     the owner's messages are development; the referee's standing orders
+.claude/skills/rounds/        /rounds [n]: the referee runs rounds of play
+.claude/skills/gm-turn/       one person's turn: read state as them, resolve with rpg.py --as <id>, narrate
+.claude/skills/newgame/       /newgame: a fresh run with the game's cast, reported to the owner
 .claude/skills/game/          /game: list the installed games or switch between them
-.claude/skills/newworld/      /newworld <a sentence>: a whole new world, forged in the background while you play
-.claude/agents/npc.md         the NPC subagent: no tools, sees only the brief it's given
-.claude/agents/world.md       the world subagent: proposes new people/places/items/side quests as JSON
-.claude/agents/worldsmith.md  the worldsmith (Opus): writes a whole new world into its draft folder, in the background
-.claude/hooks/forge_guard.py  the worldsmith's guard: it may write only in its draft and run only the world check
+.claude/skills/newworld/      /newworld (from the original; unused in phase 1)
+.claude/agents/player.md      a cast member: no tools; given their brief, says what they do and why
+.claude/agents/npc.md         the world's characters with agents: no tools, sees only the brief it's given
+.claude/agents/world.md       the world subagent: proposes new people, side quests, orders shaped, world turns
+.claude/agents/worldsmith.md  forges a whole new world (from the original; unused in phase 1)
+.claude/hooks/forge_guard.py  the worldsmith's guard
 .claude/hooks/session_start.py  refills the meter each time Claude Code is opened here
-.claude/settings.json         lets the GM run rules/rpg.py without permission prompts;
-                              makes the GM wait for NPC replies (CLAUDE_CODE_FORK_SUBAGENT=0)
+.claude/settings.json         lets the referee run rules/rpg.py without permission prompts;
+                              makes it wait for agents' replies (CLAUDE_CODE_FORK_SUBAGENT=0)
 games/<id>/                   ONE GAME: everything particular to it lives here
   world.md                    title, start room, starting stats/kit, opening
+  cast.json                   the people who play it
   rooms/ characters/ items/ quests/ tables/ art/   one file per room, character, item, quest...
-  look.json                   its look: colors, stat and tab names, currency, spinner phrases
+  look.json                   its look: colors, stat names, currency
   balance.json                its rule numbers, laid over the kit's rules/balance.json (optional)
-  settings.json               the owner's cost switches: a preset plus overrides
+  settings.json               the owner's switches: a preset plus overrides
 rules/                        THE KIT: knows nothing about any particular game
   RULES.md                    the mechanics in plain language
-  WORLD-GUIDE.md              how to write a whole world: every format, and what a complete world needs
+  WORLD-GUIDE.md              how to write a whole world
   balance.json                every tunable number (the defaults)
   look.default.json           the default look, which each game's look.json changes
-  presets.json                the owner's presets: thrifty, normal, rich
+  presets.json                the owner's presets: thrifty, normal, rich, simulation
   dice.py  content.py  rpg.py the code that rolls dice and does the arithmetic
   generate.py                 checks world-agent proposals and turns them into run content
   png.py                      reads, checks and writes room pictures (standard library only)
-  art/terrain/                the kit's pictures for rooms without their own: water, grass, stone, indoors
-proposals/                    world-agent JSON waiting to be applied (emptied automatically)
-state/save.json               what has happened in the game being played (created by /newgame)
-state/shelf/<id>.json         the other games' saves, waiting while you play another
+proposals/                    what the agents wrote, waiting to be applied (emptied automatically)
+state/save.json               where the run stands (created by /newgame)
+state/log/<run id>.jsonl      the record of each run
+state/shelf/<id>.json         the other games' saves, waiting while another is played
 state/active.json             which game is being played
-state/meter.json              what's left to spend this session (shared by every game)
-state/forge/<draft>/          a new world being written by the worldsmith agent (/newworld)
-state/worlds/<id>/            the worlds forged in play: games like those in games/, but yours, not the kit's
-mod/                          the Claude Code interface mod (Phase 3), loaded with --plugin-dir
-tools/                        check.sh (every automated check), test_rules.py (engine tests), play.py (drive a live session),
-                              pictures.py (redraws the shipped room pictures),
-                              settings.py (the owner's switches; the GM can't run it), library.py and worlds.py
-                              (the owner keeps or forgets library entries and forged worlds)
-DEVELOPING.md                 how to work on the game safely: checks, testing, invariants, gotchas
+state/meter.json              what's left of the owner's brake on extras (shared by every game)
+state/library/<game>.json     what earlier runs made and befriended, carried into later ones
+mod/                          the original's interface mod (unused in phase 1; its checks keep passing)
+tools/                        check.sh (every automated check), test_rules.py (engine tests),
+                              dashboard.py (the live view and the CSV export), settings.py (the owner's switches;
+                              the referee can't run it), play.py (drive a live session), pictures.py,
+                              library.py and worlds.py (the owner keeps or forgets library entries and worlds)
+DEVELOPING.md                 how to work on it safely: checks, testing, invariants, gotchas
 ```
 
 ## Technical choices
-- **Python 3 with the standard library only**, compatible with 3.9. There's nothing to install, and macOS already ships it.
-- **Content is Markdown with a small front-matter block.** The front matter holds the data the scripts need, such as exits, items, weights, damage and combat stats. The body holds prose the GM reads, such as descriptions, personality, voice, knowledge, and trades. The front matter is a tiny YAML subset (`key: value`, `- list`, one level of `sub: value`), so it's parsed by about 40 lines of code with no PyYAML dependency.
-- **The kit and the games are separate.** `rules/` and `mod/` never name a room, character or item. Each game is a folder in `games/` with its content, its look and its rule numbers. The rules script copies the game's look into the save (`view.look`), so the mod draws each game differently with no code change. The game master reads content only through the rules script, which applies the current flags, so the procedure doesn't depend on where files are: `look` and `move` end with the room's text as it reads now (`ROOM TEXT:`), so a move is one command, and `rpg.py show` reads everything else.
-- **State is one JSON file per game**, `state/save.json` for the one being played, now at `"version": 9`. Version 9 added `run.present` (who was in the scene as of the last look or move, so a character a flag has just removed can still speak that turn); version 8 added orders placed with makers and builders (`run.commissions`). Version 7 added `game` (which game the save belongs to) and `view.game` / `view.look`; older saves can't be continued and are replaced by `/newgame`. Earlier versions: version 2 added NPC memory. Version 3 added `map` (the rooms you've visited and their open exits) and `view` (display-ready values recomputed on every save) for the interface. Version 4 added `met` (characters you've seen), each foe's `max_hp`, and people, foes, quests and room art in `view`. Version 5 added `run`: everything about this particular playthrough (rolls, variants, the clock, generated content, notes, the chronicle and rumors). Version 6 gave each run an `id`, so the interface can tell a new game from a continuing one. Only `rpg.py` writes it, and it writes atomically. Switching games moves the current save to `state/shelf/` and brings the other game's back. If the format changes later, add an upgrade function to `MIGRATIONS` in `rpg.py` and saves from version 7 on will upgrade on load.
-- **The rules engine is one CLI**, `python3 rules/rpg.py <command>`. Every roll and every change to state goes through it, so outcomes can't be fudged. It prints plain text for the GM to narrate. A `REFUSED:` result means the action didn't happen and state is unchanged.
-- **The GM prompt is split.** `CLAUDE.md` holds the short standing orders. The `gm-turn` skill holds the longer procedure. Neither contains any world facts.
+- **Python 3 with the standard library only**, compatible with 3.9, the dashboard included. There's nothing to install.
+- **Content is Markdown with a small front-matter block.** The front matter holds the data the scripts need, such as exits, items, weights, damage and combat stats. The body holds prose the referee reads, such as descriptions, personality, voice, knowledge and trades. The front matter is a tiny YAML subset (`key: value`, `- list`, one level of `sub: value`), parsed by about 40 lines of code with no PyYAML dependency.
+- **The kit and the games are separate.** `rules/`, the skills and `CLAUDE.md` never name a room, character or item. Each game is a folder in `games/` with its content, cast, look and rule numbers. The referee reads content only through the rules script, which applies the current flags: `look` and `move` end with the room's text as it reads now (`ROOM TEXT:`), and `rpg.py show` reads everything else.
+- **State is one JSON file per game**, `state/save.json` for the one being played, at `"version": 10`: `players`, keyed by id, holds each cast member's place, stats, belongings, map, the people they've met, their memory and the rumors they've heard; the world (`room_items`, `npcs`, `flags`, `run`) is shared. The original's single-player saves can't be continued. Only `rpg.py` writes it, and it writes atomically.
+- **The rules engine is one CLI**, `python3 rules/rpg.py <command>`. Every roll and every change to state goes through it, so outcomes can't be fudged. A command that acts for a person takes `--as <id>`, and in an open round only the person whose turn it is can be acted for. A `REFUSED:` result means the action didn't happen and state is unchanged.
+- **The referee's prompt is split.** `CLAUDE.md` holds the short standing orders, `/rounds` the round, and `gm-turn` the turn. None contains any world facts.
+- **The dashboard is presentation only**, like the mod was: it reads the save and the log, and its buttons ask `rpg.py run pause | end`. It serves this machine only.
 
-## NPC agents (Phase 2)
-- **Who gets an agent:** every character whose file says `minor: no` speaks through its own `npc` subagent. Characters marked `minor: yes` (here, Pell and Morwen) are played by the GM directly to save cost. Changing which is which is a one-line edit.
-- **What an NPC knows:** `rpg.py npc-brief <id>` builds the NPC's whole world from its character file. That's every section except `## GM only`, plus the `## If` sections that apply now (without the flag names). Then it adds who else is in the scene and the character's **memory of the player**, which is kept in state (`npc_memory`, at most 6 short lines).
-- **Each exchange is one fresh, blocking spawn.** The GM passes the brief, the last few lines of the scene, and what just happened. I tested continuing an agent with SendMessage, and it doesn't wait for the reply, so it can't keep turns in sync. A fresh spawn also means the NPC always sees current state.
-- **NPCs propose, the GM decides.** The NPC replies with `SAY` / `INTENT` / `REMEMBER`. The GM checks each intent against the character file's `## GM only` rules and applies it with `rpg.py`, or doesn't. If an NPC contradicts state, state wins. NPCs have no tools at all (`tools: []`), and they don't load CLAUDE.md, so they can't touch files.
+## The world's characters with agents
+- **Who gets an agent:** every character whose file says `minor: no` speaks through its own `npc` subagent. Characters marked `minor: yes` are voiced by the referee directly to save cost. Changing which is which is a one-line edit.
+- **What an NPC knows:** `rpg.py npc-brief <id>` builds the NPC's whole world from its character file. That's every section except `## GM only`, plus the `## If` sections that apply now (without the flag names). Then it adds who is present, by name, as people (nothing marks the cast as players), and the character's **memory of each of them**, kept per person in state (`npc_memory[<npc>][<person>]`, at most 6 short lines).
+- **Each exchange is one fresh, blocking spawn.** The referee passes the brief, the last few lines of the scene, and what just happened. I tested continuing an agent with SendMessage, and it doesn't wait for the reply, so it can't keep turns in sync. A fresh spawn also means the NPC always sees current state.
+- **NPCs propose, the referee decides.** The NPC replies with `SAY` / `INTENT` / `REMEMBER`. The referee checks each intent against the character file's `## GM only` rules and applies it with `rpg.py`, or doesn't. If an NPC contradicts state, state wins. NPCs have no tools at all (`tools: []`), and they don't load CLAUDE.md, so they can't touch files.
 - **Two agents in one room** can trade lines, up to the owner's `npc_agents.lines_per_exchange` (4 in the normal preset) per turn. In the starter world this happens in the friendly-troll ending, when Grukk and Ysolde are both in Harbor Square.
 - **Model:** NPCs run on `sonnet` (set in `.claude/agents/npc.md`). Switch to `haiku` for cheaper, faster, flatter characters.
 
 ## What the extras cost: the meter and the switches
-Playing the game as written is free. The meter is a budget for the **extras** that go beyond it, shown as an in-world resource: **lamp oil** in the Lighthouse, **power** on the station (each game names and styles its own in `look.json`). It sits in the status band and the pane, warns when it runs low, and refills each time Claude Code is opened in the folder.
+In the simulation the meter is the owner's brake on real token spend, never something the cast sees: when it's spent, the makers take no new work and the world doesn't stir off-screen, and the cast sees only that the maker is busy. It refills each time Claude Code is opened in the folder, so a long run on one meter (30 in the simulation preset) slows to the game as written. Playing the game as written is free. The meter is a budget for the **extras** that go beyond it, shown as an in-world resource: **lamp oil** in the Lighthouse, **power** on the station (each game names and styles its own in `look.json`). It sits in the status band and the pane, warns when it runs low, and refills each time Claude Code is opened in the folder.
 
 | | Price (the game's `balance.json`) | When the meter can't pay |
 |---|---|---|
@@ -93,21 +111,14 @@ One point is roughly one extra round of game-master work (about 10–15k tokens,
 
 | Preset | Meter | NPC agents | World turns | Generation | Crafting | Building | Promotion | Side scenes |
 |---|---|---|---|---|---|---|---|---|
-| `thrifty` | 10 | off: the GM voices everyone | off (and no plans) | extras, rooms and items only, 6 per run | 2 orders per run | 1 per run | off | off |
+| `thrifty` | 10 | off: the referee voices everyone | off (and no plans) | extras, rooms and items only, 6 per run | 2 orders per run | 1 per run | off | off |
 | `normal` | 30 | on, 4 lines between two per turn | every 5 moves, with plans | everything the game allows, 16 per run | 5 orders | 3 | 2 per run, after 3 conversations | 2 per run, 6 replies each |
 | `rich` | 60 | on, 6 lines | every 4 moves, with plans | everything the game allows, 24 per run | 10 orders | 5 | 4, after 2 | 4, 10 replies |
+| `simulation` | 30 | on, 4 lines | every 2 rounds, with plans | people and side quests only (rooms and items only when paid for), 16 per run | 10 orders | 5 | 2, after 3 | off |
 
-Change them with `python3 tools/settings.py preset thrifty` or `set npc_agents.characters.grukk false`; `/budget` shows what's in effect. The station overrides one switch: its world turns come every 4 moves.
+Change them with `python3 tools/settings.py preset thrifty` or `set npc_agents.characters.grukk false`; `show` lists what's in effect. The station overrides one switch: its world turns come every 4 moves. The `simulation` preset also turns off the deadline clock, curses and new worlds, moves the world's clock once per round (`rounds.clock`), and holds the memory, round and dashboard settings.
 
-**What a session really used.** The prices above are estimates. Below them, `/budget` shows what this Claude Code session actually used, in tokens, as the mod counts it from every model request (the game master's and each helper's):
-- **per play turn:** seconds, requests and weighted tokens (input + 1.25 × cache writes + 0.1 × cache reads + 5 × output, the API's price ratios), the figures to compare before and after a speed change;
-- **by who:** the storyteller, the characters' agents, the world agent and the worldsmith;
-- **extras:** points spent, and what a point really cost: the turns that spent points less as many plain turns, per point, set against the 10–15k a point is priced as;
-- **plan usage:** how far the session moved the 5-hour and weekly windows, on a subscription;
-- **development turns** (`ooc:`), kept out of the play figures;
-- **the last 10 sessions**, kept in the mod's own storage, per project folder.
-
-It counts per Claude Code session, as the meter refills, and carries on across `/newgame`. No dollar figure: on a subscription it would only be an estimate. Without the mod there's nothing to count with.
+**What a run really used.** The prices above are estimates. The original's mod counted real tokens per session (`/budget`), but phase 1 doesn't load it; a headless run (`claude -p "/rounds 3" --output-format stream-json`) reports its cost in its final line.
 
 ## A different game every run
 The authored world is fixed, but each run varies within limits the content sets, and the world can grow during play. This replaced the original rule "never invent anything": nothing is invented freely, but the **world agent** may propose new things that the rules script checks and stores.
@@ -131,33 +142,18 @@ The authored world is fixed, but each run varies within limits the content sets,
 | **World turns:** every few moves (the owner's `world_turns` setting) the world agent adds rumors and moves generated people around | world agent / checks | `settings.json` | `run.rumors` |
 | **People with plans:** on a world turn, each major character the player isn't with may do one thing their file allows: Ysolde walks down to the quay or sleeps with her door barred, Grukk forages on the coast road, Halloran checks her tanks or dozes off, Bucket mops the Control Room. The change sticks until another step undoes it. Close by, the player notices a sign (a sentence in the story and a chime); further off, it becomes a rumor | the world agent picks among the steps open now; `rpg.py` checks and applies them | character `## Plan:` sections; room conditions on the plan flags; `world_turns.plans` | flags, `run.signals`, `run.rumors` |
 | **Side scenes:** two agent characters in the same place may play a short scene for fun: Grukk begging Ysolde to let him hold the lens (after the friendly ending), Bucket and Halloran arguing over a puddle (when Bucket's plan brings it up to the Control Room). It starts only if you take it up; each thing you say gets one reply from each, up to the scene's cap; it may end with a coin and always with a line in the chronicle. It never touches the story | `rpg.py scene start\|end` checks and counts; the npc briefs carry it | `games/<id>/scenes/*.md`; `side_scenes` | `run.scenes`, `run.chronicle` |
-| **Notes and chronicle:** small details the GM established, and one line per significant event | GM, through `rpg.py note` and `chronicle` | | `run.notes`, `run.chronicle` |
+| **Notes and chronicle:** small details the referee established, and one line per significant event | the referee, through `rpg.py note` and `chronicle` | | `run.notes`, `run.chronicle` |
 
 **How generation works:**
 1. **Brief:** `rpg.py world-brief <kind>` writes the agent's brief: tone, public knowledge, where you are, every name in use, and the JSON shape.
-2. **Proposal:** the `world` agent (no tools) replies with JSON. The GM saves it to `proposals/`.
+2. **Proposal:** the `world` agent (no tools) replies with JSON. The referee saves it to `proposals/`.
 3. **Check:** `rpg.py generate <kind> <file>` validates the proposal and either refuses it with a reason or stores it.
 
 Generated things are then as real as authored ones for the rest of the run: `look` marks them `[generated]`, and `rpg.py show` prints them like a content file. Each run allows `generation.max_per_run` generated entities in all (16 in the normal preset). An adventure that wants none sets `generation:` to `no`.
 
-## The interface mod (Phase 3)
-`mod/` is a Claude Code plugin made of function hooks, written in TypeScript and run by Claude Code itself, with nothing to install. It reads `state/save.json` and the rules script's printed output, and it never writes game files. A *play turn* is any turn that doesn't start with `ooc:` and touches the game. In `ooc:` turns, Claude Code looks normal.
 
-| What you see | How |
-|---|---|
-| **The page.** Narration is plain prose, 72 columns at most, centered in the space beside the pane (at least 4 in; on a very wide screen without the pane, centered in the first 120 columns, so it stays near the prompt), appearing a paragraph at a time: each fades in dim, then full; any key shows the whole turn. Arriving somewhere puts a rule on top: `──── The Gull · dusk ────`. When someone speaks, their paragraph sits beside a keyline in their color, under their name. Under a turn that changed anything, one dim change line, the record you can trust: `✧ −2 ♥ · +5 coins · gained Brass Lens · ✓ objective · the world grows · Gorse Thicket`. A new game opens with a title card between thin rules, and finishing the quest or falling adds an ending card. | Story text is remembered per session, so resumed sessions show older narration plain. The change line comes from the save as the turn found it and left it, not from the prose. |
-| **Dice tray.** Checks, attacks, rolls, damage and healing show as one line each, e.g. `🎲 Might check: d20 16 +1 = 17 vs DC 14 SUCCESS`. Every other plumbing call (rules script, content reads, the turn skill, NPC agents) is hidden. | Parsed from the rules script's output. |
-| **In-world chrome.** The waiting line says things like "The fight is on" or "Grukk considers your words" instead of Claude's words, with no timer or token count (beside the pane the band carries it; otherwise the mod draws it at the page's column). The turn timer is hidden, and your own words show dim, after a quiet `› go north`. The hint under the prompt is the game's (`⏎ act · ooc: speak to the builder · ctrl+x tab to the margin · /guide help`), and Claude Code's mode labels on the right are hidden in play. | Claude Code's own hint returns in `ooc:` turns. A mod can't restyle the prompt's `❯` or hide the permission-mode label ("⏵⏵ auto mode on") Claude Code puts in front of the hint. |
-| **Status band** above the prompt. Beside the docked pane: `♥ 10`, red or cyan for the turn it changed, and while Claude works, what it's doing (`♥ 10 │ ◌ Reading the room`); the turn's changes are in the change line under the story. Without the pane: `◆ The Gull · ♥ 12 · ◎ 3 · ✦ 28 · ⧗ 14 · dusk · ▸ current objective`. | |
-| **The margin**, a pane of six sections under thin labelled rules, no boxes. **Where:** room art, the place, the time and weather as a sentence. **You:** health, the meter and coins as exact numbers with grey bars (amber when the meter runs low, red when health is at a quarter or the meter is spent), any foe under health, and your stats. **At stake:** the clock in segments (red at 3 moves or fewer), every objective still in play, curses. **Act:** exits (keys `1`–`9`) and `look around` (`l`), which put the move in your prompt box for you to send with Enter, and `talk to …` in each speaker's color. **Carrying:** what you have, stacked, with the weight. **More**, pinned at the bottom: `m` map, `j` journal, `g` guide, each taking over the pane (the same key again, `h`, or `‹ back` returns). What the last turn changed stays colored until the next one: health red or the heal color, coins and the meter the heal color or amber, a new item the heal color. **Map:** colored tiles with a legend. **Journal:** quests, the story so far, rumors, and the people you've met. | Docks by itself on terminals 144 or more columns wide (asking for 58 columns); `/sheet` opens it otherwise. Labels and the map and journal keys are each game's (`sections`, `tab_keys`). When the dock is too short, the carried list gives way first (`+3 more · /inventory`), then the art. Buttons take clicks in fullscreen mode, or keys once the pane has focus. |
-| **Living world.** The status band and the margin show the clock (`⧗ 14`, red when 3 moves or fewer are left), time and weather. The dice tray shows encounters and "✧ The world grows: …" when something is generated. The Journal adds side quests, failed quests, "The story so far" and "Heard around". Losing the main quest ends with a quieter "THE END" card. | |
-| **Feedback.** Routine changes go in the change line. Toasts are kept for what needs attention now and isn't in the story: the resource running low, out or refilled, a curse taking hold, a new world ready. Someone acting on their plan close by gets only a chime, since the story tells it. What changed stays colored in the margin until the next turn, and sound effects play for dice, hits, misses, coins, healing, footsteps, the quest fanfare and defeat. | `/sound` toggles sound, and the setting is remembered. Sounds play through macOS `afplay`. `mod/sounds/generate.py` rebuilds them. |
-| **Instant commands:** `/inventory`, `/map`, `/sheet`, `/sound`, `/budget`, `/guide` (how to play, with the keys and commands in the game's own names). | No Claude turn, no cost. |
-| **Look and feel.** The title card types itself out and an ending card draws in line by line. In a fight, both health bars share one line, drain and flash, and the damage rises and fades; dice tumble before every result. The map is colored tiles by terrain, with water rippling and your marker blinking. While Claude works, the waiting line says which stage the turn is in, in the game's voice, with a soft chime per stage. The accent color shifts with the time of day. | Animations are surface modules (`reveal.tsx`, `trayfx.tsx`, `tilemap.tsx`) on the terminal's own frame clock (and `page.tsx` for the paragraphs): each plays once, when fresh, and history is drawn still. Each game picks its colors, phrases and sounds in `look.json`. |
-| **Curses.** Under a curse, your row shows your words as they came out (✶), the band and the margin name the curse, and characters react to what you actually said; the game master still knows what you meant, so a cursed "go north" still goes north. `ooc:` and slash commands are never cursed. | The prompt hook asks `rpg.py curse-text` and gives the GM both versions; the mod draws your row with a port of the same transforms. |
-| **A clean start.** `/newgame`, and `/game <id>` when it switches to another game, first clear the screen and Claude's conversation, so the new game starts lean. The save keeps everything that matters. | The mod runs `/clear` first. Without the mod, nothing is cleared. |
-
-Checks: `sh tools/check.sh` runs everything, including `claude plugin test mod` (99 tests) and `python3 tools/test_rules.py`.
+## The interface mod (from the original)
+`mod/` is the original game's Claude Code plugin, which drew the story, the dice tray and the margin for a human player. Phase 1 of the fork doesn't load it; its code and tests stay, and keep passing in `sh tools/check.sh`, but its type file lags the version 10 save. Watching a run as a human player sees it, or playing alongside the cast, is later work.
 
 ## Content format
 ```markdown
@@ -179,7 +175,7 @@ Extra prose shown only when that flag is set.
 - **Conditions** use `(if flag)`, `not`, `and` and `or`, with `and` binding tighter than `or`. They work on exits, items and characters in front matter, and on `## If …` sections in the body.
 - **Characters** with `hp`, `defense`, `attack` and `damage` can be fought. Defeating one sets `<id>_defeated` automatically. `minor: yes|no` decides who plays them. A `## GM only` section holds mechanics the character itself must never see.
 - **Items** have a `weight`, plus `damage` (for weapons) or `heal` (for consumables).
-- **Flags** are set by the GM only when a content file says so. All branching is written in the content files. Conditions can also use two automatic names: `has_<item>` (carrying it) and `met_<character>` (have seen them).
+- **Flags** are set by the referee only when a content file says so. All branching is written in the content files. Conditions can also use two automatic names: `has_<item>` (carrying it) and `met_<character>` (have seen them).
 - **Quests** list their `objectives:` in front matter, each ending `(done when <condition>)`. The journal shows the finished objectives and the current one.
 - **Room pictures** are optional: `games/<id>/art/<room id>.png`, shown in the margin's Where section as a mosaic 44 cells wide and 14 rows tall (two pixels to a cell, so 44 x 28 pixels; a picture 4:3 or wider is cropped to that around its middle and averaged down). At most 256 pixels wide and 64 KB, not interlaced. A room without one takes a picture for its terrain: the game's own (`games/<id>/art/terrain/<terrain>-<n>.png`), else the kit's (`rules/art/terrain/`, for water, grass, stone and indoors), always the same one for the same room; with none, a field in the terrain's map colors. `python3 tools/pictures.py` redraws the shipped ones (`--preview sheet.png` shows them all); any can be replaced by a hand-made PNG of the same name. `rpg.py` decodes the picture into the save (`view.picture`), so the interface only ever reads the save.
 - **Room art** (text) is optional too: `games/<id>/art/<room id>.txt`, plain text up to about 30 columns, shown where there's no picture (off the terminal).
@@ -191,7 +187,7 @@ Extra prose shown only when that flag is set.
 - **Rooms** may give `terrain:` (a kind from the look's `terrain`, e.g. water, grass, stone, indoors; the station adds metal and flooded) and `color:` for their map tile. Generated rooms take a terrain too, or their neighbour's.
 - **Curses** (`games/<id>/curses/<id>.md`) give `effect:` (`reverse_words`, `mirror`, `word_limit <n>` or `suffix "<phrase>"`), `caused_by:` and `cured_by:` (conditions), and prose: how it shows, the cure, and a `## GM only` section. A curse is on the player while its cause holds and its cure doesn't, so none survives a new game. `validate` refuses a curse whose cure nothing in the game can bring about. The Dark Lighthouse has the Backwards Tongue (a cracked mirror in the troll's hoard; Pell's salt cures it); the station has Radio Habit (the comms headset; Halloran snaps you out of it).
 - **Plans** (major characters only): each `## Plan: <step> (if <condition>)` section in a character file is one thing they may do off-screen, with the lines `does:` (a few words, for the world agent), `sets:` or `clears:` (one of their own flags, `<id>_<word>`), `near:` (what the player notices in or next to the room it happens in) and `rumor:` (what people say otherwise). The rooms do the rest with conditions on those flags: who stands where (`- ysolde (if not lamp_lit and not ysolde_on_quay)`), which ways are barred, and `## If` prose for how a place looks while someone's away. `show` and the NPC's own brief leave plan sections out. `validate` checks that plan flags are the character's own and never the main story's, that each one set can be cleared again, that something outside the file uses it, and that no combination of them puts the character in two rooms at once.
-- **Scenes** (`games/<id>/scenes/<id>.md`) give `with:` (two characters with `minor: no`), `where:` (a room both can be in), `when:` (a condition), `reward:` (`none`, or `coins N` up to `balance.json` `scenes.max_reward_coins`, 2) and `chronicle:` (one line), and the sections `## How it starts` (what the GM shows to offer it), `## Premise` (both characters get it), one `## <character id>` each (their part), and `## How it ends` (when it's over and when the reward is earned). A scene sets no flags.
+- **Scenes** (`games/<id>/scenes/<id>.md`) give `with:` (two characters with `minor: no`), `where:` (a room both can be in), `when:` (a condition), `reward:` (`none`, or `coins N` up to `balance.json` `scenes.max_reward_coins`, 2) and `chronicle:` (one line), and the sections `## How it starts` (what the referee shows to offer it), `## Premise` (both characters get it), one `## <character id>` each (their part), and `## How it ends` (when it's over and when the reward is earned). A scene sets no flags.
 - **Characters** may give `card: #8fae4a`: the paragraphs where they speak are drawn beside a keyline in that color, under their name. Anyone without one takes the next of the look's `speaker_colors`, in the order the player met them. The game master starts a speech paragraph with the speaker's name and a colon (`Pell: "Well now…"`); the interface takes the tag off.
 - **Paid work:** a room may give `work:` with `stat:` (might, agility or wits), `pay:` (a range like `1-3`, at most `balance.json` `work.max_pay`) and optionally `dc:` (a number or easy, normal, hard; normal if left out). A player there can `work` once per visit: a check against the stat, then the pay on a success. Say in the room's prose what the work is, so it can be found by looking and asking.
 - **Buyers** are characters with `buys:`, an item tier and a price on each line (`trinket: 1`). Each price must be below what having that tier made costs (`craft_price`), so money can't be made from nothing. `sell <item>` sells a carried item that has a tier; the world's own items have none and aren't bought.
@@ -201,9 +197,10 @@ Extra prose shown only when that flag is set.
 - **Writing a whole world:** `rules/WORLD-GUIDE.md` is the full reference, for human authors and for the worldsmith that forges worlds on request.
 - **Checking a game:** `rpg.py validate` checks the kit's games (`--game <id>` any installed one, `--dir <folder>` a draft). Besides references and formats it checks soundness: every flag a condition uses can be set by something (a `flag set` in some file, an encounter's flag effect, a variant, the clock, a plan step, or defeating someone with hp), and every rules command written in content in backticks (`` `lose honey_cake` ``) is a real one naming real things. `--kit-complete` adds what every kit feature needs, which forged worlds must pass and the two shipped games do: a full world file, a `look.json` with a palette and a resource, 5–8 rooms all reachable from the start, an encounter table, 3–4 characters (two with agents, one with plans, a maker, a build spot), exactly one quest with two ways through, its endings and *After the ending*, a curse and a side scene. `--sim-complete` adds what the simulation needs (The Thirteenth Stroke passes it in place of `--kit-complete`, since its buyer makes five people): a cast file, a maker, a build spot with a builder, a room with paid work, a buyer, and `generation:` with `rooms` and `items` set to `no`.
 - **`world.md`** may give `rolls:`, `variants:`, `clock:` (name, moves, flag, and optionally `also_if` / `also_flag`), `weather:`, `times:`, `generation:` (each kind `yes` or `no`; `rooms` may also be `anywhere`), and body sections `## Tone` and `## Public knowledge` for the world agent.
+- **The cast** (`games/<id>/cast.json`) is a JSON list, one entry per person: `id`, `name`, `model` (`sonnet`, `opus`, `haiku` or `fable`), `personality`, `voice` and `motivations` (a list), in the person's own first person, `attributes` (`might`, `agility`, `wits`), `hp`, `coins`, `inventory`, `home` (a room) and `opening` (what they know at the start, in the second person). An entry may leave out the attributes and hp, coins and belongings; they then come from `world.md`'s starting character. `validate` checks ids are unique, rooms and items exist, stats are in range and models are known.
 
 ## Changing things
-- **Rewrite a world:** edit the files in `games/<id>/`, then run `python3 rules/rpg.py validate` to check every game's references and settings (`--game <id>` for one).
-- **Rebalance:** edit a game's `balance.json` (or the kit defaults in `rules/balance.json`), or the stats in a character or item file. `RULES.md` describes the formulas.
-- **New game:** add a folder to `games/` with at least a `world.md` and its rooms, run `validate`, then `/game <id>` and `/newgame`.
-- **Inspect or debug:** `python3 rules/rpg.py look` shows the current state. Set `RPG_SEED=<n>` to make dice repeatable.
+- **Redesign or add a character:** edit `games/<id>/cast.json`, then `python3 rules/rpg.py validate`; the change takes effect at the next `/newgame`.
+- **Rewrite a world:** edit the files in `games/<id>/`, then run `python3 rules/rpg.py validate` (`--game <id> --sim-complete` for a simulation world).
+- **Tune a run:** `python3 tools/settings.py set memory.recent_rounds 6`, `set rounds.max_per_run 20` or `preset simulation`; `show` lists what's in effect. Rule numbers and prices are in `balance.json`.
+- **Inspect or debug:** `python3 rules/rpg.py run status`, `log 30`, `brief <id>` and `pane <id>` show where a run stands and what a person knows. Set `RPG_SEED=<n>` to make dice repeatable.
