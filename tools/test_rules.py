@@ -918,6 +918,46 @@ class Engine(unittest.TestCase):
         self.assertEqual(len(built), 1)
         self.assertIn("net_loft", self.me()["map"]["harbor_square"]["exits"].values())
 
+    def test_an_order_is_logged_from_what_was_asked_to_each_use(self):
+        self.rpg("game", "switch", "dark_lighthouse")
+        self.settings_tool("preset", "simulation")  # built by rounds
+        self.rpg("newgame", seed=50)  # Wren in Harbor Square, with Morwen
+        self.rpg("round", "start")
+        first = self.save()["run"]["round_state"]["order"][0]
+        if first != "wren":
+            self.take_turn(first)
+        self.write("proposals/reply.txt", "DO: I ask Morwen to build me a loft for my things.\nJOURNAL: I want somewhere of my own.")
+        self.rpg("reply", "wren", "proposals/reply.txt")
+        self.rpg("world-brief", "build", "morwen")
+        self.write("proposals/b.json", json.dumps({"id": "net_loft", "name": "The Net-Loft", "direction": "southwest",
+                                                   "terrain": "indoors", "description": "A loft for drying nets."}))
+        self.rpg("generate", "build", "proposals/b.json")
+        self.rpg("coins", "+5", "gift")
+        self.rpg("pay", "net_loft")
+        self.write("proposals/story.txt", "Morwen spits on her palm and shakes on it.")
+        self.rpg("narrate", "wren", "proposals/story.txt")
+        if first == "wren":
+            self.take_turn("corin")
+        self.rpg("round", "end")
+        for _ in range(3):
+            self.play_round()
+        self.rpg("move", "southwest")
+        self.rpg("drop", "worn_dagger")
+        self.assertIn("STASH: The Net-Loft is Wren's own place", self.rpg("look"))
+        self.rpg("move", "south", as_="corin")
+        self.rpg("move", "southwest", as_="corin")
+        self.assertIn("this is Wren's stash", self.rpg("take", "worn_dagger", as_="corin", ok=False))
+        self.rpg("take", "worn_dagger")
+        entries = [json.loads(line) for line in (self.dir / "state" / "log" / ("%s.jsonl" % self.save()["run"]["id"])).read_text().splitlines()]
+        steps = [(e["step"], e.get("how")) for e in entries if e["kind"] == "order"]
+        self.assertEqual(steps, [("asked", None), ("shaped", None), ("priced", None), ("paid", None), ("delivered", None),
+                                 ("used", "entered"), ("used", "entered")])
+        asked = next(e for e in entries if e["kind"] == "order")
+        self.assertEqual((asked["order"], asked["player"], asked["words"], asked["journal"]),
+                         ("o1", "wren", "I ask Morwen to build me a loft for my things.", "I want somewhere of my own."))
+        self.assertTrue(all(e["order"] == "o1" for e in entries if e["kind"] == "order"))
+        self.assertEqual(self.save()["run"]["rooms"]["net_loft"]["meta"]["owner"], "wren")
+
     def test_validate_checks_the_cast(self):
         d = "games/dark_lighthouse/cast.json"
         cast = json.loads((self.dir / d).read_text())

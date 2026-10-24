@@ -159,6 +159,31 @@ def order_position(run, pid):
     return order.index(pid) + 1 if pid in order else None
 
 
+def order_asked(state, maker, kind):
+    """An order is being placed: give it an id, and log what the player asked for, in their own words this turn."""
+    run = state["run"]
+    run["order_n"] = run.get("order_n", 0) + 1
+    order = "o%d" % run["order_n"]
+    turn = me(state).get("turn") or {}
+    this_turn = turn.get("round") == run.get("round")
+    log(state, "order", order=order, step="asked", what=kind, maker=maker,
+        words=turn.get("do") if this_turn else None, journal=turn.get("journal") if this_turn else None)
+    return {"maker": maker, "kind": kind, "order": order}
+
+
+def order_of(state, ident):
+    """The order that made this item or place, or None."""
+    com = state["run"]["commissions"].get(ident)
+    return com.get("order") if com else None
+
+
+def log_use(state, ident, how):
+    """Something a player had made is used, moved, traded or entered."""
+    order = order_of(state, ident)
+    if order:
+        log(state, "order", order=order, step="used", id=ident, how=how)
+
+
 def change_coins(state, delta, reason, note=None):
     """The one way money moves: the acting player gains or loses `delta`, and the log says why."""
     s = me(state)["stats"]
@@ -1328,7 +1353,10 @@ def finish_building(state, ident, com):
     People hear of it, so they start using it."""
     run = state["run"]
     record = com.pop("record")
+    record["meta"].update(owner=com.get("by"), use="stash")  # phase 1: every built place is its owner's stash
     run["rooms"][ident] = dict(record, made_at_move=run["moves"])
+    with acting(com.get("by") if com.get("by") in state["players"] else ACTOR):
+        log(state, "order", order=com.get("order"), step="delivered", id=ident)
     run["exits"].setdefault(com["room"], {})[com["direction"]] = ident
     com["status"] = "done"
     owner = com.get("by")
@@ -1513,6 +1541,10 @@ def cmd_look(args):
     notes = run["notes"].get(room["id"], [])
     if notes:
         print("ESTABLISHED HERE: %s" % " | ".join(notes))
+    owner = stash_owner(state, room["id"])
+    if owner:
+        print("STASH: %s is %s's own place; what's left here only %s can take." % (
+            room.get("name", room["id"]), state["players"][owner]["name"], state["players"][owner]["name"]))
     inv = ["%s%s" % (i, " (equipped)" if i == me(state)["equipped"] else "") for i in me(state)["inventory"]]
     print("INVENTORY: %s  [weight %d/%d]" % (", ".join(inv) or "nothing", carried_weight(state), carry_limit(state)))
     print("FLAGS: %s" % (", ".join(state["flags"]) or "none"))
@@ -1555,6 +1587,7 @@ def cmd_move(args):
     if not content.condition_holds(cond, condition_flags(state)):
         raise Refused("the way %s is blocked (needs %s)" % (want, cond))
     me(state)["location"] = dest
+    log_use(state, dest, "entered")
     left, _ = scene_playing(state)
     events = []
     if left:
@@ -1577,11 +1610,21 @@ def cmd_take(args):
     here = state["room_items"].setdefault(me(state)["location"], [])
     if ident not in here:
         raise Refused("%s is not here. Items here: %s" % (ident, ", ".join(here) or "none"))
+    owner = stash_owner(state, me(state)["location"])
+    if owner and owner != actor_id(state):
+        raise Refused("this is %s's stash: what's left here is theirs, and stays put" % state["players"][owner]["name"])
     check_carry(state, ident)
     here.remove(ident)
     me(state)["inventory"].append(ident)
+    log_use(state, ident, "taken")
     save_state(state)
     print("TAKEN: %s  [weight %d/%d]" % (ident, carried_weight(state), carry_limit(state)))
+
+
+def stash_owner(state, room_id):
+    """The player whose stash this room is, or None. Things left in a stash can be taken only by its owner."""
+    meta = (state["run"]["rooms"].get(room_id) or {}).get("meta") or {}
+    return meta.get("owner") if meta.get("use") == "stash" and meta.get("owner") in state["players"] else None
 
 
 def remove_from_inventory(state, ident):
@@ -1598,6 +1641,7 @@ def cmd_drop(args):
     ident = args[0]
     remove_from_inventory(state, ident)
     state["room_items"].setdefault(me(state)["location"], []).append(ident)
+    log_use(state, ident, "left in %s" % me(state)["location"])
     save_state(state)
     print("DROPPED: %s in %s" % (ident, me(state)["location"]))
 
@@ -1608,6 +1652,7 @@ def cmd_gain(args):
     ident = args[0]
     check_carry(state, ident)
     me(state)["inventory"].append(ident)
+    log_use(state, ident, "received")
     save_state(state)
     print("GAINED: %s  [weight %d/%d]" % (ident, carried_weight(state), carry_limit(state)))
 
@@ -1616,6 +1661,7 @@ def cmd_lose(args):
     state = load_state()
     require_playing(state)
     remove_from_inventory(state, args[0])
+    log_use(state, args[0], "given away")
     save_state(state)
     print("LOST: %s" % args[0])
 
@@ -1629,6 +1675,7 @@ def cmd_equip(args):
     if not item(ident).get("damage"):
         raise Refused("%s is not a weapon (no damage)" % ident)
     me(state)["equipped"] = ident
+    log_use(state, ident, "equipped")
     save_state(state)
     print("EQUIPPED: %s (damage %s)" % (ident, item(ident)["damage"]))
 
@@ -1647,6 +1694,7 @@ def cmd_use(args):
     before = s["hp"]
     s["hp"] = min(s["max_hp"], s["hp"] + total)
     remove_from_inventory(state, ident)
+    log_use(state, ident, "used up")
     save_state(state)
     print("USED %s: heal %s; healed %d. %s" % (ident, dice.describe(heal, total, faces, mod), s["hp"] - before, hp_line(state)))
 
@@ -1692,6 +1740,8 @@ def cmd_attack(args):
     out = []
     # player swings
     weapon = me(state)["equipped"]
+    if weapon:
+        log_use(state, weapon, "fought with")
     dmg_spec = item(weapon)["damage"] if weapon else BALANCE["unarmed_damage"]
     mod = me(state)["stats"]["might"]
     ok, nat, total, note = d20_test(mod, int(foe["defense"]))
@@ -2030,6 +2080,7 @@ def cmd_generate(args):
             else:
                 patch = generate.KINDS[kind](proposal, gen_context(state))
         except generate.Declined as e:
+            log(state, "order", order=ordering.get("order"), step="declined", reason=str(e))
             state["run"]["ordering"] = None
             save_state(state)
             raise Refused("%s turns the order down: %s. Narrate it in character; nothing is made"
@@ -2045,6 +2096,14 @@ def cmd_generate(args):
         for i, old in list(state["run"]["commissions"].items()):
             if old["kind"] == "room" and old["status"] == "ordered" and (old["room"], old["direction"]) == (com["room"], com["direction"]):
                 del state["run"]["commissions"][i]
+    if kind in ORDER_KINDS:
+        for i, com in patch["commissions"].items():
+            com.update(order=ordering.get("order"), ordered_by=actor_id(state))
+            meta = (patch["items"][i] if kind == "craft" else com["record"])["meta"]
+            log(state, "order", order=com["order"], step="shaped", what=com["kind"], id=i, name=meta.get("name", i),
+                tier=meta.get("tier"), use="stash" if kind == "build" else None, maker=com["maker"])
+            log(state, "order", order=com["order"], step="priced", id=i, price=com["price"],
+                trade=list(accepts(com["maker"])) if kind == "craft" else [])
     apply_patch(state, patch)
     if kind in ORDER_KINDS:
         state["run"]["ordering"] = None
@@ -2114,12 +2173,14 @@ def cmd_pay(args):
         if material not in accepts(maker):
             raise Refused("%s takes no %s in trade (takes: %s)" % (who, material, ", ".join(accepts(maker)) or "only " + currency()))
         remove_from_inventory(state, material)
+        log_use(state, material, "paid with")
         paid = "PAID WITH: %s" % material
     else:
         if s["coins"] < com["price"]:
             raise Refused("not enough %s: the price is %d and the player has %d" % (currency(), com["price"], s["coins"]))
         change_coins(state, -com["price"], "order", ident)
         paid = "COINS -%d -> %d" % (com["price"], s["coins"])
+    log(state, "order", order=com.get("order"), step="paid", id=ident, price=com["price"], material=material)
     if com["kind"] == "room":
         wait = int(BALANCE["generation"]["build_moves"])
         com.update(status="building", paid_at=run["moves"], ready_at=run["moves"] + wait, by=actor_id(state))
@@ -2131,6 +2192,8 @@ def cmd_pay(args):
     com.update(status="done", paid_at=run["moves"], by=actor_id(state))
     check_carry(state, ident)
     me(state)["inventory"].append(ident)
+    run["items"][ident]["meta"]["owner"] = actor_id(state)
+    log(state, "order", order=com.get("order"), step="delivered", id=ident)
     save_state(state)
     data = lib()
     library.add(data, lib_limit(), ident, "items", "player", run["items"][ident], where=None)
@@ -2364,7 +2427,7 @@ def cmd_world_brief(args):
                 "quest, turn it down instead.",
                 'JSON: {"id": "<new_id>", "name": "<name>", "description": "<one or two sentences>", "tier": "<%s>"}' % "|".join(makes(maker)),
                 'or, to turn it down: {"refuse": "<why, in a few words>"}']
-        run["ordering"] = {"maker": maker, "kind": "craft"}
+        run["ordering"] = order_asked(state, maker, "craft")
     elif request == "build":
         ch = ent("characters", maker)
         who, spots = ch.get("name", maker), build_spots(state, room)
@@ -2380,7 +2443,7 @@ def cmd_world_brief(args):
                 'JSON: {"id": "<new_id>", "name": "<name>", "direction": "<%s>", "terrain": "<terrain>",' % "|".join(spots),
                 '       "description": "<what the player will see there, 2-4 sentences>"}',
                 'or, to turn it down: {"refuse": "<why, in a few words>"}']
-        run["ordering"] = {"maker": maker, "kind": "build"}
+        run["ordering"] = order_asked(state, maker, "build")
     elif request == "quest":
         here = characters_here(state)
         out += ["Make a small side quest offered by someone present (%s). It must not touch the main quest." % ", ".join(here or ["no one"]),
