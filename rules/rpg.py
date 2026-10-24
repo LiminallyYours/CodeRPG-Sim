@@ -3845,7 +3845,7 @@ def cmd_brief(args):
     if not mem["condensed"] and not any(e["kind"] == "did" for e in mem["recent"]):  # words heard before a first turn
         out += ["## How it begins", entry.get("opening", ""), ""]
     if mem["condensed"]:
-        out += ["## What you remember from before"] + [c["text"] for c in mem["condensed"]] + [""]
+        out += ["## What you remember from before", "\n\n".join(c["text"] for c in mem["condensed"]), ""]  # a paragraph a stretch
     if mem["recent"]:
         out += ["## Lately", memory_text(mem["recent"]), ""]
     overhear(state)  # waking into the turn among people, they hear what's being said

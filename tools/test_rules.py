@@ -1130,6 +1130,23 @@ class Engine(unittest.TestCase):
         self.assertEqual([(e["rounds"], e["replaced"]) for e in entries if e["kind"] == "memory"], [([1, 5], 20)])
         self.assertEqual(len([e for e in entries if e["kind"] == "narration" and e["player"] == "wren"]), 10, "the log forgets nothing")
 
+    def test_the_size_cap_condenses_early_and_each_stretch_is_remembered_apart(self):
+        self.rpg("game", "switch", "dark_lighthouse")
+        self.settings_tool("preset", "simulation")
+        self.settings_tool("set", "memory.recent_rounds", "1")
+        self.settings_tool("set", "memory.max_chars", "500")  # far under a round's memory, so it's due once 2 are held
+        self.rpg("newgame", seed=43)
+        self.play_round()
+        self.assertIn("NOTHING TO CONDENSE", self.rpg("memory", "condense", "wren"))  # one round held, and one is kept
+        for words in ("I looked about the harbor.", "I asked after the lighthouse."):
+            self.play_round()
+            self.assertIn("### Moment", self.rpg("memory", "condense", "wren"))
+            self.write("proposals/m.txt", "MEMORY: %s" % words)
+            self.rpg("memory", "store", "wren", "proposals/m.txt")
+        self.assertEqual([c["rounds"] for c in self.save()["players"]["wren"]["memory"]["condensed"]], [[1, 1], [2, 2]])
+        self.assertIn("## What you remember from before\nI looked about the harbor.\n\nI asked after the lighthouse.\n\n## Lately",
+                      self.rpg("brief", "wren"))
+
     def test_in_a_simulation_the_clock_moves_by_rounds_not_moves(self):
         self.rpg("game", "switch", "dark_lighthouse")
         self.settings_tool("preset", "simulation")
