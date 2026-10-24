@@ -3602,7 +3602,7 @@ def condensing_brief(pl, rounds):
     entries = [e for e in mem["recent"] if e["round"] in rounds]
     entry = cast_entry(ACTOR)  # memory condense made them the acting player
     return "\n".join([
-        "You are %s. How you speak: %s" % (pl["name"], entry.get("voice", "")), "",
+        "You are %s. How you speak, in your own words: %s" % (pl["name"], entry.get("voice", "")), "",
         "Some time has passed. Think back over this stretch of your days and say what you remember of it now: in the "
         "first person, in your own way of speaking, in a few sentences. Keep what mattered to you; you needn't keep the rest.",
         "", "## That stretch", memory_text(entries), "",
@@ -3686,9 +3686,10 @@ def cmd_brief(args):
     pl = player_arg(state, args[0])
     mem = pl.setdefault("memory", {"recent": [], "condensed": []})
     entry = cast_entry(args[0])
-    out = ["## Who you are", "You are %s. %s" % (pl["name"], entry.get("personality", "")),
-           "How you speak: %s" % entry.get("voice", ""),
-           "What drives you: %s." % "; ".join(entry.get("motivations") or []), ""]
+    # the cast writes who they are in their own first person: a note to themselves, like their journal and memories
+    out = ["## Who I am (a note to myself)", "I'm %s. %s" % (pl["name"], entry.get("personality", "")),
+           "How I talk: %s" % entry.get("voice", ""),
+           "What drives me: %s." % "; ".join(entry.get("motivations") or []), ""]
     if not mem["recent"] and not mem["condensed"]:
         out += ["## How it begins", entry.get("opening", ""), ""]
     if mem["condensed"]:

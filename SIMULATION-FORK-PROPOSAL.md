@@ -53,6 +53,8 @@ Known limit, accepted: the model underneath still knows it is being prompted, an
 }
 ```
 
+`personality`, `voice` and `motivations` are written in the person's own first person ("Seventeen, and apprentice to…", "I want to be admired"): the brief opens with them as a note the person keeps for themselves (`## Who I am (a note to myself)`), like their journal and their memories, which are first person too. Everything the world tells them stays in the second person (decided by JW, 2026-10-24).
+
 `opening` is the only pre-loaded knowledge, and it is delivered exactly as the world's `## Opening` is delivered to a human player: as the first thing they read. Nothing else is pre-loaded. A human player gets the world's opening; a player agent gets its own.
 
 The world's own people (the tooler, the trainer, the builder, the innkeeper) stay in the ordinary character files. They are not players.
