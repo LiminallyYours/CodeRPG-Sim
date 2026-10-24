@@ -1399,8 +1399,10 @@ def finish_building(state, ident, com):
     library.add(data, lib_limit(), ident, "rooms", "player", record, where=com["room"],
                 attach={"room": com["room"], "direction": com["direction"]}, worth_keeping="built by the player")
     lib_save(data)
-    return ("BUILT: %s (%s) is finished, %s of %s, built for the player by %s. It's open now; describe it when the "
-            "player next sees it." % (name, ident, com["direction"], where, ent("characters", com["maker"]).get("name", com["maker"])))
+    whose = "%s (%s)" % (state["players"][owner]["name"], owner) if owner in state["players"] else "the player"
+    return ("BUILT: %s (%s) is finished, %s of %s, built for %s by %s. It's open now; describe it when they next see "
+            "it, or tell it as news if someone would." % (name, ident, com["direction"], where, whose,
+                                                         ent("characters", com["maker"]).get("name", com["maker"])))
 
 
 # ---------------------------------------------------------------- commands
