@@ -45,6 +45,13 @@ class Engine(unittest.TestCase):
     def save(self):
         return json.loads((self.dir / "state" / "save.json").read_text())
 
+    def player(self, save):
+        """The only player's record in a save (the shipped games' runs have one player until they get a cast)."""
+        return next(iter(save["players"].values()))
+
+    def me(self):
+        return self.player(self.save())
+
     def meter(self):
         return self.save()["view"]["meter"]["left"]
 
@@ -85,7 +92,7 @@ class Engine(unittest.TestCase):
             self.rpg("game", "switch", g)
             self.rpg("newgame", seed=1)
             s = self.save()
-            self.assertEqual(s["version"], 9)
+            self.assertEqual(s["version"], 10)
             self.assertEqual(s["game"], g)
             self.assertEqual(s["view"]["game"]["id"], g)
             look = s["view"]["look"]
@@ -107,23 +114,23 @@ class Engine(unittest.TestCase):
         self.assertIn("WORLD TURN DUE", outs[3])  # the station's settings: every 4 moves, not the preset's 5
         self.assertNotIn("WORLD TURN DUE", "".join(outs[:3]))
         s = self.save()
-        self.assertEqual(s["view"]["carry_limit"], 6 + 2 * s["stats"]["might"])  # its balance.json: carry_base 6
+        self.assertEqual(s["view"]["carry_limit"], 6 + 2 * self.player(s)["stats"]["might"])  # its balance.json: carry_base 6
 
     def test_an_old_save_is_refused_and_a_new_game_replaces_it(self):
         self.write("state/save.json", json.dumps({"version": 6, "adventure": "The Dark Lighthouse", "status": "playing"}))
-        self.assertIn("older version", self.rpg("look", ok=False))
+        self.assertIn("from the original CodeRPG", self.rpg("look", ok=False))
         self.assertIn("an old save", self.rpg("game", "list"))
         self.rpg("newgame", seed=4)
-        self.assertEqual(self.save()["version"], 9)
+        self.assertEqual(self.save()["version"], 10)
 
     def test_switching_games_keeps_each_ones_save(self):
         first, second = GAMES[0], GAMES[1]
         self.rpg("game", "switch", first)
         self.rpg("newgame", seed=5)
-        start = self.save()["location"]
-        exit_dir = next(iter(self.save()["map"][start]["exits"]))
+        start = self.me()["location"]
+        exit_dir = next(iter(self.me()["map"][start]["exits"]))
         self.rpg("move", exit_dir)
-        moved_to = self.save()["location"]
+        moved_to = self.me()["location"]
         self.assertIn("No game yet", self.rpg("game", "switch", second))
         self.assertFalse((self.dir / "state" / "save.json").exists())
         self.rpg("newgame", seed=6)
@@ -132,7 +139,7 @@ class Engine(unittest.TestCase):
         self.assertIn("* %s" % second, listing)
         self.assertIn("playing, 1 move in", listing)
         self.assertIn("The saved game continues", self.rpg("game", "switch", first))
-        self.assertEqual(self.save()["location"], moved_to)
+        self.assertEqual(self.me()["location"], moved_to)
         self.assertTrue((self.dir / "state" / "shelf" / ("%s.json" % second)).is_file())
         self.assertIn("ALREADY PLAYING", self.rpg("game", "switch", first))
         self.assertIn("one of", self.rpg("game", "switch", "no_such_game", ok=False))
@@ -183,7 +190,7 @@ class Engine(unittest.TestCase):
         # and in the other game
         self.rpg("game", "switch", "flooded_station")
         out = self.rpg("newgame", seed=31)
-        start = self.save()["location"]
+        start = self.me()["location"]
         body = (self.dir / "games" / "flooded_station" / "rooms" / ("%s.md" % start)).read_text().split("\n---", 1)[1].strip()
         self.assertIn(body.split("\n")[0], out.split("ROOM TEXT:")[1])
 
@@ -335,7 +342,7 @@ class Engine(unittest.TestCase):
         self.rpg("look")
         self.rpg("move", "west")
         self.assertIn("not in this scene", self.rpg("npc-brief", "grukk", ok=False))
-        self.assertEqual(self.save()["version"], 9)
+        self.assertEqual(self.save()["version"], 10)
 
     def test_a_spent_meter_stops_the_extras_and_play_goes_on(self):
         self.at_the_lighthouse()
@@ -436,8 +443,8 @@ class Engine(unittest.TestCase):
     def test_terrain_and_cards_reach_the_view(self):
         self.at_the_lighthouse()
         s = self.save()
-        self.assertEqual(s["map"]["lighthouse"]["terrain"], "stone")
-        self.assertEqual(s["map"]["harbor_square"]["terrain"], "water")
+        self.assertEqual(self.player(s)["map"]["lighthouse"]["terrain"], "stone")
+        self.assertEqual(self.player(s)["map"]["harbor_square"]["terrain"], "water")
         ysolde = next(c for c in s["view"]["characters_here"] if c["id"] == "ysolde")
         self.assertRegex(ysolde["card"], r"^#[0-9a-f]{6}$")
         look = s["view"]["look"]
@@ -589,7 +596,7 @@ class Engine(unittest.TestCase):
         self.write("proposals/r.json", json.dumps(room))
         self.rpg("generate", "room", "proposals/r.json")
         self.rpg("move", "south")
-        self.assertEqual(self.save()["map"]["mooring_steps"]["terrain"], "water")  # the room it opens off
+        self.assertEqual(self.me()["map"]["mooring_steps"]["terrain"], "water")  # the room it opens off
         picture = self.save()["view"]["picture"]["source"]
         self.assertRegex(picture, r"^rules/art/terrain/water-\d\.png$")  # no picture of its own: the kit's for its terrain
         self.rpg("move", "north")
@@ -606,8 +613,8 @@ class Engine(unittest.TestCase):
         self.write("proposals/s.json", json.dumps(good))
         self.rpg("generate", "room", "proposals/s.json")
         self.rpg("move", "north")
-        self.assertEqual(self.save()["map"]["specimen_store"]["terrain"], "metal")
-        self.assertEqual(self.save()["map"]["specimen_store"]["made_by"], "world")
+        self.assertEqual(self.me()["map"]["specimen_store"]["terrain"], "metal")
+        self.assertEqual(self.me()["map"]["specimen_store"]["made_by"], "world")
         self.assertRegex(self.save()["view"]["picture"]["source"], r"^games/flooded_station/art/terrain/metal-\d\.png$")  # the game's own
 
 
@@ -675,13 +682,13 @@ class Engine(unittest.TestCase):
         out = self.rpg("generate", "craft", "proposals/c.json")  # the retry needs no new brief
         self.assertIn("COMMISSIONED: Gaff Hook (gaff_hook), light weapon, from Morwen", out)
         self.assertIn("PRICE: 3 coins, or in trade: smoked_fish", out)
-        self.assertNotIn("gaff_hook", self.save()["inventory"])  # not theirs until paid
+        self.assertNotIn("gaff_hook", self.me()["inventory"])  # not theirs until paid
         self.assertIn("ORDERS WAITING: gaff_hook", self.rpg("look"))
         self.write("proposals/c.json", json.dumps(dict(hook, id="other_hook", name="Other Hook", tier="trinket")))
         self.assertIn("no order is open", self.rpg("generate", "craft", "proposals/c.json", ok=False))  # one brief, one order
         self.assertIn("COINS -3 -> 0", self.rpg("pay", "gaff_hook"))
         s = self.save()
-        self.assertIn("gaff_hook", s["inventory"])
+        self.assertIn("gaff_hook", self.player(s)["inventory"])
         self.assertTrue(next(i for i in s["view"]["items"] if i["id"] == "gaff_hook")["own"])
         self.assertEqual(s["run"]["generated"], 0)  # orders don't use up the world's own allowance
         self.assertEqual(self.rpg("show", "items", "gaff_hook").count("made_by: player"), 1)
@@ -699,15 +706,15 @@ class Engine(unittest.TestCase):
         self.assertIn("takes no diving_knife", self.rpg("pay", "scrap_whistle", "diving_knife", ok=False))
         self.assertIn("not carrying sardine_tin", self.rpg("pay", "scrap_whistle", "sardine_tin", ok=False))
         self.rpg("gain", "sardine_tin")
-        coins = self.save()["stats"]["coins"]
+        coins = self.me()["stats"]["coins"]
         self.rpg("move", "south")
         self.assertIn("isn't here", self.rpg("pay", "scrap_whistle", "sardine_tin", ok=False))
         self.rpg("move", "north")
         self.assertIn("PAID WITH: sardine_tin", self.rpg("pay", "scrap_whistle", "sardine_tin"))
         s = self.save()
-        self.assertEqual(s["stats"]["coins"], coins)
-        self.assertNotIn("sardine_tin", s["inventory"])
-        self.assertIn("scrap_whistle", s["inventory"])
+        self.assertEqual(self.player(s)["stats"]["coins"], coins)
+        self.assertNotIn("sardine_tin", self.player(s)["inventory"])
+        self.assertIn("scrap_whistle", self.player(s)["inventory"])
 
     def test_the_owners_crafting_switch_and_limit_hold(self):
         self.rpg("game", "switch", "dark_lighthouse")
@@ -724,19 +731,24 @@ class Engine(unittest.TestCase):
         self.assertIn("CRAFTING: on, at most 1 orders per run", self.rpg("settings"))
         self.assertIn("isn't here to take an order", self.rpg("world-brief", "craft", "pell", ok=False))
 
-    def test_a_version_7_save_gains_orders_on_load(self):
+    def test_the_save_holds_players_and_as_names_who_acts(self):
         self.rpg("game", "switch", "dark_lighthouse")
         self.rpg("newgame", seed=43)
         s = self.save()
-        s["version"] = 7
-        del s["run"]["commissions"], s["run"]["ordering"], s["run"]["present"]
-        self.write("state/save.json", json.dumps(s))
-        self.assertIn("MAKERS HERE", self.rpg("look"))
-        self.rpg("note", "The crate Morwen sits on is stamped HARKER.")
+        self.assertEqual(list(s["players"]), ["player"])
+        self.assertEqual(s["view"]["players"]["player"]["location"], s["players"]["player"]["location"])
+        self.assertIn("STATUS: playing", self.rpg("look", "--as", "player"))
+        self.assertIn("no one called 'nell' is playing", self.rpg("look", "--as", "nell", ok=False))
+        self.assertIn("--as needs a player id", self.rpg("look", "--as", ok=False))
+
+    def test_a_save_from_the_original_game_is_refused(self):
+        self.rpg("game", "switch", "dark_lighthouse")
+        self.rpg("newgame", seed=43)
         s = self.save()
-        self.assertEqual(s["version"], 9)
-        self.assertEqual(s["run"]["commissions"], {})
-        self.assertEqual(s["run"]["present"], {"room": "harbor_square", "characters": ["morwen"]})  # v9, then the look
+        s["version"] = 9
+        self.write("state/save.json", json.dumps(s))
+        self.assertIn("from the original CodeRPG", self.rpg("look", ok=False))
+        self.assertIn("an old save", self.rpg("game", "list"))
 
     def test_validate_checks_makers(self):
         d = "games/dark_lighthouse/characters/morwen.md"
@@ -781,13 +793,13 @@ class Engine(unittest.TestCase):
         self.assertNotIn("is finished", outs[0] + outs[1])
         self.assertIn("BUILT: The Net-Loft (net_loft) is finished, southwest of Harbor Square, built for the player by Morwen", outs[2])
         # the map shows it at once, though the player is in the Gull: Harbor Square's entry is redrawn (bug 2026-10-23)
-        square = self.save()["map"]["harbor_square"]
+        square = self.me()["map"]["harbor_square"]
         self.assertEqual(square["exits"].get("southwest"), "net_loft")
         self.assertEqual(square["neighbors"].get("net_loft"), "The Net-Loft")
         self.assertIn("exit southwest -> The Net-Loft", self.rpg("move", "south"))
         self.rpg("move", "southwest")
         s = self.save()
-        self.assertEqual(s["map"]["net_loft"]["made_by"], "player")
+        self.assertEqual(self.player(s)["map"]["net_loft"]["made_by"], "player")
         self.assertEqual(s["run"]["generated"], 0)
         self.assertTrue(any("The Net-Loft is finished" in r for r in s["run"]["rumors"]))  # people hear of it
         self.assertNotIn("BUILD SPOTS", self.rpg("look"))  # a built place offers no build spots of its own
@@ -859,7 +871,7 @@ class Engine(unittest.TestCase):
         self.assertIn("FROM EARLIER RUNS (they're part of this world now): Old Tamsin (a friend, at harbor_square", out)
         self.assertIn("old_tamsin [minor, generated]", out)
         s = self.save()
-        self.assertEqual(s["npc_memory"]["old_tamsin"], ["Brought twine for my creels without being asked twice."])
+        self.assertEqual(s["npc_memory"]["old_tamsin"], {"player": ["Brought twine for my creels without being asked twice."]})
         self.assertIn("creel_charm", s["run"]["items"])  # her wares
         self.assertNotIn("tamsins_creels", s["run"]["quests"])  # the quest was that run's
         self.assertEqual(s["run"]["generated"], 0)  # what comes back doesn't use up this run's allowance
@@ -910,7 +922,7 @@ class Engine(unittest.TestCase):
         self.assertIn("exit southwest -> The Net-Loft", out)
         self.assertNotIn("BUILD SPOTS HERE", out)
         self.rpg("move", "southwest")
-        self.assertEqual(self.save()["map"]["net_loft"]["made_by"], "player")
+        self.assertEqual(self.me()["map"]["net_loft"]["made_by"], "player")
 
     def test_the_owner_keeps_an_entry_for_good_and_a_bad_keep_changes_nothing(self):
         self.rpg("game", "switch", "dark_lighthouse")
@@ -1154,11 +1166,11 @@ near: stuck
             self.assertIn("This is reply %d of the scene's 6." % n, again)
         self.assertIn("It's the last one", brief)
         self.assertNotIn("A little scene", self.rpg("npc-brief", "bucket"), "past the cap, the brief is plain again")
-        coins = self.save()["stats"]["coins"]
+        coins = self.me()["stats"]["coins"]
         out = self.rpg("scene", "end", "mopping_dispute", "reward")
         self.assertIn("REWARD: +1", out)
         s = self.save()
-        self.assertEqual(s["stats"]["coins"], coins + 1)
+        self.assertEqual(self.player(s)["stats"]["coins"], coins + 1)
         self.assertIn("Refereed an argument", s["run"]["chronicle"][-1])
         self.assertNotIn("SCENE", self.rpg("look"))
         self.assertIn("already played", self.rpg("scene", "start", "mopping_dispute", ok=False))
@@ -1167,9 +1179,9 @@ near: stuck
     def test_walking_away_ends_a_scene_without_reward(self):
         self.at_the_mopping_dispute()
         self.rpg("scene", "start", "mopping_dispute")
-        coins = self.save()["stats"]["coins"]
+        coins = self.me()["stats"]["coins"]
         self.assertIn("SCENE OVER: the player walked away from The Mopping Dispute", self.rpg("move", "down"))
-        self.assertEqual(self.save()["stats"]["coins"], coins)
+        self.assertEqual(self.me()["stats"]["coins"], coins)
         self.assertEqual(self.save()["run"]["scenes"]["mopping_dispute"]["status"], "done")
 
     def test_a_scene_needs_both_here_the_moment_and_the_owners_say(self):

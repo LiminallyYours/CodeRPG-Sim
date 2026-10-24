@@ -40,8 +40,8 @@ METER = ROOT / "state" / "meter.json"
 FORGE = ROOT / "state" / "forge"  # drafts of new worlds, each written by a worldsmith agent (Stage 8)
 BALANCE = {}  # the active game's rule numbers; set by choose_game()
 SETTINGS = {}  # the owner's switches for the active game (preset + overrides); set by choose_game()
-STATE_VERSION = 9
-OLDEST_VERSION = 7  # older saves are from before the game kit and aren't upgraded
+STATE_VERSION = 10  # 10: the simulation fork's save, with a list of players (`players`)
+OLDEST_VERSION = 10  # older saves are the original game's, one player each, and aren't upgraded
 STATS = ("might", "agility", "wits")
 GEN_KINDS = ("extras", "rooms", "items", "characters", "side_quests")
 SEED = re.compile(r"^[a-z0-9][a-z0-9_-]{0,39}$")
@@ -56,28 +56,64 @@ def empty_run():
             "rooms": {}, "characters": {}, "items": {}, "quests": {},
             "exits": {}, "placements": {}, "notes": {}, "chronicle": [], "rumors": [],
             "used_encounters": [], "world_turn_due": False, "generated": 0,
-            "commissions": {}, "ordering": None, "present": None}
+            "commissions": {}, "ordering": None}
 
 
-def _v7_to_v8(state):
-    """Version 8: orders placed with makers (`run.commissions`, `run.ordering`)."""
-    state["run"].setdefault("commissions", {})
-    state["run"].setdefault("ordering", None)
-    return state
-
-
-def _v8_to_v9(state):
-    """Version 9: who was in the scene as of the last look or move (`run.present`)."""
-    state["run"].setdefault("present", None)
-    return state
-
-
-# Each entry upgrades a save from version N to N+1.
-MIGRATIONS = {7: _v7_to_v8, 8: _v8_to_v9}
+# Each entry upgrades a save from version N to N+1. The fork starts at version 10 and has none yet.
+MIGRATIONS = {}
 
 
 class Refused(Exception):
     pass
+
+
+# ---------------------------------------------------------------- who is acting
+# The save holds a list of players (`players`, keyed by id). A command acts for one of them: the one named with
+# `--as <id>`, or the only one when there is just one. Everything about a player (where they are, what they carry,
+# their stats, the map of where they've been, who they've met) is read through me(state); the world is shared.
+
+ACTOR = None  # the id given with --as; set by main()
+
+
+def actor_id(state):
+    """The id of the player this command acts for."""
+    players = state["players"]
+    if ACTOR is not None:
+        if ACTOR not in players:
+            raise Refused("no one called %r is playing (players: %s)" % (ACTOR, ", ".join(players)))
+        return ACTOR
+    if len(players) == 1:
+        return next(iter(players))
+    raise Refused("say who acts: --as <%s>" % "|".join(players))
+
+
+def me(state):
+    """The acting player's record in the save."""
+    return state["players"][actor_id(state)]
+
+
+class acting:
+    """`with acting(pid):` reads the save as player `pid` for a while (the view is drawn for every player)."""
+    def __init__(self, pid):
+        self.pid = pid
+
+    def __enter__(self):
+        global ACTOR
+        self.was, ACTOR = ACTOR, self.pid
+
+    def __exit__(self, *exc):
+        global ACTOR
+        ACTOR = self.was
+
+
+def npc_memory_of(state, npc):
+    """What `npc` remembers about the acting player (their own list, kept per player)."""
+    return state.get("npc_memory", {}).get(npc, {}).get(actor_id(state), [])
+
+
+def npc_memory_list(state, npc):
+    """The same list, created if need be, to add to."""
+    return state.setdefault("npc_memory", {}).setdefault(npc, {}).setdefault(actor_id(state), [])
 
 
 # ---------------------------------------------------------------- which game
@@ -462,8 +498,8 @@ def apply_plan(state, who, step):
             state["flags"].remove(flag)
         return None
     after = where_is(who, condition_flags(state))
-    run, me = state["run"], state["location"]
-    near = any(r and (r == me or me in neighbours(r)) for r in (before, after))
+    run, here = state["run"], me(state)["location"]
+    near = any(r and (r == here or here in neighbours(r)) for r in (before, after))
     out = []
     if near:
         add_signal(state, step["near"])
@@ -472,7 +508,7 @@ def apply_plan(state, who, step):
     elif step.get("rumor"):
         run["rumors"].append(step["rumor"])
         del run["rumors"][:-BALANCE["world"]["rumors_kept"]]
-    if after == me and before != me:
+    if after == here and before != here:
         out.append("NOW HERE: %s has just arrived where the player is (%s)" % (ent("characters", who).get("name", who), step["does"]))
     if not out:
         out.append("OFF-SCREEN: someone out of the player's sight did something; it shows only in the rooms and "
@@ -519,7 +555,7 @@ def why_no_scene(state, ident):
     if scene_playing(state)[0]:
         return "another scene is playing"
     here = characters_here(state)
-    if state["location"] != sc.get("where") or not all(c in here for c in scene_cast(sc)):
+    if me(state)["location"] != sc.get("where") or not all(c in here for c in scene_cast(sc)):
         return "they aren't both here"
     if not content.condition_holds(sc.get("when"), condition_flags(state)):
         return "the moment isn't right for it"
@@ -547,9 +583,9 @@ def end_scene(state, ident, reward):
     out = ["SCENE ENDED: %s" % sc.get("name", ident)]
     coins = scene_reward(sc) if reward else 0
     if coins:
-        state["stats"]["coins"] += coins
+        me(state)["stats"]["coins"] += coins
         rec["rewarded"] = coins
-        out.append("REWARD: %+d %s -> %d" % (coins, currency(), state["stats"]["coins"]))
+        out.append("REWARD: %+d %s -> %d" % (coins, currency(), me(state)["stats"]["coins"]))
     if sc.get("chronicle"):
         run["chronicle"].append(str(sc["chronicle"]))
     return out
@@ -618,9 +654,9 @@ def record_patch(state, request, patch):
               for k in library.KINDS for i in patch[k] if i != ident]
     attach = None
     if kind == "rooms":
-        attach = {"room": state["location"], "direction": next(iter(patch["exits"][state["location"]]))}
+        attach = {"room": me(state)["location"], "direction": next(iter(patch["exits"][me(state)["location"]]))}
     data = lib()
-    library.add(data, lib_limit(), ident, kind, "world", patch[kind][ident], bundle, state["location"], attach)
+    library.add(data, lib_limit(), ident, kind, "world", patch[kind][ident], bundle, me(state)["location"], attach)
     lib_save(data)
 
 
@@ -638,7 +674,7 @@ def note_friends(state):
     data = lib()
     for q, giver in new:
         name = ent("quests", q).get("name", q)
-        memory = state.get("npc_memory", {}).get(giver) or []
+        memory = npc_memory_of(state, giver)
         library.befriend(data, giver, "finished their side quest (%s)" % name, memory[-1] if memory else "Did right by me once: %s." % name)
         done.append(giver)
     lib_save(data)
@@ -678,7 +714,7 @@ def carry_over(state):
                 if b["kind"] == "items" and not content.exists("items", b["id"]):
                     run["items"][b["id"]] = dict(generate.retier("items", b["record"], BALANCE["generation"]), made_at_move=0)
             run["placements"].setdefault(where, []).append(ident)
-            state["npc_memory"][ident] = [e["friend"]["line"]]
+            state["npc_memory"][ident] = {pid: [e["friend"]["line"]] for pid in state["players"]}
             run.setdefault("befriended", []).append(ident)
             back.append("%s (a friend, at %s, remembers: %s)" % (rec["meta"].get("name", ident), where, e["friend"]["line"]))
         else:
@@ -702,7 +738,7 @@ def load_state():
         raise Refused("no save file. Start a game with /newgame.")
     state = json.loads(SAVE.read_text())
     if state.get("version", 1) < OLDEST_VERSION:
-        raise Refused("this save is from an older version of CodeRPG and can't be continued. Start a new game with /newgame.")
+        raise Refused("this save is from the original CodeRPG, with one player, and can't be continued here. Start a new game with /newgame.")
     state = migrate(state)
     _RUN = state["run"]
     if _RUN.get("seed"):
@@ -729,8 +765,8 @@ def migrate(state):
 def condition_flags(state):
     """The names content conditions are checked against: the story flags, plus two automatic kinds
     that are true while they hold: has_<item> (carrying it) and met_<character> (seen them in a room)."""
-    return (list(state["flags"]) + ["has_" + i for i in state["inventory"]]
-            + ["met_" + c for c in state.get("met", [])])
+    return (list(state["flags"]) + ["has_" + i for i in me(state)["inventory"]]
+            + ["met_" + c for c in me(state).get("met", [])])
 
 
 _DONE = re.compile(r"^(.*?)\s*\(done when\s+(.+)\)\s*$")
@@ -776,7 +812,7 @@ def map_room(state, ident):
         dest, cond = content.split_condition(target)
         if content.condition_holds(cond, flags):
             exits[d] = dest
-    state.setdefault("map", {})[ident] = {
+    me(state).setdefault("map", {})[ident] = {
         "name": room.get("name", ident), "exits": exits,
         "terrain": room.get("terrain"), "color": room.get("color"),  # how the map tile looks
         "made_by": made_by("rooms", ident),
@@ -786,16 +822,42 @@ def map_room(state, ident):
 
 
 def refresh_view(state):
-    """Derived fields for interfaces (the mod's pane, /map, /inventory), so they never read content.
-    `map` and `met` are history: rooms visited (with the exits open when last there) and characters seen.
-    `view` is a snapshot recomputed on every save."""
+    """Derived fields for interfaces (the mod's pane, /map, /inventory, the dashboard), so they never read content.
+    Each player's `map` and `met` are history: rooms visited (with the exits open when last there) and characters
+    seen. `view` is a snapshot recomputed on every save: `view.players` holds each player's part, and the top level
+    is the shared world plus the acting player's part (the first player's when no one is acting)."""
+    run = state["run"]
+    clock = run.get("clock")
+    shared = {
+        "game": {"id": state["game"], "title": state["adventure"]},
+        "run_label": run_label(state),
+        "look": content.look(),
+        "time": time_of_day(state),
+        "weather": run.get("weather"),
+        "clock": {"name": clock["name"], "left": clock["left"], "total": clock["total"]} if clock else None,
+        "meter": dict(meter(), state=meter_state()),
+        "settings": settings_view(),
+        "chronicle": run["chronicle"][-BALANCE["world"]["chronicle_lines"]:],
+        "rumors": run["rumors"][-BALANCE["world"]["rumors_kept"]:],
+        "signals": [{"n": x["n"], "text": x["text"], "kind": x.get("kind", "plan")} for x in run.get("signals", [])],  # what the player noticed close by
+    }
+    players = {}
+    for pid in state["players"]:
+        with acting(pid):
+            players[pid] = player_view(state)
+    main = ACTOR if ACTOR in players else next(iter(players))
+    state["view"] = dict(shared, players=players, **players[main])
+
+
+def player_view(state):
+    """The acting player's part of the view."""
     room = room_here(state)
     here = characters_here(state)
-    met = state.setdefault("met", [])
+    met = me(state).setdefault("met", [])
     met.extend(c for c in here if c not in met)
     flags = condition_flags(state)
     map_room(state, room["id"])
-    for entry in state["map"].values():  # rooms visited before neighbors were recorded
+    for entry in me(state)["map"].values():  # rooms visited before neighbors were recorded
         if "neighbors" not in entry:
             entry["neighbors"] = {d: ent("rooms", d).get("name", d) for d in entry["exits"].values() if ent_exists("rooms", d)}
 
@@ -805,35 +867,26 @@ def refresh_view(state):
                 "card": ch.get("card"), "promoted": ch.get("promoted") == "yes"}
 
     art = content.game_dir() / "art" / ("%s.txt" % room["id"])
-    run = state["run"]
-    clock = run.get("clock")
-    state["view"] = {
-        "game": {"id": state["game"], "title": state["adventure"]},
-        "run_label": run_label(state),
-        "look": content.look(),
+    return {
+        "name": me(state)["name"],
+        "location": room["id"],
         "location_name": room.get("name", room["id"]),
         "location_generated": is_generated("rooms", room["id"]),
-        "items": [{"id": i, "name": item(i).get("name", i) if ent_exists("items", i) else i, "equipped": i == state["equipped"],
-                   "own": made_by("items", i) == "player"} for i in state["inventory"]],
+        "status": me(state)["status"],
+        "stats": dict(me(state)["stats"]),
+        "items": [{"id": i, "name": item(i).get("name", i) if ent_exists("items", i) else i, "equipped": i == me(state)["equipped"],
+                   "own": made_by("items", i) == "player"} for i in me(state)["inventory"]],
         "weight": carried_weight(state),
         "carry_limit": carry_limit(state),
         "characters_here": [who(c) for c in here],
-        "people": [dict(who(c), here=c in here, memory=state.get("npc_memory", {}).get(c, []))
+        "people": [dict(who(c), here=c in here, memory=npc_memory_of(state, c))
                    for c in met if ent_exists("characters", c)],
         "foes": [dict(who(c), hp=state["npcs"][c]["hp"], max_hp=state["npcs"][c]["max_hp"])
                  for c in here if c in state["npcs"] and state["npcs"][c]["hp"] > 0],  # fought and still standing
         "quests": [quest_view(q, flags) for q in ent_ids("quests")],  # ids come from files that exist
         "art": art.read_text(encoding="utf-8").rstrip("\n") if art.is_file() else None,
         "picture": picture_view(state, room),
-        "time": time_of_day(state),
-        "weather": run.get("weather"),
-        "clock": {"name": clock["name"], "left": clock["left"], "total": clock["total"]} if clock else None,
-        "meter": dict(meter(), state=meter_state()),
         "curses": [{"id": c["id"], "name": c.get("name", c["id"]), "effect": c["effect"]} for c in active_curses(state)],
-        "settings": settings_view(),
-        "chronicle": run["chronicle"][-BALANCE["world"]["chronicle_lines"]:],
-        "rumors": run["rumors"][-BALANCE["world"]["rumors_kept"]:],
-        "signals": [{"n": x["n"], "text": x["text"], "kind": x.get("kind", "plan")} for x in run.get("signals", [])],  # what the player noticed close by
     }
 
 
@@ -919,8 +972,8 @@ def save_state(state):
 
 
 def require_playing(state):
-    if state["status"] != "playing":
-        raise Refused("the game is over (%s). Start again with /newgame." % state["status"])
+    if me(state)["status"] != "playing":
+        raise Refused("the game is over (%s). Start again with /newgame." % me(state)["status"])
 
 
 # ---------------------------------------------------------------- helpers
@@ -930,11 +983,11 @@ def item(ident):
 
 
 def carried_weight(state):
-    return sum(int(item(i).get("weight", 0)) for i in state["inventory"] if ent_exists("items", i))
+    return sum(int(item(i).get("weight", 0)) for i in me(state)["inventory"] if ent_exists("items", i))
 
 
 def carry_limit(state):
-    return BALANCE["carry_base"] + BALANCE["carry_per_might"] * state["stats"]["might"]
+    return BALANCE["carry_base"] + BALANCE["carry_per_might"] * me(state)["stats"]["might"]
 
 
 def check_carry(state, ident):
@@ -945,7 +998,7 @@ def check_carry(state, ident):
 
 
 def room_here(state):
-    return ent("rooms", state["location"])
+    return ent("rooms", me(state)["location"])
 
 
 def characters_here(state):
@@ -971,7 +1024,7 @@ def currency():
 
 
 def player_defense(state):
-    return BALANCE["player_defense_base"] + state["stats"]["agility"]
+    return BALANCE["player_defense_base"] + me(state)["stats"]["agility"]
 
 
 def set_flag(state, name):
@@ -980,15 +1033,15 @@ def set_flag(state, name):
 
 
 def hp_line(state):
-    s = state["stats"]
+    s = me(state)["stats"]
     return "HP %d/%d" % (s["hp"], s["max_hp"])
 
 
 def damage_player(state, amount):
-    s = state["stats"]
+    s = me(state)["stats"]
     s["hp"] = max(0, s["hp"] - amount)
     if s["hp"] == 0:
-        state["status"] = "defeated"
+        me(state)["status"] = "defeated"
         return "PLAYER DEFEATED (HP 0). The game is over; /newgame to start again."
     return "Player " + hp_line(state)
 
@@ -1070,7 +1123,7 @@ def apply_effect(state, effect):
     if not words or words[0] == "none":
         return None
     verb, arg = words[0], " ".join(words[1:])
-    s = state["stats"]
+    s = me(state)["stats"]
     if verb == "coins":
         delta = max(int(arg), -s["coins"])
         if delta == 0:
@@ -1082,7 +1135,7 @@ def apply_effect(state, effect):
             check_carry(state, arg)
         except Refused:
             return "GAIN %s refused: too heavy to carry" % arg
-        state["inventory"].append(arg)
+        me(state)["inventory"].append(arg)
         return "GAINED: %s" % arg
     if verb == "hurt":
         # a random event can wound but never kill: it leaves at least 1 HP
@@ -1166,8 +1219,10 @@ def finish_building(state, ident, com):
     run["rooms"][ident] = dict(record, made_at_move=run["moves"])
     run["exits"].setdefault(com["room"], {})[com["direction"]] = ident
     com["status"] = "done"
-    if com["room"] in state.get("map", {}):
-        map_room(state, com["room"])  # the player had it built, so it's on their map at once, wherever they are
+    owner = com.get("by")
+    if owner in state["players"] and com["room"] in state["players"][owner].get("map", {}):
+        with acting(owner):  # the player had it built, so it's on their map at once, wherever they are
+            map_room(state, com["room"])
     name, where = record["meta"]["name"], ent("rooms", com["room"]).get("name", com["room"])
     run["rumors"].append("%s is finished, %s of %s, and folk are curious to see it." % (name, com["direction"], where))
     del run["rumors"][:-BALANCE["world"]["rumors_kept"]]
@@ -1224,17 +1279,13 @@ def cmd_newgame(args):
         "version": STATE_VERSION,
         "game": content.game_id(),
         "adventure": w.get("title", "Untitled"),
-        "status": "playing",
-        "location": w["start_room"],
-        "stats": stats,
-        "inventory": list(w.get("inventory") or []),
-        "equipped": w.get("equipped"),
+        "players": {"player": {"name": "you", "status": "playing", "location": w["start_room"], "stats": stats,
+                               "inventory": list(w.get("inventory") or []), "equipped": w.get("equipped"),
+                               "map": {}, "met": [], "present": None}},
         "flags": flags,
         "room_items": {r: content.visible(content.load("rooms", r).get("items"), flags) for r in content.ids("rooms")},
         "npcs": {},
         "npc_memory": {},
-        "map": {},
-        "met": [],
         "run": run,
     }
     back = carry_over(state)
@@ -1260,8 +1311,8 @@ def cmd_look(args):
     run = state["run"]
     room = room_here(state)
     flags = condition_flags(state)
-    print("STATUS: %s | %s | %s | %s %d" % (state["status"], hp_line(state), " ".join(
-        "%s %+d" % (stat_label(k), state["stats"][k]) for k in STATS), currency().capitalize(), state["stats"]["coins"]))
+    print("STATUS: %s | %s | %s | %s %d" % (me(state)["status"], hp_line(state), " ".join(
+        "%s %+d" % (stat_label(k), me(state)["stats"][k]) for k in STATS), currency().capitalize(), me(state)["stats"]["coins"]))
     print("LOCATION: %s (%s)%s" % (room.get("name", room["id"]), room["id"], " [generated]" if room.get("generated") else ""))
     texture = [x for x in (time_of_day(state), run.get("weather")) if x]
     if texture:
@@ -1294,8 +1345,8 @@ def cmd_look(args):
     # A turn begins with a look or a move: who is here now may still speak this turn, even after a flag takes them
     # out of the scene (npc-brief).
     present = {"room": room["id"], "characters": here}
-    if run.get("present") != present:
-        run["present"] = present
+    if me(state).get("present") != present:
+        me(state)["present"] = present
         save_state(state)
     voice = {c: "minor" if is_minor(c) else "minor, agent resting" if agents_resting(c) else "agent" for c in here}
     chars = ["%s [%s%s]" % (c, voice[c], ", generated" if is_generated("characters", c) else "") for c in here]
@@ -1329,7 +1380,7 @@ def cmd_look(args):
     notes = run["notes"].get(room["id"], [])
     if notes:
         print("ESTABLISHED HERE: %s" % " | ".join(notes))
-    inv = ["%s%s" % (i, " (equipped)" if i == state["equipped"] else "") for i in state["inventory"]]
+    inv = ["%s%s" % (i, " (equipped)" if i == me(state)["equipped"] else "") for i in me(state)["inventory"]]
     print("INVENTORY: %s  [weight %d/%d]" % (", ".join(inv) or "nothing", carried_weight(state), carry_limit(state)))
     print("FLAGS: %s" % (", ".join(state["flags"]) or "none"))
     print("ALSO TRUE: %s" % (", ".join(f for f in flags if f not in state["flags"]) or "none"))
@@ -1370,7 +1421,7 @@ def cmd_move(args):
     dest, cond = content.split_condition(exits[want])
     if not content.condition_holds(cond, condition_flags(state)):
         raise Refused("the way %s is blocked (needs %s)" % (want, cond))
-    state["location"] = dest
+    me(state)["location"] = dest
     left, _ = scene_playing(state)
     events = []
     if left:
@@ -1388,22 +1439,22 @@ def cmd_take(args):
     state = load_state()
     require_playing(state)
     ident = args[0]
-    here = state["room_items"].setdefault(state["location"], [])
+    here = state["room_items"].setdefault(me(state)["location"], [])
     if ident not in here:
         raise Refused("%s is not here. Items here: %s" % (ident, ", ".join(here) or "none"))
     check_carry(state, ident)
     here.remove(ident)
-    state["inventory"].append(ident)
+    me(state)["inventory"].append(ident)
     save_state(state)
     print("TAKEN: %s  [weight %d/%d]" % (ident, carried_weight(state), carry_limit(state)))
 
 
 def remove_from_inventory(state, ident):
-    if ident not in state["inventory"]:
+    if ident not in me(state)["inventory"]:
         raise Refused("you are not carrying %s" % ident)
-    state["inventory"].remove(ident)
-    if state["equipped"] == ident and ident not in state["inventory"]:
-        state["equipped"] = None
+    me(state)["inventory"].remove(ident)
+    if me(state)["equipped"] == ident and ident not in me(state)["inventory"]:
+        me(state)["equipped"] = None
 
 
 def cmd_drop(args):
@@ -1411,9 +1462,9 @@ def cmd_drop(args):
     require_playing(state)
     ident = args[0]
     remove_from_inventory(state, ident)
-    state["room_items"].setdefault(state["location"], []).append(ident)
+    state["room_items"].setdefault(me(state)["location"], []).append(ident)
     save_state(state)
-    print("DROPPED: %s in %s" % (ident, state["location"]))
+    print("DROPPED: %s in %s" % (ident, me(state)["location"]))
 
 
 def cmd_gain(args):
@@ -1421,7 +1472,7 @@ def cmd_gain(args):
     require_playing(state)
     ident = args[0]
     check_carry(state, ident)
-    state["inventory"].append(ident)
+    me(state)["inventory"].append(ident)
     save_state(state)
     print("GAINED: %s  [weight %d/%d]" % (ident, carried_weight(state), carry_limit(state)))
 
@@ -1438,11 +1489,11 @@ def cmd_equip(args):
     state = load_state()
     require_playing(state)
     ident = args[0]
-    if ident not in state["inventory"]:
+    if ident not in me(state)["inventory"]:
         raise Refused("you are not carrying %s" % ident)
     if not item(ident).get("damage"):
         raise Refused("%s is not a weapon (no damage)" % ident)
-    state["equipped"] = ident
+    me(state)["equipped"] = ident
     save_state(state)
     print("EQUIPPED: %s (damage %s)" % (ident, item(ident)["damage"]))
 
@@ -1451,13 +1502,13 @@ def cmd_use(args):
     state = load_state()
     require_playing(state)
     ident = args[0]
-    if ident not in state["inventory"]:
+    if ident not in me(state)["inventory"]:
         raise Refused("you are not carrying %s" % ident)
     heal = item(ident).get("heal")
     if not heal:
         raise Refused("%s has no mechanical use; use it in the story per its item file" % ident)
     total, faces, mod = dice.roll(heal)
-    s = state["stats"]
+    s = me(state)["stats"]
     before = s["hp"]
     s["hp"] = min(s["max_hp"], s["hp"] + total)
     remove_from_inventory(state, ident)
@@ -1483,7 +1534,7 @@ def cmd_check(args):
     stat, dc = args[0].lower(), resolve_dc(args[1])
     if stat not in STATS:
         raise Refused("stat must be one of %s" % ", ".join(STATS))
-    mod = state["stats"][stat]
+    mod = me(state)["stats"][stat]
     ok, nat, total, note = d20_test(mod, dc)
     save_state(state)  # the run's dice stream has moved on
     print("CHECK %s vs DC %d: d20 %d %+d = %d%s -> %s"
@@ -1505,9 +1556,9 @@ def cmd_attack(args):
 
     out = []
     # player swings
-    weapon = state["equipped"]
+    weapon = me(state)["equipped"]
     dmg_spec = item(weapon)["damage"] if weapon else BALANCE["unarmed_damage"]
-    mod = state["stats"]["might"]
+    mod = me(state)["stats"]["might"]
     ok, nat, total, note = d20_test(mod, int(foe["defense"]))
     out.append("PLAYER ATTACKS %s with %s: d20 %d %+d = %d vs defense %s%s -> %s"
                % (target, weapon or "bare hands", nat, mod, total, foe["defense"], note, "HIT" if ok else "MISS"))
@@ -1552,7 +1603,7 @@ def cmd_heal(args):
     state = load_state()
     require_playing(state)
     total, faces, mod = dice.roll(args[0])
-    s = state["stats"]
+    s = me(state)["stats"]
     before = s["hp"]
     s["hp"] = min(s["max_hp"], s["hp"] + max(0, total))
     save_state(state)
@@ -1568,7 +1619,7 @@ def cmd_coins(args):
         raise Refused("coins takes a signed whole number, e.g. +3 or -2")
     if abs(delta) > 999:
         raise Refused("coins changes are at most 999 at a time")
-    s = state["stats"]
+    s = me(state)["stats"]
     if s["coins"] + delta < 0:
         raise Refused("not enough coins: have %d, need %d" % (s["coins"], -delta))
     s["coins"] += delta
@@ -1599,9 +1650,9 @@ def cmd_npc_brief(args):
     """Everything an NPC agent is allowed to know, built from its character file and state."""
     state = load_state()
     ident = args[0]
-    present = state["run"].get("present") or {}
+    present = me(state).get("present") or {}
     # someone a flag has just taken out of the scene still has their parting line, this turn and in this room
-    leaving = (ident not in characters_here(state) and present.get("room") == state["location"]
+    leaving = (ident not in characters_here(state) and present.get("room") == me(state)["location"]
                and ident in present.get("characters", []))
     if ident not in characters_here(state) and not leaving:
         raise Refused("%s is not in this scene" % ident)
@@ -1648,7 +1699,7 @@ def cmd_npc_brief(args):
     rumors = state["run"]["rumors"][-3:]
     if rumors:
         lines += ["## Talk going around (you may have heard it)"] + ["- " + r for r in rumors] + [""]
-    memory = state["npc_memory"].get(ident, [])
+    memory = npc_memory_of(state, ident)
     lines.append("## What you remember about the player")
     lines += ["- " + m for m in memory] if memory else ["You have never met this person before."]
     print("\n".join(l for l in lines).strip())
@@ -1665,7 +1716,7 @@ def cmd_remember(args):
     limit = BALANCE["npc"]["memory_line_chars"]
     if len(text) > limit:
         raise Refused("memory lines must be at most %d characters (got %d); shorten it" % (limit, len(text)))
-    mem = state["npc_memory"].setdefault(ident, [])
+    mem = npc_memory_list(state, ident)
     mem.append(text)
     del mem[:-BALANCE["npc"]["memory_lines"]]
     save_state(state)
@@ -1708,7 +1759,7 @@ def cmd_show(args):
     kind, ident = args[0], args[1]
     if kind not in content.KINDS:
         raise Refused("kind must be one of %s, or world" % ", ".join(content.KINDS))
-    memory = (state or {}).get("npc_memory", {}).get(ident, []) if kind == "characters" else []
+    memory = npc_memory_of(state, ident) if state and kind == "characters" else []
     remembered = ("\n\n## What they remember about the player\n" + "\n".join("- " + m for m in memory)) if memory else ""
     if content.exists(kind, ident):
         text = content.path_of(kind, ident).read_text(encoding="utf-8").strip()
@@ -1737,7 +1788,7 @@ def cmd_show(args):
 
 def gen_context(state):
     room = room_here(state)
-    here_items = state["room_items"].get(state["location"], [])
+    here_items = state["room_items"].get(me(state)["location"], [])
     names = [ent(k, i).get("name", i) for k in ("rooms", "characters", "items", "quests") for i in ent_ids(k)]
     ids = [i for k in content.KINDS for i in ent_ids(k)]
     run = state["run"]
@@ -1749,11 +1800,11 @@ def gen_context(state):
             ids.append(i)
             names.append(com["record"]["meta"]["name"])
     return generate.Context(
-        location=state["location"], taken_ids=ids, taken_names=names, expand=unused_expansions(room),
+        location=me(state)["location"], taken_ids=ids, taken_names=names, expand=unused_expansions(room),
         policy=policy(), balance=dict(BALANCE["generation"], max_per_run=SETTINGS["generation"]["max_per_run"]),
         count=run["generated"],
         items_found_here=sum(1 for i in here_items if is_generated("items", i)),
-        extras_here=sum(1 for c in run["placements"].get(state["location"], [])
+        extras_here=sum(1 for c in run["placements"].get(me(state)["location"], [])
                         if ent("characters", c).get("extra") == "yes"),
         characters_here=characters_here(state), room_ids=ent_ids("rooms"),
         generated_people=list(run["characters"]),
@@ -1908,7 +1959,7 @@ def cmd_pay(args):
     who = ent("characters", maker).get("name", maker)
     if maker not in characters_here(state):
         raise Refused("%s isn't here; the order waits with them" % who)
-    s = state["stats"]
+    s = me(state)["stats"]
     material = args[1] if len(args) > 1 else None
     if material and com["kind"] == "room":
         raise Refused("%s builds for %s only" % (who, currency()))
@@ -1926,15 +1977,15 @@ def cmd_pay(args):
         paid = "COINS -%d -> %d" % (com["price"], s["coins"])
     if com["kind"] == "room":
         wait = int(BALANCE["generation"]["build_moves"])
-        com.update(status="building", paid_at=run["moves"], ready_at=run["moves"] + wait)
+        com.update(status="building", paid_at=run["moves"], ready_at=run["moves"] + wait, by=actor_id(state))
         save_state(state)
         print(paid)
         print("BUILDING: %s (%s), %s of here, by %s: ready in %s. It doesn't exist until then."
               % (order_name(ident, com), ident, com["direction"], who, moves_text(wait)))
         return
-    com.update(status="done", paid_at=run["moves"])
+    com.update(status="done", paid_at=run["moves"], by=actor_id(state))
     check_carry(state, ident)
-    state["inventory"].append(ident)
+    me(state)["inventory"].append(ident)
     save_state(state)
     data = lib()
     library.add(data, lib_limit(), ident, "items", "player", run["items"][ident], where=None)
@@ -1980,7 +2031,7 @@ def cmd_talk(args):
     if promoted:
         run["characters"][ident]["meta"].update(minor="no", promoted="yes")
         charge("promote")
-        memory = state["npc_memory"].get(ident) or []
+        memory = npc_memory_of(state, ident)
         data = lib()
         library.promote(data, ident, memory[-1] if memory else "Kept coming back to talk with me.")
         lib_save(data)
@@ -2013,11 +2064,11 @@ def cmd_note(args):
     """note <text>: record a small detail you established about this room, so it stays true."""
     state = load_state()
     text = short_line(" ".join(args), "note")
-    notes = state["run"]["notes"].setdefault(state["location"], [])
+    notes = state["run"]["notes"].setdefault(me(state)["location"], [])
     notes.append(text)
     del notes[:-BALANCE["world"]["notes_per_room"]]
     save_state(state)
-    print("NOTED for %s: %s" % (state["location"], text))
+    print("NOTED for %s: %s" % (me(state)["location"], text))
 
 
 def cmd_chronicle(args):
@@ -2972,7 +3023,9 @@ def save_summary(data):
         return "no game yet"
     if data.get("version", 1) < OLDEST_VERSION:
         return "an old save that can't be continued"
-    return "%s, %s in" % (data.get("status", "?"), moves_text((data.get("run") or {}).get("moves", 0)))
+    players = (data.get("players") or {}).values()
+    status = "playing" if any(pl.get("status") == "playing" for pl in players) else "over"
+    return "%s, %s in" % (status, moves_text((data.get("run") or {}).get("moves", 0)))
 
 
 def title_of(ident):
@@ -3236,7 +3289,24 @@ COMMANDS = {
 }
 
 
+def take_actor(argv):
+    """Take `--as <id>` out of the arguments, wherever it is, and remember who acts."""
+    global ACTOR
+    if "--as" not in argv:
+        return argv
+    i = argv.index("--as")
+    if i + 1 >= len(argv):
+        raise Refused("--as needs a player id")
+    ACTOR = argv[i + 1]
+    return argv[:i] + argv[i + 2:]
+
+
 def main(argv):
+    try:
+        argv = take_actor(list(argv))
+    except Refused as e:
+        print("REFUSED: %s" % e)
+        return 1
     if not argv or argv[0] not in COMMANDS:
         print("commands:")
         for name, (_, _, help_text) in COMMANDS.items():
