@@ -1165,6 +1165,9 @@ class Engine(unittest.TestCase):
         built = [i for i, e in enumerate(ends) if "BUILT: The Net-Loft" in e]
         self.assertEqual(len(built), 1)
         self.assertIn("net_loft", self.me()["map"]["harbor_square"]["exits"].values())
+        told = [e["text"] for e in self.me()["memory"]["recent"] if e["kind"] == "seen" and "is finished" in e["text"]]
+        self.assertEqual(told, ["The Net-Loft is finished, southwest of Harbor Square: Morwen built it for you."])
+        self.assertNotIn("built it for you", json.dumps(self.save()["players"]["corin"]["memory"]), "only its owner is told")
 
     def test_an_order_is_logged_from_what_was_asked_to_each_use(self):
         self.rpg("game", "switch", "dark_lighthouse")

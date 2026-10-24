@@ -1406,6 +1406,10 @@ def finish_building(state, ident, com):
         with acting(owner):  # the player had it built, so it's on their map at once, wherever they are
             map_room(state, com["room"])
     name, where = record["meta"]["name"], ent("rooms", com["room"]).get("name", com["room"])
+    maker = ent("characters", com["maker"]).get("name", com["maker"])
+    if owner in state["players"]:  # they hear of it, whether or not the story tells them (as signals go to memory)
+        remember(state["players"][owner], "seen", "%s is finished, %s of %s: %s built it for you."
+                 % (name, com["direction"], where, maker), run.get("round") or 0)
     run["rumors"].append("%s is finished, %s of %s, and folk are curious to see it." % (name, com["direction"], where))
     del run["rumors"][:-BALANCE["world"]["rumors_kept"]]
     data = lib()
@@ -1414,8 +1418,7 @@ def finish_building(state, ident, com):
     lib_save(data)
     whose = "%s (%s)" % (state["players"][owner]["name"], owner) if owner in state["players"] else "the player"
     return ("BUILT: %s (%s) is finished, %s of %s, built for %s by %s. It's open now; describe it when they next see "
-            "it, or tell it as news if someone would." % (name, ident, com["direction"], where, whose,
-                                                         ent("characters", com["maker"]).get("name", com["maker"])))
+            "it, or tell it as news if someone would." % (name, ident, com["direction"], where, whose, maker))
 
 
 # ---------------------------------------------------------------- commands
