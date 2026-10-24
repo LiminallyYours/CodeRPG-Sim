@@ -80,6 +80,12 @@ class Refused(Exception):
 ACTOR = None  # the id given with --as; set by main()
 COMMAND = None  # the command being run; set by main()
 REFEREE_COMMANDS = ("round", "run", "log", "brief", "pane", "reply", "narrate", "memory")  # they name the player themselves
+NO_ONE_COMMANDS = ("world-brief", "world-turn")  # a world turn may also be run for no one: between rounds
+
+
+def no_one(state):
+    """True for a world turn run with no --as (between rounds): it reads the shared world, and no one's place in it."""
+    return ACTOR is None and COMMAND in NO_ONE_COMMANDS
 
 
 def actor_id(state):
@@ -908,6 +914,8 @@ def migrate(state):
 def condition_flags(state):
     """The names content conditions are checked against: the story flags, plus two automatic kinds
     that are true while they hold: has_<item> (carrying it) and met_<character> (seen them in a room)."""
+    if no_one(state):  # a world turn between rounds: the story flags alone
+        return list(state["flags"])
     return (list(state["flags"]) + ["has_" + i for i in me(state)["inventory"]]
             + ["met_" + c for c in me(state).get("met", [])])
 
@@ -1451,8 +1459,7 @@ def cmd_newgame(args):
         stale.unlink()
     print("NEW GAME: %s" % state["adventure"])
     print("SEED: %s%s (the same seed rolls the same run)" % (seed, ", today's daily world" if run["daily"] else ""))
-    print("CAST: %s" % "; ".join("%s (%s, %s) at %s" % (pl["name"], pid, pl["model"], ent("rooms", pl["location"]).get(
-        "name", pl["location"])) for pid, pl in players.items()))
+    print(cast_line(state))
     for pid, rolled in run["rolls"].items():
         print("ROLLED for %s: %s" % (pid, ", ".join("%s %d" % kv for kv in rolled.items())))
     if run["variants"]:
@@ -1463,6 +1470,13 @@ def cmd_newgame(args):
         print("FROM EARLIER RUNS (they're part of this world now): %s" % "; ".join(back))
     with acting(first):
         cmd_look([])
+
+
+def cast_line(state):
+    """CAST: who plays, with the model each is spawned with, and where each is now."""
+    return "CAST: %s" % "; ".join("%s (%s, %s) at %s%s" % (
+        pl["name"], pid, pl["model"], ent("rooms", pl["location"]).get("name", pl["location"]),
+        "" if pl["status"] == "playing" else ", %s" % pl["status"]) for pid, pl in state["players"].items())
 
 
 def cast_player(entry, w, run):
@@ -2020,8 +2034,9 @@ def cmd_show(args):
 
 
 def gen_context(state):
-    room = room_here(state)
-    here_items = state["room_items"].get(me(state)["location"], [])
+    room = {} if no_one(state) else room_here(state)  # a world turn between rounds happens nowhere in particular
+    here = room.get("id")
+    here_items = state["room_items"].get(here, [])
     names = [ent(k, i).get("name", i) for k in ("rooms", "characters", "items", "quests") for i in ent_ids(k)]
     ids = [i for k in content.KINDS for i in ent_ids(k)]
     run = state["run"]
@@ -2033,17 +2048,17 @@ def gen_context(state):
             ids.append(i)
             names.append(com["record"]["meta"]["name"])
     return generate.Context(
-        location=me(state)["location"], taken_ids=ids, taken_names=names, expand=unused_expansions(room),
+        location=here, taken_ids=ids, taken_names=names, expand=unused_expansions(room) if here else [],
         policy=policy(), balance=dict(BALANCE["generation"], max_per_run=SETTINGS["generation"]["max_per_run"]),
         count=run["generated"],
         items_found_here=sum(1 for i in here_items if is_generated("items", i)),
-        extras_here=sum(1 for c in run["placements"].get(me(state)["location"], [])
-                        if ent("characters", c).get("extra") == "yes"),
-        characters_here=characters_here(state), room_ids=ent_ids("rooms"),
+        extras_here=sum(1 for c in run["placements"].get(here, []) if ent("characters", c).get("extra") == "yes"),
+        characters_here=characters_here(state) if here else [], room_ids=ent_ids("rooms"),
         generated_people=list(run["characters"]),
         terrains=list(content.look().get("terrain") or {}), terrain_here=room.get("terrain"),
         moves=run["moves"], maker=maker if kind == "craft" else None, makes=makes(maker) if maker and kind == "craft" else (),
-        builder=maker if kind == "build" else None, build_spots=build_spots(state, room), depth_here=room_depth(room),
+        builder=maker if kind == "build" else None, build_spots=build_spots(state, room) if here else {},
+        depth_here=room_depth(room),
         plan_steps={c: [st["step"] for st in steps] for c, steps in open_steps(state).items()})
 
 
@@ -2424,22 +2439,28 @@ def cmd_world_brief(args):
         raise Refused("the %s is spent until the next session, so nothing new turns up: it doesn't exist"
                       % resource()["name"].lower())
     w = world()
-    room = room_here(state)
+    if request != "turn" and no_one(state):
+        actor_id(state)  # anything but a world turn is for the player acting: refused without --as
+    room = {} if no_one(state) else room_here(state)
     if request == "room" and not unused_expansions(room):
         raise Refused("%s has no direction left where a new place could be; "
                       "the way the player wants doesn't exist" % room.get("name", room["id"]))
     flags = condition_flags(state)
-    desc = [room["body"].split("\n## ")[0].strip()]
-    for heading, text in content.sections(room["body"]):
-        cond = content.section_condition(heading)
-        if cond and content.condition_holds(cond, flags):
-            desc.append(text)
     run = state["run"]
     out = ["# World brief: %s" % request, "",
            "## The adventure", "%s. %s" % (w.get("title", ""), _section(w["body"], "Tone")), "",
-           "## What everyone around here knows", _section(w["body"], "Public knowledge") or "(nothing listed)", "",
-           "## Where the player is", "%s. %s" % (room.get("name", room["id"]), " ".join(desc))]
-    notes = run["notes"].get(room["id"], [])
+           "## What everyone around here knows", _section(w["body"], "Public knowledge") or "(nothing listed)", ""]
+    if room:
+        desc = [room["body"].split("\n## ")[0].strip()]
+        for heading, text in content.sections(room["body"]):
+            cond = content.section_condition(heading)
+            if cond and content.condition_holds(cond, flags):
+                desc.append(text)
+        out += ["## Where the player is", "%s. %s" % (room.get("name", room["id"]), " ".join(desc))]
+    else:
+        out += ["## Where the players are", "; ".join("%s at %s" % (state["players"][p]["name"], ent(
+            "rooms", state["players"][p]["location"]).get("name", state["players"][p]["location"])) for p in playing(state)) + "."]
+    notes = run["notes"].get(room.get("id"), [])
     if notes:
         out += ["Established details: " + " | ".join(notes)]
     texture = [x for x in (time_of_day(state), run.get("weather")) if x]
@@ -3470,8 +3491,12 @@ def cmd_run(args):
             "ended" if run.get("ended") else {"pause": "pause asked", "end": "end asked"}.get(run.get("stop"), "going"),
             run.get("round", 0) - (1 if rs else 0), "" if run.get("round", 0) - (1 if rs else 0) == 1 else "s",
             "at most %d per run" % cap if cap else "no limit on rounds"))
+        print(cast_line(state))
         if rs:
-            print("ROUND %d OPEN: next to act: %s" % (run["round"], whose_turn(state) or "nobody: `round end`"))
+            nxt = whose_turn(state)
+            replied = nxt and (state["players"][nxt].get("turn") or {}).get("round") == run["round"]
+            print("ROUND %d OPEN: next to act: %s" % (run["round"], "nobody: `round end`" if not nxt else
+                  "%s (they have replied: run their turn, then `narrate`)" % nxt if replied else "%s (waiting for their reply)" % nxt))
         why = None if rs else why_no_round(run, run.get("round", 0) + 1)
         if why:
             print("NEXT ROUND WAITS: %s" % why)

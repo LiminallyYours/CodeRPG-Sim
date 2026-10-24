@@ -950,7 +950,16 @@ class Engine(unittest.TestCase):
         self.assertIn("no DO: line", self.rpg("reply", first, "proposals/reply.txt", ok=False))
         self.assertIn("Next: %s." % second, self.take_turn(first))
         self.assertIn("still to act: %s" % second, self.rpg("round", "end", ok=False))
-        self.assertIn("Everyone has had their turn", self.take_turn(second))
+        status = self.rpg("run", "status", as_=False)
+        self.assertIn("next to act: %s (waiting for their reply)" % second, status)
+        pl = self.save()["players"][second]
+        self.assertIn("%s (%s, %s) at " % (pl["name"], second, pl["model"]), status.split("CAST: ")[1])
+        self.write("proposals/reply.txt", "DO: I look around.")
+        self.rpg("reply", second, "proposals/reply.txt")
+        self.assertIn("next to act: %s (they have replied" % second, self.rpg("run", "status", as_=False))
+        self.rpg("look", as_=second)
+        self.write("proposals/story.txt", "You wait.")
+        self.assertIn("Everyone has had their turn", self.rpg("narrate", second, "proposals/story.txt"))
         self.assertIn("ROUND 1 ENDS.", self.rpg("round", "end"))
         log = self.rpg("log", "40")
         self.assertIn("action", log)
@@ -1042,6 +1051,15 @@ class Engine(unittest.TestCase):
         _, end = self.play_round()
         self.assertIn("WORLD TURN DUE", end)  # every 2 rounds in the simulation preset
         self.assertEqual(self.save()["run"]["moves"], 2)
+        # between rounds the world turn is no one's: it runs without --as, and its brief says where everyone is
+        brief = self.rpg("world-brief", "turn", as_=False)
+        self.assertIn("## Where the players are\nWren at ", brief)
+        self.assertIn("; Corin at ", brief)
+        self.assertNotIn("## Where the player is", brief)
+        self.assertIn("say who acts", self.rpg("world-brief", "extra", as_=False, ok=False))
+        self.write("proposals/wt.json", json.dumps({"rumors": ["The keeper's lamp burned blue last night."], "moves": []}))
+        self.assertIn("WORLD TURN: 1 rumors", self.rpg("world-turn", "proposals/wt.json", as_=False))
+        self.assertNotIn("WORLD TURN DUE", self.rpg("look"))
 
     def test_a_building_is_finished_after_its_rounds(self):
         self.rpg("game", "switch", "dark_lighthouse")
