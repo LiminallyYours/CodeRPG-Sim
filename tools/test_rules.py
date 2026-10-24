@@ -765,6 +765,19 @@ class Engine(unittest.TestCase):
         self.assertEqual(s["players"]["wren"]["inventory"].count("healing_tonic"), 2)
         self.assertNotIn("healing_tonic", s["players"]["corin"]["inventory"])
 
+    def test_an_npc_sees_the_players_as_people_and_remembers_each_one(self):
+        self.at_the_lighthouse()  # Wren, with Ysolde
+        for d in ("south", "west"):
+            self.rpg("move", d, as_="corin")
+        self.rpg("remember", "ysolde", "Asked about the lens and listened.")
+        brief = self.rpg("npc-brief", "ysolde", as_="corin")
+        self.assertIn("Present: Corin, Wren.", brief)
+        self.assertIn("Corin is the one talking to you.", brief)
+        self.assertIn("## What you remember about Corin\nYou have never met this person before.", brief)
+        self.assertIn("## What you remember about Wren\n- Asked about the lens and listened.", brief)
+        self.assertNotIn("player", brief.lower())
+        self.assertNotIn("Asked about the lens", self.rpg("show", "characters", "ysolde", as_="corin"))
+
     def test_validate_checks_the_cast(self):
         d = "games/dark_lighthouse/cast.json"
         cast = json.loads((self.dir / d).read_text())

@@ -1010,6 +1010,13 @@ def characters_here(state):
             if ent_exists("characters", c) and not (is_generated("characters", c) and "%s_defeated" % c in flags)]
 
 
+def players_here(state):
+    """The players in the acting player's room who are still playing: the acting player first, then the cast's order."""
+    here, me_id = me(state)["location"], actor_id(state)
+    return [me_id] + [pid for pid, pl in state["players"].items()
+                      if pid != me_id and pl["location"] == here and pl["status"] == "playing"]
+
+
 def is_minor(ident):
     return str(ent("characters", ident).get("minor", "no")).lower() == "yes"
 
@@ -1700,10 +1707,12 @@ def cmd_npc_brief(args):
     if now:
         lines += ["## Right now", "\n\n".join(now), ""]
     room = room_here(state)
+    people = players_here(state)  # the one speaking to them first; to them, players are people like any other
     others = ["%s (%s)" % (ent("characters", c).get("name", c), ent("characters", c).get("role", ""))
               for c in characters_here(state) if c != ident]
-    lines += ["## The scene", "You are at %s. Present: the player%s." % (
-        room.get("name", room["id"]), "".join(", " + o for o in others)), ""]
+    lines += ["## The scene", "You are at %s. Present: %s." % (
+        room.get("name", room["id"]), ", ".join([state["players"][pid]["name"] for pid in people] + others)),
+        "%s is the one talking to you." % me(state)["name"], ""]
     if leaving:
         lines += ["This is your parting line: what just happened takes you out of this scene.", ""]
     playing, rec = scene_playing(state)
@@ -1721,9 +1730,12 @@ def cmd_npc_brief(args):
     rumors = state["run"]["rumors"][-3:]
     if rumors:
         lines += ["## Talk going around (you may have heard it)"] + ["- " + r for r in rumors] + [""]
-    memory = npc_memory_of(state, ident)
-    lines.append("## What you remember about the player")
-    lines += ["- " + m for m in memory] if memory else ["You have never met this person before."]
+    for pid in people:
+        with acting(pid):
+            memory = npc_memory_of(state, ident)
+        lines.append("## What you remember about %s" % state["players"][pid]["name"])
+        lines += ["- " + m for m in memory] if memory else ["You have never met this person before."]
+        lines.append("")
     print("\n".join(l for l in lines).strip())
 
 
@@ -1782,7 +1794,8 @@ def cmd_show(args):
     if kind not in content.KINDS:
         raise Refused("kind must be one of %s, or world" % ", ".join(content.KINDS))
     memory = npc_memory_of(state, ident) if state and kind == "characters" else []
-    remembered = ("\n\n## What they remember about the player\n" + "\n".join("- " + m for m in memory)) if memory else ""
+    remembered = ("\n\n## What they remember about %s (the player acting)\n" % me(state)["name"]
+                  + "\n".join("- " + m for m in memory)) if memory else ""
     if content.exists(kind, ident):
         text = content.path_of(kind, ident).read_text(encoding="utf-8").strip()
         if text.startswith("---") and "\n---" in text[3:]:
