@@ -1,16 +1,19 @@
 ---
 name: gm-turn
-description: The game master's turn procedure for CodeRPG. Use on every player action (any in-character message) to read state and content, resolve outcomes with rules/rpg.py, narrate, and record changes.
+description: The referee's turn procedure for CodeRPG, for one named person in the cast. Use on every turn, once `rpg.py reply` has stored their DO line: read state and content as them, resolve outcomes with rules/rpg.py --as <id>, and store the story they're told with `narrate`.
 user-invocable: false
 ---
 
-# One game turn
+# One turn, for one person
 
-Follow these steps in order, every turn. If the player's message is out-of-character (it starts with `ooc:` or is about building the game), don't use this procedure.
+In a round, each person in the cast takes one turn. Their reply has been stored with `python3 rules/rpg.py reply <id> <file>`, which printed their `DO:` line and their `JOURNAL:` line. This procedure turns the DO line into what happens, exactly as a game master answers a player's typed message, and ends by storing the story they're told with `narrate`. Below, "the player" is the person whose turn it is, and `<id>` is their id.
+- **`--as <id>` goes on every rules command of the turn:** `look --as <id>`, `move north --as <id>`, `show characters pell --as <id>`, `npc-brief pell --as <id>`, `remember pell "<line>" --as <id>`. The examples below leave it out to stay short; never leave it out of a command. Only the referee's own commands (`reply`, `narrate`, `brief`, `pane`, `round`, `run`, `memory`, `log`) name the player themselves instead. `REFUSED: it's <someone>'s turn` means you're acting for the wrong person: act for the one whose turn it is.
+- **The DO line is the action:** what they say and do, in their own words, as a player would type it. **The JOURNAL line is their private reason.** `reply` has already put it in their memory and the log. Never act on it, never let anyone in the world learn it (an NPC's brief and scene lines included), and never answer it in the story.
+- Nothing you write reaches the player except the story you store with `narrate`. Anything else you write is seen only by the owner: keep it to nothing, or a line.
 
 ## 1. Read state
-Run `python3 rules/rpg.py look`. It reports your status, location, open and blocked exits, the items and characters here, your inventory and flags, and ends with `ROOM TEXT:`, the room as it reads now. It has already applied flag conditions. If the status is `defeated`, tell the player the game is over and suggest `/newgame`. Then stop.
-- **A plain move skips the `look`:** when the player's words clearly match one open exit in the last `look` or `move` output you have from this conversation, run `move <direction>` as the turn's first command. It refuses if the way isn't open, and on success prints the full `look` of the new room, its `ROOM TEXT:` included. With no such output to go by (the first turn of a session, or after a `/clear`), or for any other kind of action, start with `look`.
+Run `python3 rules/rpg.py look`. It reports the player's status, location, open and blocked exits, the items, characters and other people here, their inventory and flags, and ends with `ROOM TEXT:`, the room as it reads now. It has already applied flag conditions. If the status is `defeated`, they take no more turns: tell the owner in one line and stop.
+- **Every turn starts with `look`**, even for a plain move: other people have acted since this player last looked, and `look` also notes who is present at the start of the turn.
 
 ## 2. Read the content involved
 The current room's text is the `ROOM TEXT:` that `look` or `move` printed: don't `show` it again. Read each character, item or quest the action touches, and any other room, with `python3 rules/rpg.py show <rooms|characters|items|quests> <id>`. Never open content files by path.
@@ -29,6 +32,9 @@ Work out what the player is trying to do, then use the matching command:
 | pick up / put down | `take <item>` / `drop <item>` |
 | buy, trade or receive / give away | `gain <item>` / `lose <item>` (and `coins -N <reason>` / `coins +N <reason>`: purchase, sale, reward, gift, ...) |
 | pay a maker or builder for an order | `pay <id>`, or `pay <id> <item>` to pay a maker in trade |
+| work for pay where they stand (`look` lists `WORK HERE`) | `work` |
+| sell something to a buyer here (`look` lists `BUYERS HERE`) | `sell <item>`, or `sell <item> <buyer>` when there are several |
+| speak to the other people here (`look` lists `PEOPLE HERE`) | `say <file>` (see **Other people** below) |
 | wield a weapon | `equip <item>` |
 | drink or eat something with a `heal` value | `use <item>` |
 | uncertain attempt (sneak, climb, persuade, frighten, notice) | `check <stat> <dc>`, using a DC from content if one is given, otherwise easy, normal or hard |
@@ -39,18 +45,24 @@ Work out what the player is trying to do, then use the matching command:
 - Run each command once and accept the result. Never re-roll because you didn't like it.
 - **Moving:** use `move` only when the player's words clearly match one open exit, by direction or by the place it leads to. If they're vague ("head into town", "go somewhere warm") or could mean more than one exit, don't move them. Describe the open exits and ask where they want to go.
 - **Don't roll for certain things.** Talking, looking around and walking through an open door need no command, except `move` for walking.
+- **Work** makes its own check and pays on a success, once per visit: accept its result like any roll. There's work there again only after the player leaves and comes back.
+- **Selling:** the buyer pays the price `sell` reports, never another. Only things with a tier are bought; `sell` refuses the rest, and the buyer says so in their own way. Voice the buyer as their file and `look`'s marks direct.
 - **Talking:** `look` marks each character `[minor]` or `[agent]`. `[minor, agent resting]` means the character normally has an agent, but the owner's settings have it quiet: treat it as `[minor]`. Their memory of the player is at the end of `rpg.py show characters <id>`.
   - **[minor]:** you speak as the character yourself, in the voice their file describes. Share only what their file allows under the current flags (the `## If` sections that hold), and hold trades to the prices in their file.
   - **[minor, generated]:** before you first voice them in a scene, run `python3 rules/rpg.py talk <id>`, and voice them from what it prints. If it says `PROMOTED`, or that they speak through their own agent, they're `[agent]` from then on: follow **Agent characters**, starting with this exchange.
   - **[agent]:** the character speaks through their own subagent. Follow **Agent characters** below.
-- When the player tries several things in one message, resolve them in order and stop at the first one that fails, or that a character would interrupt.
+- **Other people** (`PEOPLE HERE`) are people living their own lives, and each acts on their own turn. Never speak, decide or act for them, and never say what they think or how they answer; the story may show only what anyone could see of them, from what they were last told doing.
+  - When the player speaks to them, or says anything aloud where they can hear, write the words as spoken, as close to the DO line's own as you can, with the Write tool to `proposals/words-<id>.txt`, and run `say proposals/words-<id>.txt`. Everyone else here hears them on their next turn and may answer then. The story tells what the player said, not what comes back.
+  - Handing something to another person, trading with them or harming them can't happen yet. Treat it as refused: narrate in the fiction why it doesn't come off, without deciding anything for the other person.
+- When the player tries several things in one DO line, resolve them in order and stop at the first one that fails, or that a character would interrupt.
 
 ## 4. Narrate
-- The narration is the only text you write in a turn, and it comes **last**, after every tool call, including the state writes in step 5. Write no commentary before or between tool calls: the interface draws the final text as story and hides anything else. If you're asked for a progress update mid-turn, give one short in-world line ending with "…", such as "Bringing the fisherman into being…", as its own paragraph, and carry on. Never report what you did or what's pending (an update finished, a price, a payment), and never put such a line at the start of the narration.
+- The narration is the story of their turn, and the only text that reaches them. Write it **last**, after every other command of the turn, including the state writes in step 5: `narrate` also records how things stand at that moment, into their memory.
+- Write it with the Write tool to `proposals/story-<id>.txt`, then store it with `python3 rules/rpg.py narrate <id> proposals/story-<id>.txt`. That ends their turn. Don't write it anywhere else.
 - Begin with the story itself. No preface such as "Recording her reply, then narrating."
 - The narration stays inside the fiction. Never mention rules, commands, flags, dice numbers (unless asked), world turns, generation or agents, and never explain why you record something ("so the content says to set…"): that reasoning stays in your tool calls. The player is always "you", never "the player".
 - Write in the second person and present tense. Keep it to two to four short paragraphs, vivid but brief.
-- When someone speaks, give them their own paragraph and start it with their name and a colon: `Pell: "Well now," she says, wiping a glass.` The interface removes the tag and draws the paragraph beside a line in that character's color, under their name.
+- When someone speaks, give them their own paragraph and start it with their name and a colon: `Pell: "Well now," she says, wiping a glass.`
 - Narrate the rolls truthfully, as fiction: "your blade glances off his hide" for a miss. Mention the numbers only if the player asks.
 - For a `REFUSED:` result, explain in the fiction why the action didn't happen.
 - After moving, describe the new room from the `ROOM TEXT:` that `move` printed, including the open exits. Mention blocked exits only as the content describes them. A `may grow` direction is a way that hasn't been explored. Mention it only as the room's prose does; when the prose says nothing about it, don't point it out, but if the player heads that way and going there is plausible, a new place can be found there.
@@ -58,21 +70,22 @@ Work out what the player is trying to do, then use the matching command:
   - **`ENCOUNTER:`** something happened on arrival, and its effect has already been applied. Narrate exactly that.
   - **`CLOCK:`** time is running out, or the clocked event has just happened. Say so, from the content's `## If` sections for the clock's flag.
   - **`BUILT:`** something the player paid for is finished. Mention it when the player next sees that place, or as news if someone would tell them.
-  - **`WORLD TURN DUE`:** run the world turn (see **Filling gaps**) before you write the narration. Don't mention it.
+  - **`WORLD TURN DUE`:** run the world turn (see **World turns**) before you store the narration. Don't mention it.
+- When the world's clock counts rounds, `round end` prints `BUILT:` and `WORLD TURN DUE` instead of `move`; the rounds procedure says what to do with them.
 - Let `TIME AND WEATHER` colour descriptions.
-- `CURSE:` in `look` means the player's words come out changed. The prompt's context says how they came out and what was meant: resolve what was meant, and narrate (and pass to agents) the words as they came out. Only the curse's own file says how it's cured.
+- `CURSE:` in `look` means the player's words come out changed. The context says how they came out and what was meant: resolve what was meant, and narrate (and pass to agents, and to `say`) the words as they came out. Only the curse's own file says how it's cured.
 - `METER:` in `look` is what play costs, in the game's own terms. Never mention it, except once when `look` reports `METER LOW` or `METER SPENT`: then let that line's text show lightly, in the story.
 - End with a light prompt, such as what's in front of them or who is waiting for an answer. Don't list menu options.
 
 ## 5. Write state
-Record anything the content says should change, in the same turn. Make these calls before you write the narration, so the narration stays the turn's final text:
+Record anything the content says should change, in the same turn. Make these calls before you store the narration:
 - `python3 rules/rpg.py flag set <name>` when a content file says to set a flag. Content files are the only source of flag names.
 - Trades and gifts: `coins ±N <reason>`, `gain <item>`, `lose <item>`.
 
 - **Chronicle:** when something significant happens (a quest step, a big choice, a fight won or lost), add one line to the story so far: `python3 rules/rpg.py chronicle "<one line, past tense>"`.
 - **Details:** when you invent a small, harmless detail the player may come back to, such as a boat's name or the colour of a door, keep it true: `python3 rules/rpg.py note "<the detail>"`.
 
-`take`, `move`, `attack`, `use` and `check` have already written their results. Don't repeat them.
+`take`, `move`, `attack`, `use`, `check`, `work`, `sell` and `say` have already written their results. Don't repeat them.
 
 Never edit `state/save.json` or anything in `games/` directly.
 
@@ -90,8 +103,8 @@ When the turn's outcome sets a flag that takes the character out of the scene (c
 
 Its prompt has exactly these three parts:
 1. **Brief:** the verbatim output of `python3 rules/rpg.py npc-brief <id>`. Run it again for every spawn, since flags may have changed. Never add facts of your own to it.
-2. **The scene so far:** the last few lines of this scene, at most about 8, written as `Player: …` / `<Name>: …` / `(action)`. Write "(the scene just began)" if there are none. A scene ends when the player leaves the room.
-3. **What just happened:** the player's words, quoted as close to verbatim as you can, and anything they visibly did, such as "holds out a wrapped parcel". If a roll has just been made, give its outcome in plain fiction, never as numbers.
+2. **The scene so far:** the last few lines of this scene, at most about 8, each written as `<Name>: …` for whoever spoke (the player and anyone else here, by their names) or `(action)`. Write "(the scene just began)" if there are none. A scene ends when the player leaves the room.
+3. **What just happened:** the player's words from their DO line, quoted as close to verbatim as you can, and anything they visibly did, such as "holds out a wrapped parcel". Never their JOURNAL line. If a roll has just been made, give its outcome in plain fiction, never as numbers.
 
 ## Using the reply (SAY / INTENT / REMEMBER)
 - **SAY:** narrate it in your own prose around the character's words. You may trim it. Drop anything that contradicts state or content, or that names a thing that doesn't exist. **State wins.** If the NPC claims something false, such as having an item it doesn't have, leave it out or have the character correct themselves.
@@ -151,26 +164,19 @@ When a generated or player-made person, place or thing has come to matter (the p
 A maker makes things to order within their trade; a builder builds a small place at one of the room's build spots.
 1. Run `python3 rules/rpg.py world-brief craft <maker>` (or `world-brief build <builder>`), spawn the `world` agent with it, and run `generate craft` (or `generate build`) on its reply, as in **How to generate**. If `world-brief` refuses, they turn the order away in character.
 2. If `generate` says they turn the order down, narrate that in their voice. Otherwise it reports what will be made and its `PRICE`: they describe it and name that price, never another. When the maker is an `[agent]`, put what will be made and its price in that spawn's "What just happened", so they name it themselves.
-3. Only when the player pays, run `pay <id>` (or `pay <id> <item>` for an item `PRICE` lists in trade). Until then it isn't theirs. A made item is handed over at once; a building takes a few moves (`BEING BUILT` in `look`) and doesn't exist until `BUILT:` says so. An unpaid order waits (`ORDERS WAITING` in `look`).
+3. Only when the player pays, run `pay <id>` (or `pay <id> <item>` for an item `PRICE` lists in trade). Until then it isn't theirs. A made item is handed over at once; a building takes a while (`BEING BUILT` in `look`) and doesn't exist until `BUILT:` says so. An unpaid order waits (`ORDERS WAITING` in `look`).
 
 ## World turns
-When `move` or `look` says `WORLD TURN DUE`, do this before writing the narration, so the narration stays the last thing in the turn:
+When `look`, `move` or `round end` says `WORLD TURN DUE`, run the world turn. During a turn, do it before you store the narration:
 1. Run `python3 rules/rpg.py world-brief turn`.
 2. Spawn the `world` agent with that brief.
 3. Write its JSON to `proposals/world-turn.json`, then run `python3 rules/rpg.py world-turn proposals/world-turn.json`.
 
-Don't narrate the world turn. Its rumors surface later, when the player talks to people: minor and generated characters may repeat them, and agent NPCs already see them in their briefs.
+Don't narrate the world turn. Its rumors surface later, when people talk: minor and generated characters may repeat them, and agent NPCs already see them in their briefs.
 
-Some characters follow plans of their own on world turns: someone goes for a walk, falls asleep, bars a door. `world-turn` reports what the player can notice:
-- **`SIGNAL:`** happened close by. Work that line into the narration as one sentence of what the player sees or hears, without explaining it ("Somewhere above, a door slams and a bolt shoots home.").
-- **`NOW HERE:`** that character has just arrived where the player is. Narrate them arriving, then play them as usual.
-- **`OFF-SCREEN:`** nothing the player could notice. Say nothing; the rooms and what people say will show it when the player gets there.
+Some characters follow plans of their own on world turns: someone goes for a walk, falls asleep, bars a door. `world-turn` reports what each player can notice, naming them:
+- **`SIGNAL for <name>:`** happened close to them. Work that line into their next narration as one sentence of what they see or hear, without explaining it ("Somewhere above, a door slams and a bolt shoots home.").
+- **`NOW HERE for <name>:`** that character has just arrived where they are. In their next narration, narrate the arrival, then play the character as usual.
+- **`OFF-SCREEN:`** nothing anyone could notice. Say nothing; the rooms and what people say will show it when someone gets there.
 
-Never tell the player what someone did off-screen, and never explain a signal. When they go and look, `look` and `show` already describe how things are now.
-
-## New worlds
-The player can ask for a whole new world (`/newworld`); it's made in the background while they play.
-- When the notice arrives that the worldsmith has finished, or `look` says `NEW WORLD READY`, run `python3 rules/rpg.py forge install <draft>` (`forge status` lists the drafts).
-  - **`INSTALLED:`** end the narration with one line in the story's voice: somewhere a new world has taken shape, its title, and that `/game <id>` goes there. If the notice arrived on its own, with nothing else to narrate, that line is the whole reply.
-  - **`REFUSED:`** say nothing about it.
-- Never mention how a world is made.
+Never tell anyone what someone did off-screen, and never explain a signal. When they go and look, `look` and `show` already describe how things are now.
