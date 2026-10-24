@@ -2,7 +2,7 @@
 
 Written 2026-10-24 by JW with Claude, from a design conversation. For Claude Code, which will build it. Status: agreed by JW; the open points in section 12 were decided on 2026-10-24 (section 10 lists the answers), and `PLAN.md` sequences phase 1.
 
-This is a **fork** of CodeRPG, not a change to it. The game stays as it is. The fork is a new repository with its own name. Until the fork exists this file lives in the CodeRPG folder; move it to the fork's root when the fork is made. Read the original's `README.md`, `DEVELOPING.md` and `HANDOFF.md` first; the invariants in `DEVELOPING.md` hold in the fork too, except where this file says otherwise.
+This is a **fork** of CodeRPG, not a change to it. The game stays as it is. The fork is its own repository (CodeRPG-Sim), which keeps the original's history. Read `README.md` and `DEVELOPING.md` first (both inherited from the original, and rewritten for the fork as it is built); the original's own `HANDOFF.md` and planning papers are not in the fork but stay in its git history. The invariants in `DEVELOPING.md` hold in the fork too, except where this file says otherwise.
 
 ## 1. Purpose
 
