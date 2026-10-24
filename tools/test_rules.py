@@ -740,6 +740,72 @@ class Engine(unittest.TestCase):
         self.assertIn("CRAFTING: on, at most 1 orders per run", self.rpg("settings"))
         self.assertIn("isn't here to take an order", self.rpg("world-brief", "craft", "pell", ok=False))
 
+    def lighthouse_economy(self, work="  stat: wits\n  pay: 1-3\n  dc: 2\n", buys="  trinket: 1\n  light_weapon: 2\n"):
+        """The Lighthouse with paid work in Harbor Square and Morwen buying as well as making."""
+        g = self.dir / "games" / "dark_lighthouse"
+        for f, key, block in (("rooms/harbor_square.md", "work", work), ("characters/morwen.md", "buys", buys)):
+            text = (g / f).read_text()
+            (g / f).write_text(text.replace("---\n", "---\n%s:\n%s" % (key, block), 1))
+        self.rpg("game", "switch", "dark_lighthouse")
+
+    def log(self):
+        return [json.loads(line) for line in (self.dir / "state" / "log" / ("%s.jsonl" % self.save()["run"]["id"])).read_text().splitlines()]
+
+    def test_work_pays_after_a_check_once_per_visit(self):
+        self.lighthouse_economy()
+        self.rpg("newgame", seed=60)  # Wren in Harbor Square
+        self.assertIn("WORK HERE: Wits vs DC 2, pays 1-3 coins, once per visit. If the player works here: `work`.", self.rpg("look"))
+        coins = self.me()["stats"]["coins"]
+        out = self.rpg("work")
+        self.assertRegex(out, r"WORK wits vs DC 2: d20 \d+ \+\d+ = \d+ -> SUCCESS")
+        paid = self.me()["stats"]["coins"] - coins
+        self.assertTrue(1 <= paid <= 3)
+        self.assertIn("PAID: %d coins for the work" % paid, out)
+        self.assertIn("(done this visit)", self.rpg("look"))
+        self.assertIn("already worked here this visit", self.rpg("work", ok=False))
+        self.rpg("move", "east")
+        self.assertIn("no paid work here", self.rpg("work", ok=False))
+        self.rpg("move", "west")
+        self.assertIn("WORK wits", self.rpg("work"))  # a new visit
+        coin_entries = [e for e in self.log() if e["kind"] == "coins"]
+        self.assertTrue(coin_entries and all(e["reason"] == "work" and e["note"] == "harbor_square" for e in coin_entries))
+
+    def test_a_buyer_buys_made_things_but_not_the_worlds_own(self):
+        self.lighthouse_economy()
+        self.rpg("newgame", seed=40)
+        self.assertIn("BUYERS HERE: morwen buys trinket 1, light weapon 2. If the player sells something: `sell <item>`.", self.rpg("look"))
+        self.order("morwen", {"id": "gaff_hook", "name": "Gaff Hook", "description": "A barbed hook.", "tier": "light_weapon"})
+        self.rpg("pay", "gaff_hook")
+        coins = self.me()["stats"]["coins"]
+        self.assertIn("doesn't buy worn_dagger: it has no tier", self.rpg("sell", "worn_dagger", ok=False))
+        self.assertIn("SOLD: gaff_hook to Morwen for 2 coins. COINS +2", self.rpg("sell", "gaff_hook"))
+        self.assertEqual(self.me()["stats"]["coins"], coins + 2)
+        self.assertNotIn("gaff_hook", self.me()["inventory"])
+        self.assertIn("not carrying gaff_hook", self.rpg("sell", "gaff_hook", ok=False))
+        self.assertIn("isn't a buyer here", self.rpg("sell", "worn_dagger", "pell", ok=False))
+        self.rpg("move", "east")
+        self.assertIn("nobody here buys things", self.rpg("sell", "worn_dagger", ok=False))
+        entries = self.log()
+        self.assertEqual([(e["delta"], e["reason"]) for e in entries if e["kind"] == "coins"], [(-3, "order"), (2, "sale")])
+        self.assertIn(("used", "sold to morwen"), [(e["step"], e.get("how")) for e in entries if e["kind"] == "order"])
+
+    def test_validate_checks_work_buyers_and_what_a_simulation_needs(self):
+        out = self.rpg("validate", "--game", "dark_lighthouse", "--sim-complete", ok=False)  # as shipped: neither
+        for want in ("sim: needs a room with paid work (work:)", "sim: needs a buyer (buys:)",
+                     "sim: world.md generation rooms must be no"):
+            self.assertIn(want, out)
+        self.assertNotIn("sim: needs a maker", out)
+        self.assertNotIn("sim: needs a cast", out)
+        self.lighthouse_economy(work="  stat: luck\n  pay: 0-9\n  dc: tricky\n  hours: 3\n",
+                                buys="  hat: 1\n  light_weapon: 3\n  trinket: free\n")
+        out = self.rpg("validate", "--game", "dark_lighthouse", ok=False)
+        for want in ("rooms/harbor_square.md: work: unknown key 'hours'", "work: stat must be one of might, agility, wits",
+                     "work: pay must be a whole number or a range like 1-3, from 1 to 4", "work: dc must be a number",
+                     "characters/morwen.md: buys: 'hat' isn't an item tier",
+                     "buys: light_weapon: pays 3, but having one made costs 3; a buyer must pay less",
+                     "buys: trinket: the price must be a whole number"):
+            self.assertIn(want, out)
+
     def test_the_save_holds_players_and_as_names_who_acts(self):
         self.rpg("game", "switch", "dark_lighthouse")
         self.rpg("newgame", seed=43)

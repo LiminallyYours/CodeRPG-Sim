@@ -411,6 +411,27 @@ def builds(ident):
     return str(ent("characters", ident).get("builds", "no")).lower() == "yes"
 
 
+def buys(ident):
+    """What a buyer pays for each item tier (`buys:`), {tier: price}; empty for anyone else."""
+    tiers = BALANCE["generation"]["item_tiers"]
+    prices = ent("characters", ident).get("buys")
+    return {t: p for t, p in prices.items() if t in tiers and isinstance(p, int)} if isinstance(prices, dict) else {}
+
+
+# ---------------------------------------------------------------- earning: paid work and a buyer
+# A room may give `work:` (a stat, a pay range and a DC): a player there can work once per visit, a check
+# first, and is paid in coins on a success. A character with `buys:` pays a set price per item tier for
+# things made or found (anything with a tier); the world's own things have none, and aren't bought.
+
+def work_of(room):
+    """A room's paid work as {stat, low, high, dc}, or None. Validate has checked its shape."""
+    spec = room.get("work")
+    if not isinstance(spec, dict):
+        return None
+    low, _, high = str(spec.get("pay", "")).partition("-")
+    return {"stat": spec.get("stat"), "low": int(low), "high": int(high or low), "dc": resolve_dc(spec.get("dc", "normal"))}
+
+
 ORDER_KINDS = {"craft": ("item", "crafting", "makers"), "build": ("room", "building", "builders")}
 
 
@@ -1464,7 +1485,7 @@ def cast_player(entry, w, run):
     equipped = entry.get("equipped", w.get("equipped") if "inventory" not in entry else None)
     return {"name": entry["name"], "model": entry["model"], "status": "playing", "location": entry["home"],
             "stats": stats, "inventory": inventory, "equipped": equipped if equipped in inventory else None,
-            "map": {}, "met": [], "present": None}
+            "map": {}, "met": [], "present": None, "worked": None}
 
 
 def cmd_look(args):
@@ -1520,6 +1541,15 @@ def cmd_look(args):
     if spots and builders and not why_no_order(state, "build"):
         print("BUILD SPOTS HERE: %s. Builders here: %s. If the player orders something built: `world-brief build <builder>` "
               "(see gm-turn)." % ("; ".join("%s: %s" % kv for kv in spots.items()), ", ".join(builders)))
+    job = work_of(room)
+    if job:
+        print("WORK HERE: %s vs DC %d, pays %s %s, once per visit%s. If the player works here: `work`." % (
+            stat_label(job["stat"]), job["dc"], "%d-%d" % (job["low"], job["high"]) if job["high"] > job["low"] else job["low"],
+            currency(), " (done this visit)" if me(state).get("worked") == room["id"] else ""))
+    buyers = [c for c in here if buys(c)]
+    if buyers:
+        print("BUYERS HERE: %s. If the player sells something: `sell <item>`." % "; ".join(
+            "%s buys %s" % (c, ", ".join("%s %d" % (t.replace("_", " "), p) for t, p in buys(c).items())) for c in buyers))
     waiting = [(i, c) for i, c in run["commissions"].items() if c["status"] == "ordered"]
     if waiting:
         print("ORDERS WAITING: %s. When the player pays: `pay <id>` (an item may be paid for in trade: `pay <id> <material>`)."
@@ -1587,6 +1617,7 @@ def cmd_move(args):
     if not content.condition_holds(cond, condition_flags(state)):
         raise Refused("the way %s is blocked (needs %s)" % (want, cond))
     me(state)["location"] = dest
+    me(state)["worked"] = None  # a new visit: there may be work here again
     log_use(state, dest, "entered")
     left, _ = scene_playing(state)
     events = []
@@ -2203,6 +2234,63 @@ def cmd_pay(args):
           % (item(ident).get("name", ident), ident, who, carried_weight(state), carry_limit(state)))
 
 
+def cmd_work(args):
+    """work: the player works where they stand, if the room pays for work: a check against its stat, then coins on
+    a success. Once per visit, whatever the outcome; walking away and coming back is a new visit."""
+    state = load_state()
+    require_playing(state)
+    room = room_here(state)
+    job = work_of(room)
+    if not job:
+        raise Refused("there's no paid work here")
+    if me(state).get("worked") == room["id"]:
+        raise Refused("the player has already worked here this visit; there's work again after they leave and come back")
+    me(state)["worked"] = room["id"]
+    mod = me(state)["stats"][job["stat"]]
+    ok, nat, total, note = d20_test(mod, job["dc"])
+    print("WORK %s vs DC %d: d20 %d %+d = %d%s -> %s"
+          % (job["stat"], job["dc"], nat, mod, total, note, "SUCCESS" if ok else "FAILURE"))
+    if ok:
+        pay = job["low"] + dice.roll("1d%d" % (job["high"] - job["low"] + 1))[0] - 1
+        change_coins(state, pay, "work", room["id"])
+        print("PAID: %d %s for the work. COINS +%d -> %d" % (pay, currency(), pay, me(state)["stats"]["coins"]))
+    else:
+        print("NOT PAID: the work went wrong this time; nothing more here until the next visit.")
+    save_state(state)
+
+
+def cmd_sell(args):
+    """sell <item> [<buyer>]: the player sells a carried item to a buyer here, at the buyer's price for its tier.
+    Only things with a tier (made to order, or found) are bought; the world's own things are not."""
+    state = load_state()
+    require_playing(state)
+    ident = args[0]
+    if ident not in me(state)["inventory"]:
+        raise Refused("you are not carrying %s" % ident)
+    buyers = [c for c in characters_here(state) if buys(c)]
+    if len(args) > 1:
+        if args[1] not in buyers:
+            raise Refused("%s isn't a buyer here (buyers here: %s)" % (args[1], ", ".join(buyers) or "none"))
+        buyer = args[1]
+    elif len(buyers) == 1:
+        buyer = buyers[0]
+    elif buyers:
+        raise Refused("say who buys it: sell <item> <buyer> (buyers here: %s)" % ", ".join(buyers))
+    else:
+        raise Refused("nobody here buys things")
+    who, tier = ent("characters", buyer).get("name", buyer), item(ident).get("tier")
+    prices = buys(buyer)
+    if tier not in prices:
+        raise Refused("%s doesn't buy %s: %s" % (who, ident, "they buy %s" % ", ".join(t.replace("_", " ") for t in prices)
+                      if tier else "it has no tier (only things made or found are bought)"))
+    remove_from_inventory(state, ident)
+    log_use(state, ident, "sold to %s" % buyer)
+    change_coins(state, prices[tier], "sale", ident)
+    save_state(state)
+    print("SOLD: %s to %s for %d %s. COINS +%d -> %d"
+          % (ident, who, prices[tier], currency(), prices[tier], me(state)["stats"]["coins"]))
+
+
 def why_not_promoted(state, ident, count):
     """Why a generated person isn't promoted to their own agent now, or None when they are due."""
     switch = SETTINGS["promotion"]
@@ -2509,9 +2597,10 @@ def unknown_keys(over, base, where, problems):
             unknown_keys(v, base[k], "%s %s" % (where, k), problems)
 
 
-def validate_game(kit=False):
+def validate_game(kit=False, sim=False):
     """Every problem in the active game's content: references, formats, soundness, and its JSON settings. With `kit`,
-    also everything a world needs for every kit feature to work in it (what a forged world must pass)."""
+    also everything a world needs for every kit feature to work in it (what a forged world must pass); with `sim`,
+    everything a simulation needs (`validate_sim_complete`)."""
     problems = []
     for name, base in (("look.json", content.kit_look()), ("balance.json", content.kit_balance())):
         try:
@@ -2664,6 +2753,8 @@ def validate_game(kit=False):
             problems.append("%s: has build spots but no builder (`builds: yes`) among its characters" % where)
         if room.get("encounters"):
             need("tables", room["encounters"], where + " encounters")
+        if room.get("work") is not None:
+            problems.extend("%s: work: %s" % (where, x) for x in work_problems(room["work"]))
     for t in content.ids("tables"):
         table = content.load("tables", t)
         if not re.match(r"^\s*\d+\s+in\s+\d+\s*$", str(table.get("chance", ""))):
@@ -2710,6 +2801,8 @@ def validate_game(kit=False):
             problems.append("characters/%s.md: builds must be yes or no" % c)
         if ch.get("accepts") and not ch.get("makes"):
             problems.append("characters/%s.md: accepts goes with makes (it's what a maker takes in trade)" % c)
+        if ch.get("buys") is not None:
+            problems.extend("characters/%s.md: buys: %s" % (c, x) for x in buys_problems(ch["buys"]))
     for t in BALANCE["generation"]["item_tiers"]:
         if t not in BALANCE["generation"]["craft_price"]:
             problems.append("balance.json generation craft_price: no price for the item tier %r" % t)
@@ -2742,7 +2835,42 @@ def validate_game(kit=False):
     validate_soundness(w, problems)
     if kit:
         validate_kit_complete(w, problems)
+    if sim:
+        validate_sim_complete(w, problems)
     return problems, "%d rooms, %d characters, %d items, %d quests, %d tables, %d curses, %d scenes" % tuple(len(content.ids(k)) for k in content.KINDS)
+
+
+def work_problems(spec):
+    """What's wrong with a room's `work:` (stat, pay as a range like 1-3, and optionally dc), as a list."""
+    if not isinstance(spec, dict):
+        return ["give stat, pay (a range like 1-3) and optionally dc, each on its own indented line"]
+    out = ["unknown key %r (keys: stat, pay, dc)" % k for k in sorted(set(spec) - {"stat", "pay", "dc"})]
+    if spec.get("stat") not in STATS:
+        out.append("stat must be one of %s" % ", ".join(STATS))
+    cap = int(BALANCE["work"]["max_pay"])
+    m = re.fullmatch(r"(\d+)(?:-(\d+))?", str(spec.get("pay", "")))
+    if not m or not 1 <= int(m.group(1)) <= int(m.group(2) or m.group(1)) <= cap:
+        out.append("pay must be a whole number or a range like 1-3, from 1 to %d (balance.json work.max_pay)" % cap)
+    if "dc" in spec and not (str(spec["dc"]).isdigit() or spec["dc"] in BALANCE["dc"]):
+        out.append("dc must be a number or one of %s" % ", ".join(BALANCE["dc"]))
+    return out
+
+
+def buys_problems(prices):
+    """What's wrong with a buyer's `buys:` (an item tier and a price on each line), as a list. A buyer pays less than
+    the tier costs to have made, or money could be made from nothing."""
+    tiers, cost = BALANCE["generation"]["item_tiers"], BALANCE["generation"]["craft_price"]
+    if not isinstance(prices, dict) or not prices:
+        return ["give an item tier and a price on each indented line (tier: price)"]
+    out = []
+    for t, p in prices.items():
+        if t not in tiers:
+            out.append("%r isn't an item tier (%s)" % (t, ", ".join(tiers)))
+        elif not isinstance(p, int) or p < 1:
+            out.append("%s: the price must be a whole number from 1" % t)
+        elif p >= int(cost[t]):
+            out.append("%s: pays %d, but having one made costs %d; a buyer must pay less" % (t, p, int(cost[t])))
+    return out
 
 
 def quest_flags(w):
@@ -2952,7 +3080,7 @@ def validate_scenes(problems):
 
 _HEADING_IF = re.compile(r"^#{2,6}\s+If\s+(.+?)\s*$", re.M)
 _CODE = re.compile(r"`([^`\n]+)`")
-ITEM_COMMANDS = ("take", "drop", "gain", "lose", "equip", "use")
+ITEM_COMMANDS = ("take", "drop", "gain", "lose", "equip", "use", "sell")
 
 
 def content_files(w):
@@ -3020,7 +3148,7 @@ def command_problem(words):
     cmd, args = words[0], words[1:]
     if len(args) < COMMANDS[cmd][1]:
         return "needs %d argument(s): %s" % (COMMANDS[cmd][1], COMMANDS[cmd][2])
-    if cmd in ITEM_COMMANDS and not content.exists("items", args[0]):
+    if cmd in ITEM_COMMANDS and not args[0].startswith("<") and not content.exists("items", args[0]):  # `sell <item>`
         return "no item %r" % args[0]
     if cmd == "attack" and not content.exists("characters", args[0]):
         return "no character %r" % args[0]
@@ -3189,6 +3317,28 @@ def validate_kit_complete(w, problems):
         problems.append("kit: needs a curse")
     if not content.ids("scenes"):
         problems.append("kit: needs a side scene")
+
+
+def validate_sim_complete(w, problems):
+    """What a world needs for the simulation: a cast to play it, a maker and a builder to spend with, paid work and a
+    buyer to earn from, and no free growth (every new place and thing is one somebody paid for).
+    `validate --sim-complete`."""
+    people = [content.load("characters", c) for c in content.ids("characters")]
+    rooms = [content.load("rooms", r) for r in content.ids("rooms")]
+    if not content.cast():
+        problems.append("sim: needs a cast (cast.json)")
+    if not any(c.get("makes") for c in people):
+        problems.append("sim: needs a maker (makes:)")
+    if not any(r.get("build") for r in rooms):
+        problems.append("sim: needs a build spot (build:) in a room, with a builder there")
+    if not any(r.get("work") for r in rooms):
+        problems.append("sim: needs a room with paid work (work:)")
+    if not any(c.get("buys") for c in people):
+        problems.append("sim: needs a buyer (buys:)")
+    gen = w.get("generation") or {}
+    for k in ("rooms", "items"):
+        if str(gen.get(k, "no")).lower() != "no":
+            problems.append("sim: world.md generation %s must be no (every new %s is one somebody paid for)" % (k, k[:-1]))
 
 
 # ---------------------------------------------------------------- rounds
@@ -3583,10 +3733,11 @@ def cmd_log(args):
 
 
 def cmd_validate(args):
-    """validate [--game <id> | --dir <folder>] [--kit-complete]: check the kit's games (or one installed game, or a
-    draft's folder) for broken references, formats and soundness; --kit-complete adds what a forged world needs."""
-    kit = "--kit-complete" in args
-    args = [a for a in args if a != "--kit-complete"]
+    """validate [--game <id> | --dir <folder>] [--kit-complete] [--sim-complete]: check the kit's games (or one
+    installed game, or a draft's folder) for broken references, formats and soundness; --kit-complete adds what a
+    forged world needs, --sim-complete what a simulation needs."""
+    kit, sim = "--kit-complete" in args, "--sim-complete" in args
+    args = [a for a in args if a not in ("--kit-complete", "--sim-complete")]
     if "--dir" in args:
         want = args[args.index("--dir") + 1:][:1]
         folder = (ROOT / want[0]).resolve() if want else None
@@ -3612,14 +3763,14 @@ def cmd_validate(args):
     for g, folder in targets:
         try:
             choose_game(g, folder)
-            problems, summary = validate_game(kit)
+            problems, summary = validate_game(kit, sim)
         except (Refused, KeyError, ValueError) as e:  # a file too broken to read: say so, never stop with a refusal
             problems, summary = ["checking stopped early: %s" % (e.args[0] if isinstance(e, KeyError) and e.args else e)], ""
         if problems:
             bad = True
             print("\n".join("%s: %s" % (g, x) for x in problems))
         else:
-            print("CONTENT OK: %s: %s%s" % (g, summary, " (kit-complete)" if kit else ""))
+            print("CONTENT OK: %s: %s%s%s" % (g, summary, " (kit-complete)" if kit else "", " (sim-complete)" if sim else ""))
     if bad:
         sys.exit(1)
 
@@ -3951,6 +4102,8 @@ COMMANDS = {
     "world-brief": (cmd_world_brief, 1, "world-brief <extra|room|item|character|quest|turn> | craft <maker> | build <builder>   prompt for the world agent"),
     "generate": (cmd_generate, 2, "generate <extra|room|item|character|quest|craft|build> <file>   add a world-agent proposal (a JSON file)"),
     "pay": (cmd_pay, 1, "pay <order> [material]   the player pays a maker or builder for an order"),
+    "work": (cmd_work, 0, "work   the player works here for pay, once per visit (a check first)"),
+    "sell": (cmd_sell, 1, "sell <item> [buyer]   the player sells something with a tier to a buyer here"),
     "scene": (cmd_scene, 2, "scene start <id> | scene end <id> [reward]   play a side scene between two characters"),
     "forge": (cmd_forge, 1, "forge quote | start [sentence] | resume <draft> | status | install <draft> | discard <draft>   new worlds"),
     "world-turn": (cmd_world_turn, 1, "world-turn <file>   apply the world agent's off-screen turn (a JSON file)"),
@@ -3965,7 +4118,7 @@ COMMANDS = {
     "narrate": (cmd_narrate, 2, "narrate <player> <file>   the story told to the player this turn, from a file; ends their turn"),
     "memory": (cmd_memory, 2, "memory condense <player> | memory store <player> <file>   fold older rounds into the player's own words"),
     "log": (cmd_log, 0, "log [n]   the run's last n log entries (default 10), one line each, for checking"),
-    "validate": (cmd_validate, 0, "validate [--game <id> | --dir <folder>] [--kit-complete]   check games' content, soundness and settings"),
+    "validate": (cmd_validate, 0, "validate [--game <id> | --dir <folder>] [--kit-complete] [--sim-complete]   check games' content, soundness and settings"),
     "game": (cmd_game, 0, "game [list | show | switch <id>]   the installed games; switching keeps each one's save"),
     "meter": (cmd_meter, 0, "meter [refill]   the meter, or fill it (the SessionStart hook refills it)"),
     "settings": (cmd_settings, 0, "settings   the owner's switches and prices for this game (change: tools/settings.py)"),

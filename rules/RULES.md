@@ -88,6 +88,11 @@ Two kinds of names are automatic and can't be set: `has_<item>` is true while yo
 - **Paying:** `pay <id>` takes the tier's price from `generation.craft_price` (trinket 2, light weapon 3, tonic 3, weapon 5), or `pay <id> <item>` takes one item the maker accepts. The item is handed over at once and is the player's own.
 - **Limits:** the owner's `crafting.max_per_run` orders per run (2, 5, 10 by preset); orders don't count toward the generation limit, and a game's `generation:` policy doesn't apply to them.
 
+## Earning: paid work and a buyer
+- **Paid work:** a room with `work:` pays for a job done there. `work` makes a check (`check` with the room's stat and DC) and, on a success, pays a number of coins rolled in the room's range; a failure pays nothing. Either way it's once per visit: leaving and coming back is a new visit. Pay is at most `work.max_pay` (4) a time.
+- **A buyer** (`buys:`) pays a set price per item tier, always below what having one made costs. `sell <item>` (and the buyer's id, if two are here) hands it over for that price. Only things with a tier are bought: made to order, or found. The world's own things have none.
+- Every coin earned is logged with its reason: `work` or `sale`.
+
 ## The library
 - Every generated person, place and thing, and everything the player had made or built, goes into the game's library (`state/library/<game>.json`). Side quests don't: they belong to one run's people. A person keeps their wares, a place what was in it.
 - **A new game** brings back the places the player built (at their build spots, if the content still has them) and the people they befriended, where they were, each remembering one line: their last memory of the player, or the job done. Authored characters, flags, inventory and quests reset, so the main quest is whole again.

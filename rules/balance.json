@@ -91,6 +91,9 @@
   "scenes": {
     "max_reward_coins": 2
   },
+  "work": {
+    "max_pay": 4
+  },
   "cast": {
     "max_players": 6,
     "stat_min": -1,
