@@ -11,7 +11,7 @@ Where the build stands, for whoever picks it up next, human or Claude. Read `PLA
 
 ## Starting the next session
 1. Read `CLAUDE.md`, this file, `PLAN.md`, `SIMULATION-FORK-PROPOSAL.md`, `DEVELOPING.md`. Messages need no `ooc:`.
-2. `sh tools/check.sh` (should pass: 3 worlds, 85 engine tests, the mod's checks) and `git status -sb`, `git remote -v`.
+2. `sh tools/check.sh` (should pass: 3 worlds, 81 engine tests, the mod's checks) and `git status -sb`, `git remote -v`.
 3. If `origin` still points at `LiminallyYours/CodeRPG`, remind JW to run `git remote set-url origin https://github.com/LiminallyYours/CodeRPG-Sim.git`; push only when JW asks.
 4. Carry on from **Next** above. The `player` agent now loads in new sessions (Claude Code's list mislabels it "All tools", like `npc` and `world`; it has none).
 
