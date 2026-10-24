@@ -53,7 +53,8 @@
     },
     "rounds": {
       "clock": "move",
-      "time_every": 0
+      "time_every": 0,
+      "max_per_run": 50
     },
     "memory": {
       "recent_rounds": 5,
@@ -122,7 +123,8 @@
     },
     "rounds": {
       "clock": "move",
-      "time_every": 0
+      "time_every": 0,
+      "max_per_run": 50
     },
     "memory": {
       "recent_rounds": 5,
@@ -191,7 +193,8 @@
     },
     "rounds": {
       "clock": "move",
-      "time_every": 0
+      "time_every": 0,
+      "max_per_run": 50
     },
     "memory": {
       "recent_rounds": 5,
@@ -260,7 +263,8 @@
     },
     "rounds": {
       "clock": "round",
-      "time_every": 5
+      "time_every": 5,
+      "max_per_run": 50
     },
     "memory": {
       "recent_rounds": 5,

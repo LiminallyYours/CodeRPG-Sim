@@ -932,6 +932,50 @@ class Engine(unittest.TestCase):
                          [(first, "I look around.", self.save()["players"][first]["model"], 1), (second, "I look around.", self.save()["players"][second]["model"], 2)])
         self.assertEqual(len([e for e in entries if e["kind"] == "narration"]), 2)
 
+    def test_the_owner_pauses_resumes_and_ends_a_run_between_rounds(self):
+        self.rpg("game", "switch", "dark_lighthouse")
+        self.settings_tool("preset", "simulation")
+        self.rpg("newgame", seed=43)
+        order = [p.split("(")[1].rstrip(")") for p in self.rpg("round", "start").split(": ", 1)[1].strip().split(", ")]
+        self.take_turn(order[0])
+        self.assertIn("PAUSE ASKED: round 1 is in progress (1 still to act), and finishes first", self.rpg("run", "pause"))
+        self.take_turn(order[1])  # the round in progress goes on
+        self.assertIn("NO MORE ROUNDS FOR NOW: the owner has paused the run", self.rpg("round", "end"))
+        self.assertIn("paused the run", self.rpg("round", "start", ok=False))
+        self.assertIn("RUN: pause asked; 1 round played", self.rpg("run", "status"))
+        self.rpg("run", "resume")
+        self.assertIn("isn't paused", self.rpg("run", "resume", ok=False))
+        self.rpg("round", "start")
+        self.assertIn("END ASKED: round 2 is in progress (2 still to act), and finishes first; then the run closes",
+                      self.rpg("run", "end"))
+        for pid in self.save()["run"]["round_state"]["order"]:
+            self.take_turn(pid)
+        self.assertIn("NO MORE ROUNDS FOR NOW: the run has ended (round 2 was its last)", self.rpg("round", "end"))
+        self.assertIn("RUN: ended; 2 rounds played", self.rpg("run", "status"))
+        self.assertIn("has ended", self.rpg("round", "start", ok=False))
+        self.assertIn("already ended", self.rpg("run", "pause", ok=False))
+        entries = [json.loads(line) for line in (self.dir / "state" / "log" / ("%s.jsonl" % self.save()["run"]["id"])).read_text().splitlines()]
+        runs = [e for e in entries if e["kind"] == "run"]
+        self.assertEqual([e["action"] for e in runs], ["pause", "resume", "end", "ended"])
+        self.assertEqual((runs[-1]["rounds"], sorted(runs[-1]["players"])), (2, ["corin", "wren"]))
+        self.rpg("newgame", seed=44)  # a new run starts afresh
+        self.rpg("round", "start")
+
+    def test_a_run_stops_at_the_owners_round_limit(self):
+        self.rpg("game", "switch", "dark_lighthouse")
+        self.settings_tool("preset", "simulation")
+        self.assertIn("ROUNDS: the world's clock moves by round; at most 50 rounds per run", self.rpg("settings"))
+        self.settings_tool("set", "rounds.max_per_run", "2")
+        self.rpg("newgame", seed=43)
+        self.play_round()
+        _, end = self.play_round()
+        self.assertIn("NO MORE ROUNDS FOR NOW: the run has had its 2 rounds (rounds.max_per_run)", end)
+        self.assertIn("had its 2 rounds", self.rpg("round", "start", ok=False))
+        self.settings_tool("set", "rounds.max_per_run", "0")  # no limit
+        self.assertIn("no limit on rounds", self.rpg("run", "status"))
+        self.rpg("round", "start")
+        self.assertIn("rounds.max_per_run must be a whole number", self.settings_tool("set", "rounds.max_per_run", "-1", ok=False))
+
     def test_memory_keeps_recent_rounds_and_condenses_older_ones_in_their_own_words(self):
         self.rpg("game", "switch", "dark_lighthouse")
         self.settings_tool("preset", "simulation")  # 5 kept, condensed every 5

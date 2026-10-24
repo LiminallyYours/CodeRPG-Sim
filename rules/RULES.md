@@ -121,7 +121,7 @@ Playing the game as written is free: every game-master turn, every rules command
 - **Refill:** each time Claude Code is opened or resumed in the folder (a SessionStart hook); a `/clear` doesn't refill it. The meter lives in `state/meter.json`, outside every save, so it carries across new games and game switches.
 
 ## The owner's switches
-Each game's `settings.json` picks a preset from `rules/presets.json` (`thrifty`, `normal` or `rich`) and may override any of its switches:
+Each game's `settings.json` picks a preset from `rules/presets.json` (`thrifty`, `normal`, `rich` or `simulation`) and may override any of its switches:
 - `meter.capacity`;
 - `npc_agents`: `on` (off: the game master voices everyone), `lines_per_exchange`, and `characters` to switch single characters off;
 - `world_turns`: `on` and `every_moves`;
@@ -129,6 +129,9 @@ Each game's `settings.json` picks a preset from `rules/presets.json` (`thrifty`,
 - `crafting`: `on` and `max_per_run` (orders placed with makers).
 - `building`: `on` and `max_per_run` (places ordered from builders).
 - `promotion`: `on`, `max_per_run` and `after_conversations` (generated people getting their own agent).
+- `rounds`: `clock` (`move` or `round`: what moves the world's clock), `time_every`, and `max_per_run`, the most rounds a run may have (50 in every preset; 0 for no limit). Raising it lets a stopped run go on.
+
+**A run of rounds** (the simulation) is the owner's to pause or end: `rpg.py run pause`, `run resume`, `run end`, and `run status`. Neither cuts into a round: the round in progress finishes, and the next doesn't start (`round start` refuses). A paused run goes on when resumed; an ended one is closed for good, with a summary in the log, and a new run starts with `newgame`. A run also stops at `rounds.max_per_run`.
 
 `rpg.py settings` and the instant command `/budget` show them. Only the owner changes them, with `tools/settings.py`, which the game master can't run.
 

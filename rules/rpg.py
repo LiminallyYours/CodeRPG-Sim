@@ -79,7 +79,7 @@ class Refused(Exception):
 
 ACTOR = None  # the id given with --as; set by main()
 COMMAND = None  # the command being run; set by main()
-REFEREE_COMMANDS = ("round", "log", "brief", "pane", "reply", "narrate", "memory")  # they name the player themselves
+REFEREE_COMMANDS = ("round", "run", "log", "brief", "pane", "reply", "narrate", "memory")  # they name the player themselves
 
 
 def actor_id(state):
@@ -2625,6 +2625,9 @@ def validate_game(kit=False, sim=False):
         section, name = key.split(".")
         if (merged.get(section) or {}).get(name) not in allowed:
             problems.append("settings.json: %s must be %s" % (key, " or ".join(allowed)))
+    cap = (merged.get("rounds") or {}).get("max_per_run")
+    if not isinstance(cap, int) or isinstance(cap, bool) or cap < 0:
+        problems.append("settings.json: rounds.max_per_run must be a whole number (0 for no limit)")
     for c in ((overrides.get("npc_agents") or {}).get("characters") or {}):
         if not content.exists("characters", c):
             problems.append("settings.json npc_agents characters: unknown character %r" % c)
@@ -3386,6 +3389,9 @@ def cmd_round(args):
         if open_round:
             raise Refused("round %d is still open: `round end` first" % run["round"])
         number = run.get("round", 0) + 1
+        why = why_no_round(run, number)
+        if why:
+            raise Refused(why)
         order, draw = balanced_order(state, number)
         if not order:
             raise Refused("no one is still playing")
@@ -3409,10 +3415,83 @@ def cmd_round(args):
     events = tick_move(state) if by_rounds() else []
     run["round_state"] = None
     log(state, "round", phase="end", order=open_round["order"], events=events, world_turn_due=run["world_turn_due"])
+    if run.get("stop") == "end":
+        end_run(state)
+    after = why_no_round(run, number + 1)
     save_state(state)
     print("ROUND %d ENDS." % number)
     for line in events:
         print(line)
+    if after:
+        print("NO MORE ROUNDS FOR NOW: %s" % after)
+
+
+def why_no_round(run, number):
+    """Why round `number` may not start (the owner paused or ended the run, or it has had its rounds), or None."""
+    cap = int(SETTINGS["rounds"]["max_per_run"])
+    if run.get("ended"):
+        return "the run has ended (round %d was its last); a new run starts with newgame" % run.get("round", 0)
+    if run.get("stop") == "end":
+        return "the owner has ended the run; it closes when this round ends"
+    if run.get("stop") == "pause":
+        return "the owner has paused the run: `run resume` (or /rounds) to go on"
+    if cap and number > cap:
+        return "the run has had its %d rounds (rounds.max_per_run): raise the setting to go on, or `run end`" % cap
+    return None
+
+
+def end_run(state):
+    """Close the run for good: no more rounds; the log gets its summary."""
+    run = state["run"]
+    run.update(ended=True, stop=None)
+    log(state, "run", action="ended", rounds=run.get("round", 0), players={
+        pid: {"location": pl["location"], "hp": pl["stats"]["hp"], "coins": pl["stats"]["coins"],
+              "inventory": list(pl["inventory"]), "status": pl["status"]} for pid, pl in state["players"].items()})
+
+
+def cmd_run(args):
+    """run status | pause | resume | end: the owner's say over a run of rounds. A pause or an end never cuts into a
+    round: the one in progress finishes, and the next doesn't start (`round start` refuses). An end closes the run."""
+    state = load_state()
+    run, what = state["run"], args[0]
+    rs = run.get("round_state")
+    in_round = "round %d is in progress (%s still to act), and finishes first" % (
+        run["round"], len([p for p in rs["order"] if p not in rs.get("done", [])])) if rs else None
+    if what == "status":
+        cap = int(SETTINGS["rounds"]["max_per_run"])
+        print("RUN: %s; %d round%s played, %s" % (
+            "ended" if run.get("ended") else {"pause": "pause asked", "end": "end asked"}.get(run.get("stop"), "going"),
+            run.get("round", 0) - (1 if rs else 0), "" if run.get("round", 0) - (1 if rs else 0) == 1 else "s",
+            "at most %d per run" % cap if cap else "no limit on rounds"))
+        if rs:
+            print("ROUND %d OPEN: next to act: %s" % (run["round"], whose_turn(state) or "nobody: `round end`"))
+        why = None if rs else why_no_round(run, run.get("round", 0) + 1)
+        if why:
+            print("NEXT ROUND WAITS: %s" % why)
+        return
+    if what not in ("pause", "resume", "end"):
+        raise Refused("use: run status | pause | resume | end")
+    if run.get("ended"):
+        raise Refused("the run has already ended; a new run starts with newgame")
+    if what == "pause":
+        run["stop"] = "pause"
+        log(state, "run", action="pause")
+        save_state(state)
+        print("PAUSE ASKED: %s." % (in_round + "; then no round starts until `run resume`" if in_round else "no round starts until `run resume`"))
+    elif what == "resume":
+        if run.get("stop") != "pause":
+            raise Refused("the run isn't paused")
+        run["stop"] = None
+        log(state, "run", action="resume")
+        save_state(state)
+        print("RESUMED: the next round may start.")
+    else:
+        run["stop"] = "end"
+        log(state, "run", action="end")
+        if not rs:
+            end_run(state)
+        save_state(state)
+        print("END ASKED: %s." % (in_round + "; then the run closes" if in_round else "the run is closed"))
 
 
 # ---------------------------------------------------------------- a player's turn, and what they remember
@@ -3838,6 +3917,9 @@ def cmd_settings(args):
     sc = v["side_scenes"]
     print("SIDE SCENES: %s, at most %d per run, %d replies each" % (on(sc["on"] and v["npc_agents"]["on"]), sc["max_per_run"], sc["replies"]))
     print("NEW WORLDS: %s" % on(v["new_worlds"]["on"]))
+    cap = int(SETTINGS["rounds"]["max_per_run"])
+    print("ROUNDS: the world's clock moves by %s; %s" % (SETTINGS["rounds"]["clock"],
+                                                       "at most %d rounds per run" % cap if cap else "no limit on rounds"))
 
 
 # ---------------------------------------------------------------- games: list, show, switch
@@ -4113,6 +4195,7 @@ COMMANDS = {
     "note": (cmd_note, 1, "note <text>   keep a detail you established about this room"),
     "chronicle": (cmd_chronicle, 1, "chronicle <text>   add a line to the story so far"),
     "round": (cmd_round, 1, "round start | round end   open the next round (draws its order) or close it (the world's clock moves)"),
+    "run": (cmd_run, 1, "run status | pause | resume | end   the owner's say over a run: a pause or end waits for the round in progress"),
     "brief": (cmd_brief, 1, "brief <player>   everything the player agent is handed on its turn (logged)"),
     "pane": (cmd_pane, 1, "pane <player>   the player's margin as plain text"),
     "reply": (cmd_reply, 2, "reply <player> <file>   the player's reply this turn (DO: and JOURNAL: lines), from a file in proposals/"),
