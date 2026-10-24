@@ -5,9 +5,15 @@ Where the build stands, for whoever picks it up next, human or Claude. Read `PLA
 ## Where things are (2026-10-24)
 - **Plan:** `PLAN.md`, phase 1, approved by JW 2026-10-24 with assumptions A, B and C confirmed. Its *Decisions taken* section is the record of the first session's answers; the proposal's sections 10 and 12 carry them too.
 - **Done:** stages 0–3, steps 1–14: the `simulation` preset; players in the save (version 10) with `--as`; the cast file; NPCs among several people; the log; rounds and the balanced shuffle; a player's turn (`reply`, `narrate`) and memory with condensing; orders in the log and the stash; `pane` and `brief`; the `player` agent.
-- **Next:** step 15: The Thirteenth Stroke's additions (a buyer, work rooms, a cast of three, a second build spot) were put to JW as a list on 2026-10-24; write them only once approved. Then step 16 (`work`, `sell`, `--sim-complete`).
+- **Next:** step 15. JW answered the content list on 2026-10-24 (recorded under step 15 in `PLAN.md`): a new rag-and-bone woman as the buyer, the two work rooms and the second build spot as proposed, and a cast of four, the three proposed plus a wacky mad scientist, chaotic good. Next session: propose the scientist (name, personality, voice, motivations, stats, model) and show JW the buyer's character file and all four cast entries before committing; then write step 15's content with step 16's engine (`work`, `sell`, `buys:`, `work:`, `--sim-complete`), since `validate` must know the new fields first. Then steps 17–22.
 - **Git:** commits are local. `origin` must be changed by JW to `https://github.com/LiminallyYours/CodeRPG-Sim.git` (the permission check blocked Claude doing it; the new repository exists and is empty). Don't push until JW asks; check `git remote -v` first.
 - **`state/`** still holds JW's real game from the original, including the forged worlds in `state/worlds/`. It's discarded when the fork's `newgame` replaces the save format (step 6); don't test in it.
+
+## Starting the next session
+1. Read `CLAUDE.md`, this file, `PLAN.md`, `SIMULATION-FORK-PROPOSAL.md`, `DEVELOPING.md`. Messages need no `ooc:`.
+2. `sh tools/check.sh` (should pass: 3 worlds, 85 engine tests, the mod's checks) and `git status -sb`, `git remote -v`.
+3. If `origin` still points at `LiminallyYours/CodeRPG`, remind JW to run `git remote set-url origin https://github.com/LiminallyYours/CodeRPG-Sim.git`; push only when JW asks.
+4. Carry on from **Next** above. The `player` agent now loads in new sessions (Claude Code's list mislabels it "All tools", like `npc` and `world`; it has none).
 
 ## Decided along the way
 - Claude Code's agent list labels `tools: []` agents "All tools"; a live test (2026-10-24) showed they get only the hand-back tool. Trust the test, not the label.
