@@ -314,6 +314,7 @@ class Engine(unittest.TestCase):
         self.assertEqual(v["view"]["settings"]["generation"]["kinds"], ["extras", "characters", "side_quests"])
         self.rpg("flag", "set", "mirror_cursed")
         self.assertNotIn("CURSE:", self.rpg("look"))
+        self.assertIn("WORLD TURNS: on, every 2 rounds;", self.rpg("settings"))  # the clock counts rounds here
         self.assertIn("rounds.clock must be move or round", self.settings_tool("set", "rounds.clock", "tick", ok=False))
         self.assertIn("unknown setting 'memory.recent'", self.settings_tool("set", "memory.recent", "3", ok=False))
 
@@ -1160,7 +1161,7 @@ class Engine(unittest.TestCase):
                                                    "terrain": "indoors", "description": "A loft for drying nets."}))
         self.rpg("generate", "build", "proposals/b.json")
         self.rpg("coins", "+5", "gift")
-        self.assertIn("ready in", self.rpg("pay", "net_loft"))
+        self.assertIn("ready in 3 rounds", self.rpg("pay", "net_loft"))
         ends = [self.play_round()[1] for _ in range(4)]
         built = [i for i, e in enumerate(ends) if "BUILT: The Net-Loft" in e]
         self.assertEqual(len(built), 1)

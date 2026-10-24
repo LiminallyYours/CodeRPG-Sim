@@ -1360,6 +1360,11 @@ def by_rounds():
     return SETTINGS["rounds"]["clock"] == "round"
 
 
+def ticks_text(n):
+    """A count of the world clock's ticks, in what it counts: rounds in the simulation, moves otherwise."""
+    return "%d round%s" % (n, "" if n == 1 else "s") if by_rounds() else moves_text(n)
+
+
 def tick_move(state):
     """Each tick passes time: the clock runs down and, every few ticks, the world takes a turn. A tick is a move,
     or a round when the owner's `rounds.clock` says so; `run.moves` counts them."""
@@ -1375,7 +1380,7 @@ def tick_move(state):
                 set_flag(state, clock["also_flag"])
                 out.append("CLOCK: and since %s, flag set: %s" % (clock["also_if"], clock["also_flag"]))
         elif clock["left"] <= 3:
-            out.append("CLOCK: %s in %s" % (clock["name"], moves_text(clock["left"])))
+            out.append("CLOCK: %s in %s" % (clock["name"], ticks_text(clock["left"])))
     if run["moves"] % BALANCE["world"]["weather_every_moves"] == 0:
         weathers = world().get("weather") or []
         if weathers:
@@ -1483,7 +1488,7 @@ def cmd_newgame(args):
     if run["variants"]:
         print("THIS RUN (secret from the player): %s" % ", ".join("%s=%s" % kv for kv in run["variants"].items()))
     if run["clock"]:
-        print("CLOCK: %s in %s" % (run["clock"]["name"], moves_text(run["clock"]["total"])))
+        print("CLOCK: %s in %s" % (run["clock"]["name"], ticks_text(run["clock"]["total"])))
     if back:
         print("FROM EARLIER RUNS (they're part of this world now): %s" % "; ".join(back))
     with acting(first):
@@ -1535,7 +1540,7 @@ def cmd_look(args):
         print("TIME AND WEATHER: %s" % ", ".join(texture))
     if run.get("clock"):
         c = run["clock"]
-        print("CLOCK STATUS: %s" % (("%s in %s" % (c["name"], moves_text(c["left"]))) if c["left"] else "%s: it has happened" % c["name"]))
+        print("CLOCK STATUS: %s" % (("%s in %s" % (c["name"], ticks_text(c["left"]))) if c["left"] else "%s: it has happened" % c["name"]))
     m, res = meter(), resource()
     print("METER: %s %d/%d" % (res["name"], m["left"], m["capacity"]))
     for c in active_curses(state):
@@ -1597,7 +1602,7 @@ def cmd_look(args):
     going_up = [(i, c) for i, c in run["commissions"].items() if c["status"] == "building"]
     if going_up:
         print("BEING BUILT: %s" % " | ".join("%s (%s), %s of %s: ready in %s" % (
-            i, order_name(i, c), c["direction"], c["room"], moves_text(max(0, c["ready_at"] - run["moves"]))) for i, c in going_up))
+            i, order_name(i, c), c["direction"], c["room"], ticks_text(max(0, c["ready_at"] - run["moves"]))) for i, c in going_up))
     playing, rec = scene_playing(state)
     if playing:
         print("SCENE PLAYING: %s (%d of %d replies so far). One reply from each per player message; `scene end %s` when "
@@ -2190,7 +2195,7 @@ def cmd_generate(args):
             else:
                 print("COMMISSIONED: %s (%s), to be built %s of here by %s" % (com["record"]["meta"]["name"], i, com["direction"], who))
                 print("PRICE: %s. The builder names it in character. When the player pays, run `pay %s`; it takes %s to build, "
-                      "and until then it doesn't exist." % (price_text(com), i, moves_text(int(BALANCE["generation"]["build_moves"]))))
+                      "and until then it doesn't exist." % (price_text(com), i, ticks_text(int(BALANCE["generation"]["build_moves"]))))
         return
     paid_for = state["run"].get("brief") == kind
     state["run"]["brief"] = None
@@ -2259,7 +2264,7 @@ def cmd_pay(args):
         save_state(state)
         print(paid)
         print("BUILDING: %s (%s), %s of here, by %s: ready in %s. It doesn't exist until then."
-              % (order_name(ident, com), ident, com["direction"], who, moves_text(wait)))
+              % (order_name(ident, com), ident, com["direction"], who, ticks_text(wait)))
         return
     com.update(status="done", paid_at=run["moves"], by=actor_id(state))
     check_carry(state, ident)
@@ -3973,7 +3978,7 @@ def cmd_settings(args):
     a = v["npc_agents"]
     print("NPC AGENTS: %s, up to %d lines between two per turn%s" % (
         on(a["on"]), a["lines_per_exchange"], "; game master voices %s" % ", ".join(a["off_for"]) if a["off_for"] else ""))
-    print("WORLD TURNS: %s, every %s; people with plans: %s" % (on(v["world_turns"]["on"]), moves_text(v["world_turns"]["every_moves"]),
+    print("WORLD TURNS: %s, every %s; people with plans: %s" % (on(v["world_turns"]["on"]), ticks_text(v["world_turns"]["every_moves"]),
                                                              on(v["world_turns"]["on"] and v["world_turns"]["plans"])))
     g = v["generation"]
     print("GENERATION: %s, at most %d per run; kinds: %s" % (on(g["on"]), g["max_per_run"], ", ".join(g["kinds"]) or "none"))
