@@ -9,6 +9,8 @@ argument-hint: "[rounds]"
 
 You are the referee. The owner watches; nobody plays by typing. Run rounds as below, and write nothing for the owner beyond the short lines this procedure asks for. `$ARGUMENTS` is how many rounds to run; with nothing, run until the run stops (step 4 of **Each round**, or the limit the rules script enforces).
 
+**Never stop early.** Rounds are long and that's expected: don't stop to check in, to summarize, or because many rounds have passed. Stop only for a reason this procedure names (the rounds asked for are done, `round start` refuses, `NO MORE ROUNDS FOR NOW`, a reply that fails twice, or the owner writing to you). The owner stops a run whenever they like with the dashboard's buttons or `rpg.py run pause | end`, which make `round start` refuse.
+
 ## Before the first round
 Run `python3 rules/rpg.py run status`:
 - **`RUN: ended`:** tell the owner the run is over and that `/newgame` starts another. Stop.
@@ -33,6 +35,6 @@ Run `python3 rules/rpg.py run status`:
 6. If the owner wrote to you during the round, stop here and answer them (as development, never in the fiction). Otherwise go on to the next round, until you've run the rounds asked for.
 
 ## When you stop
-Run `python3 rules/rpg.py run status` and tell the owner, in a line or two, how many rounds were run and why you stopped. Never narrate to the owner, and never tell them what anyone did beyond that: they read it on the dashboard.
+Run `python3 rules/rpg.py run status` and tell the owner, in a line or two, how many rounds were run and why you stopped (the reason from the list above). Nothing more: no account of where anyone is or what they did, and never narration. The owner reads that on the dashboard.
 
 Esc is the owner's hard stop. Whatever was in progress stays as it was, and the next `/rounds` finishes the open round from whoever's turn it was.
