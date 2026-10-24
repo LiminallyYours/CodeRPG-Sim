@@ -1501,8 +1501,10 @@ class Engine(unittest.TestCase):
         self.assertNotIn("for Corin", out, "the Gull is out of earshot of both")
         self.assertNotIn("snoring", out, "the lighthouse is out of earshot")
         s = self.save()
-        self.assertEqual([x["text"][:16] for x in s["players"]["wren"]["noticed"]], ["Heavy bare feet "])
-        self.assertNotIn("noticed", s["players"]["corin"])
+        seen = lambda pid: [x["text"][:16] for x in s["players"][pid].get("memory", {}).get("recent", []) if x["kind"] == "seen"]
+        self.assertEqual(seen("wren"), ["Heavy bare feet "])  # kept in their memory, not only handed over once
+        self.assertEqual(seen("corin"), [])
+        self.assertIn("What happened: Heavy bare feet", self.rpg("brief", "wren"))
         self.assertIn("grukk [agent]", self.rpg("look"))
         self.assertEqual([(x["text"][:16], x["kind"]) for x in s["view"]["signals"]], [("Heavy bare feet ", "plan")])
         self.assertIn("They say Ysolde finally slept, barred in her tower like a hermit.", s["run"]["rumors"])

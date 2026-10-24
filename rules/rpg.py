@@ -619,7 +619,7 @@ def sight(state):
 def apply_plan(state, who, step):
     """Carry out one plan step. Returns the lines for the game master, or None when it would take someone
     out of a player's sight (then it's undone: whoever a player is with stays). Each player close by notices it
-    (their `noticed` list, handed to them on their next turn); further off, it becomes a rumor."""
+    (it goes into their memory, read on their next turn); further off, it becomes a rumor."""
     flag = step.get("sets") or step.get("clears")
     seen_before = sight(state)
     before = where_is(who, condition_flags(state))
@@ -643,7 +643,7 @@ def apply_plan(state, who, step):
         here = pl["location"]
         if any(r and (r == here or here in neighbours(r)) for r in (before, after)):
             heard = True
-            pl.setdefault("noticed", []).append({"round": run.get("round"), "text": step["near"]})
+            remember(pl, "seen", step["near"], run.get("round") or 0)
             out.append("SIGNAL for %s (they notice this close by: one sentence of what they see or hear, woven into "
                        "their next narration; don't explain it): %s" % (pl["name"], step["near"]))
         if after == here and before != here:
@@ -3625,7 +3625,6 @@ def cmd_narrate(args):
     text = text_arg(args[1], "narration", BALANCE["turns"]["narration_chars"])
     run = state["run"]
     remember(pl, "seen", text, run["round"])
-    pl.pop("noticed", None)  # what they noticed has been woven into the story
     refresh_view(state)
     remember(pl, "status", pane_text(state), run["round"])
     run["round_state"]["done"].append(args[0])
@@ -3827,8 +3826,6 @@ def cmd_brief(args):
         out += ["## What you remember from before"] + [c["text"] for c in mem["condensed"]] + [""]
     if mem["recent"]:
         out += ["## Lately", memory_text(mem["recent"]), ""]
-    if pl.get("noticed"):
-        out += ["## Just now", " ".join(n["text"] for n in pl["noticed"]), ""]
     out.append(pane_text(state))
     if SETTINGS["brief"]["dice_lines"]:
         lines = dice_lines(state, args[0])
