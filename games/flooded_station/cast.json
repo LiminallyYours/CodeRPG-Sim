@@ -32,7 +32,7 @@
     "inventory": [
       "med_patch"
     ],
-    "home": "common_deck",
-    "opening": "You rode out the storm on the Common Deck of Tidewell Station while the lower modules flooded. The power is failing, an alarm chirps somewhere below, and the tide is still coming in."
+    "home": "the_landing",
+    "opening": "You rode out the storm in a module of Tidewell Station and have just climbed down to the floating landing, soaked. The power is failing, an alarm chirps somewhere inside, and the tide is still coming in."
   }
 ]

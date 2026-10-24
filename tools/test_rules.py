@@ -797,6 +797,80 @@ class Engine(unittest.TestCase):
         self.assertIn("coins +2 (gift) -> 5", self.rpg("log"))
         self.assertIn("command coins +2 gift", self.rpg("log"))
 
+    def three_players(self):
+        """The Lighthouse with a third cast member, Tam, in Harbor Square."""
+        d = "games/dark_lighthouse/cast.json"
+        cast = json.loads((self.dir / d).read_text())
+        cast.append(dict(cast[1], id="tam", name="Tam", home="harbor_square"))
+        self.write(d, json.dumps(cast))
+        self.rpg("game", "switch", "dark_lighthouse")
+
+    def play_round(self):
+        order = self.rpg("round", "start").split(": ", 1)[1].strip()
+        ids = [part.split("(")[1].rstrip(")") for part in order.split(", ")]
+        for pid in ids:
+            self.rpg("look", as_=pid)
+        return ids, self.rpg("round", "end")
+
+    def test_rounds_draw_a_balanced_order_from_the_seed(self):
+        self.three_players()
+        self.rpg("newgame", "even-1")
+        orders = [self.play_round()[0] for _ in range(30)]
+        self.rpg("newgame", "even-1")
+        self.assertEqual([self.play_round()[0] for _ in range(5)], orders[:5], "the same seed draws the same orders")
+        self.assertEqual(len(set(map(tuple, orders))), 6, "every order turns up")
+        for a in ("wren", "corin", "tam"):
+            for b in ("wren", "corin", "tam"):
+                if a < b:
+                    ahead = sum(1 for o in orders if o.index(a) < o.index(b))
+                    self.assertLessEqual(abs(ahead - (30 - ahead)), 2, (a, b, ahead))
+        log = [json.loads(line) for line in (self.dir / "state" / "log" / ("%s.jsonl" % self.save()["run"]["id"])).read_text().splitlines()]
+        starts = [e for e in log if e["kind"] == "round" and e["phase"] == "start"]
+        self.assertEqual(len(starts), 5)
+        self.assertEqual(starts[0]["draw"]["candidates"], 6)
+        looks = [e for e in log if e["kind"] == "command" and e["command"] == "look" and e["round"] == 1]
+        self.assertEqual([e["order_position"] for e in looks], [1, 2, 3])
+
+    def test_a_round_ends_only_when_everyone_has_acted(self):
+        self.rpg("game", "switch", "dark_lighthouse")
+        self.rpg("newgame", seed=43)
+        self.assertIn("no round is open", self.rpg("round", "end", ok=False))
+        self.rpg("round", "start")
+        self.assertIn("still open", self.rpg("round", "start", ok=False))
+        self.rpg("look", as_="wren")
+        self.rpg("take", "no_such_thing", as_="corin", ok=False)  # refused: it doesn't count as acting
+        self.assertIn("still to act: corin", self.rpg("round", "end", ok=False))
+        self.rpg("look", as_="corin")
+        self.assertIn("ROUND 1 ENDS.", self.rpg("round", "end"))
+
+    def test_in_a_simulation_the_clock_moves_by_rounds_not_moves(self):
+        self.rpg("game", "switch", "dark_lighthouse")
+        self.settings_tool("preset", "simulation")
+        self.rpg("newgame", seed=43)
+        for d in ("east", "west", "east"):
+            self.assertNotIn("WORLD TURN DUE", self.rpg("move", d))
+        self.assertEqual(self.save()["run"]["moves"], 0)
+        _, end = self.play_round()
+        self.assertNotIn("WORLD TURN DUE", end)
+        _, end = self.play_round()
+        self.assertIn("WORLD TURN DUE", end)  # every 2 rounds in the simulation preset
+        self.assertEqual(self.save()["run"]["moves"], 2)
+
+    def test_a_building_is_finished_after_its_rounds(self):
+        self.rpg("game", "switch", "dark_lighthouse")
+        self.settings_tool("preset", "simulation")
+        self.rpg("newgame", seed=50)
+        self.rpg("world-brief", "build", "morwen")
+        self.write("proposals/b.json", json.dumps({"id": "net_loft", "name": "The Net-Loft", "direction": "southwest",
+                                                   "terrain": "indoors", "description": "A loft for drying nets."}))
+        self.rpg("generate", "build", "proposals/b.json")
+        self.rpg("coins", "+5", "gift")
+        self.assertIn("ready in", self.rpg("pay", "net_loft"))
+        ends = [self.play_round()[1] for _ in range(4)]
+        built = [i for i, e in enumerate(ends) if "BUILT: The Net-Loft" in e]
+        self.assertEqual(len(built), 1)
+        self.assertIn("net_loft", self.me()["map"]["harbor_square"]["exits"].values())
+
     def test_validate_checks_the_cast(self):
         d = "games/dark_lighthouse/cast.json"
         cast = json.loads((self.dir / d).read_text())
@@ -1123,9 +1197,13 @@ class Engine(unittest.TestCase):
         out = self.world_turn({"plans": [{"who": "grukk", "step": "forage"}, {"who": "ysolde", "step": "sleep"}]})
         self.assertIn("SIGNAL", out)
         self.assertIn("Heavy bare feet thud", out)
-        self.assertIn("NOW HERE: Grukk", out)
+        self.assertIn("NOW HERE for Wren: Grukk", out)
+        self.assertIn("SIGNAL for Wren", out)
+        self.assertNotIn("for Corin", out, "the Gull is out of earshot of both")
         self.assertNotIn("snoring", out, "the lighthouse is out of earshot")
         s = self.save()
+        self.assertEqual([x["text"][:16] for x in s["players"]["wren"]["noticed"]], ["Heavy bare feet "])
+        self.assertNotIn("noticed", s["players"]["corin"])
         self.assertIn("grukk [agent]", self.rpg("look"))
         self.assertEqual([(x["text"][:16], x["kind"]) for x in s["view"]["signals"]], [("Heavy bare feet ", "plan")])
         self.assertIn("They say Ysolde finally slept, barred in her tower like a hermit.", s["run"]["rumors"])

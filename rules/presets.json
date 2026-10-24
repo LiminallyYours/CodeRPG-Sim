@@ -52,7 +52,8 @@
       "on": true
     },
     "rounds": {
-      "clock": "move"
+      "clock": "move",
+      "time_every": 0
     },
     "memory": {
       "recent_rounds": 5,
@@ -120,7 +121,8 @@
       "on": true
     },
     "rounds": {
-      "clock": "move"
+      "clock": "move",
+      "time_every": 0
     },
     "memory": {
       "recent_rounds": 5,
@@ -188,7 +190,8 @@
       "on": true
     },
     "rounds": {
-      "clock": "move"
+      "clock": "move",
+      "time_every": 0
     },
     "memory": {
       "recent_rounds": 5,
@@ -256,7 +259,8 @@
       "on": false
     },
     "rounds": {
-      "clock": "round"
+      "clock": "round",
+      "time_every": 5
     },
     "memory": {
       "recent_rounds": 5,

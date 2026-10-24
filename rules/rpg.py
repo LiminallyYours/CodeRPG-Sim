@@ -16,8 +16,10 @@ are swapped in by `game switch`, so switching loses nothing.
 import contextlib
 import datetime
 import io
+import itertools
 import json
 import os
+import random
 import re
 import shutil
 import struct
@@ -517,7 +519,7 @@ def open_steps(state):
     """{character: [steps open now]} for everyone who may act off-screen this world turn."""
     if not (SETTINGS["world_turns"]["on"] and SETTINGS["world_turns"]["plans"]):
         return {}
-    flags, here = condition_flags(state), characters_here(state)
+    flags, here = condition_flags(state), with_anyone(state)
     out = {}
     for c in content.ids("characters"):
         if c in here:
@@ -537,38 +539,68 @@ def add_signal(state, text, kind="plan"):
     del run["signals"][:-3]
 
 
+def playing(state):
+    """The ids of the players still playing, in the cast's order."""
+    return [pid for pid, pl in state["players"].items() if pl["status"] == "playing"]
+
+
+def with_anyone(state):
+    """Every character in a room with at least one player still playing: no one with company acts off-screen."""
+    out = set()
+    for pid in playing(state):
+        with acting(pid):
+            out.update(characters_here(state))
+    return out
+
+
+def sight(state):
+    """{player: the characters they can see now}."""
+    out = {}
+    for pid in playing(state):
+        with acting(pid):
+            out[pid] = set(characters_here(state))
+    return out
+
+
 def apply_plan(state, who, step):
     """Carry out one plan step. Returns the lines for the game master, or None when it would take someone
-    out of the player's sight (then it's undone: whoever the player is with stays)."""
+    out of a player's sight (then it's undone: whoever a player is with stays). Each player close by notices it
+    (their `noticed` list, handed to them on their next turn); further off, it becomes a rumor."""
     flag = step.get("sets") or step.get("clears")
-    before_here = set(characters_here(state))
+    seen_before = sight(state)
     before = where_is(who, condition_flags(state))
     had = flag in state["flags"]
     if step.get("sets"):
         set_flag(state, flag)
     elif had:
         state["flags"].remove(flag)
-    if not before_here <= set(characters_here(state)):
+    seen_after = sight(state)
+    if any(not seen_before[pid] <= seen_after[pid] for pid in seen_before):
         if had and flag not in state["flags"]:
             state["flags"].append(flag)
         elif not had and flag in state["flags"]:
             state["flags"].remove(flag)
         return None
     after = where_is(who, condition_flags(state))
-    run, here = state["run"], me(state)["location"]
-    near = any(r and (r == here or here in neighbours(r)) for r in (before, after))
-    out = []
-    if near:
+    run, out, heard = state["run"], [], False
+    name = ent("characters", who).get("name", who)
+    for pid in seen_before:
+        pl = state["players"][pid]
+        here = pl["location"]
+        if any(r and (r == here or here in neighbours(r)) for r in (before, after)):
+            heard = True
+            pl.setdefault("noticed", []).append({"round": run.get("round"), "text": step["near"]})
+            out.append("SIGNAL for %s (they notice this close by: one sentence of what they see or hear, woven into "
+                       "their next narration; don't explain it): %s" % (pl["name"], step["near"]))
+        if after == here and before != here:
+            out.append("NOW HERE for %s: %s has just arrived where they are (%s)" % (pl["name"], name, step["does"]))
+    if heard:
         add_signal(state, step["near"])
-        out.append("SIGNAL (the player notices this close by: one sentence of what they see or hear, woven into "
-                   "the narration; don't explain it): %s" % step["near"])
     elif step.get("rumor"):
         run["rumors"].append(step["rumor"])
         del run["rumors"][:-BALANCE["world"]["rumors_kept"]]
-    if after == here and before != here:
-        out.append("NOW HERE: %s has just arrived where the player is (%s)" % (ent("characters", who).get("name", who), step["does"]))
     if not out:
-        out.append("OFF-SCREEN: someone out of the player's sight did something; it shows only in the rooms and "
+        out.append("OFF-SCREEN: someone out of everyone's sight did something; it shows only in the rooms and "
                    "what people say. Don't mention it.")
     return out
 
@@ -860,7 +892,8 @@ def time_of_day(state):
     if not times:
         return None
     if not clock:
-        return times[0]
+        every = int(SETTINGS["rounds"]["time_every"])  # with no deadline, time moves on every few ticks and stays at the last
+        return times[min(len(times) - 1, state["run"]["moves"] // every)] if every > 0 else times[0]
     return times[min(len(times) - 1, state["run"]["moves"] * len(times) // max(1, clock["total"]))]
 
 
@@ -1250,8 +1283,14 @@ def roll_encounter(state, room):
     return out
 
 
+def by_rounds():
+    """Whether the world's clock moves once per round (the simulation) rather than once per move."""
+    return SETTINGS["rounds"]["clock"] == "round"
+
+
 def tick_move(state):
-    """Each move passes time: the clock runs down and, every few moves, the world takes a turn."""
+    """Each tick passes time: the clock runs down and, every few ticks, the world takes a turn. A tick is a move,
+    or a round when the owner's `rounds.clock` says so; `run.moves` counts them."""
     run, out = state["run"], []
     run["moves"] += 1
     clock = run.get("clock")
@@ -1516,7 +1555,9 @@ def cmd_move(args):
     if left:
         end_scene(state, left, False)
         events.append("SCENE OVER: the player walked away from %s; it's done, with no reward." % scene(left).get("name", left))
-    events += tick_move(state) + roll_encounter(state, ent("rooms", dest))
+    if not by_rounds():  # in a simulation the clock moves once per round, at `round end`
+        events += tick_move(state)
+    events += roll_encounter(state, ent("rooms", dest))
     save_state(state)
     print("MOVED %s." % want)
     for line in events:
@@ -3082,6 +3123,78 @@ def validate_kit_complete(w, problems):
         problems.append("kit: needs a side scene")
 
 
+# ---------------------------------------------------------------- rounds
+# Each round every player still playing takes one whole turn, in an order drawn by `round start`: a balanced
+# shuffle, from the run's seed and the round number (so two runs on one seed draw the same orders), choosing among
+# all the orders the one that keeps each pair of players going first about equally often over the run. It uses its
+# own random stream, so it never moves the dice. `round end` closes it, and in a simulation moves the world's clock.
+
+def balanced_order(state, number):
+    """(order, how it was drawn) for round `number`."""
+    run = state["run"]
+    ids = [pid for pid, pl in state["players"].items() if pl["status"] == "playing"]
+    rng = random.Random("%s:%s:round %d" % (state["game"], run.get("seed"), number))
+    orders = [list(o) for o in itertools.permutations(ids)]
+    rng.shuffle(orders)
+    before = run.setdefault("before", {})  # before[a][b]: the rounds a went before b
+
+    def imbalance(order):
+        total = 0
+        for i, a in enumerate(order):
+            for b in order[i + 1:]:
+                diff = before.get(a, {}).get(b, 0) + 1 - before.get(b, {}).get(a, 0)
+                total += diff * diff
+        return total
+
+    best = min(orders, key=imbalance)  # the first of the shuffled orders with the least imbalance
+    return best, {"candidates": len(orders), "imbalance": imbalance(best),
+                  "tied": sum(1 for o in orders if imbalance(o) == imbalance(best))}
+
+
+def acted_this_round(state, number):
+    """The players who have run a command this round that wasn't refused."""
+    return {e["player"] for e in log_entries(state["run"]["id"])
+            if e["kind"] == "command" and e.get("round") == number and e.get("player") and not e["refused"]}
+
+
+def cmd_round(args):
+    """round start | round end: open the next round with its order, or close the open one."""
+    state = load_state()
+    run = state["run"]
+    open_round = run.get("round_state")
+    if args[0] == "start":
+        if open_round:
+            raise Refused("round %d is still open: `round end` first" % run["round"])
+        number = run.get("round", 0) + 1
+        order, draw = balanced_order(state, number)
+        if not order:
+            raise Refused("no one is still playing")
+        for i, a in enumerate(order):
+            for b in order[i + 1:]:
+                pair = run["before"].setdefault(a, {})
+                pair[b] = pair.get(b, 0) + 1
+        run["round"], run["round_state"] = number, {"order": order}
+        log(state, "round", phase="start", order=order, draw=draw)
+        save_state(state)
+        print("ROUND %d: %s" % (number, ", ".join("%s (%s)" % (state["players"][p]["name"], p) for p in order)))
+        return
+    if args[0] != "end":
+        raise Refused("use: round start | round end")
+    if not open_round:
+        raise Refused("no round is open: `round start` first")
+    number = run["round"]
+    missing = [p for p in open_round["order"] if p not in acted_this_round(state, number)]
+    if missing:
+        raise Refused("round %d isn't over: still to act: %s" % (number, ", ".join(missing)))
+    events = tick_move(state) if by_rounds() else []
+    run["round_state"] = None
+    log(state, "round", phase="end", order=open_round["order"], events=events, world_turn_due=run["world_turn_due"])
+    save_state(state)
+    print("ROUND %d ENDS." % number)
+    for line in events:
+        print(line)
+
+
 def cmd_log(args):
     """log [n]: the last entries of this run's log, one line each."""
     state = load_state()
@@ -3474,6 +3587,7 @@ COMMANDS = {
     "library": (cmd_library, 1, "library suggest <id> <why>   tell the owner a generated or player-made thing deserves keeping"),
     "note": (cmd_note, 1, "note <text>   keep a detail you established about this room"),
     "chronicle": (cmd_chronicle, 1, "chronicle <text>   add a line to the story so far"),
+    "round": (cmd_round, 1, "round start | round end   open the next round (draws its order) or close it (the world's clock moves)"),
     "log": (cmd_log, 0, "log [n]   the run's last n log entries (default 10), one line each, for checking"),
     "validate": (cmd_validate, 0, "validate [--game <id> | --dir <folder>] [--kit-complete]   check games' content, soundness and settings"),
     "game": (cmd_game, 0, "game [list | show | switch <id>]   the installed games; switching keeps each one's save"),
