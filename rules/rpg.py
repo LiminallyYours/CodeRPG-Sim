@@ -3363,6 +3363,8 @@ def cmd_narrate(args):
     run = state["run"]
     remember(pl, "seen", text, run["round"])
     pl.pop("noticed", None)  # what they noticed has been woven into the story
+    refresh_view(state)
+    remember(pl, "status", pane_text(state), run["round"])
     run["round_state"]["done"].append(args[0])
     log(state, "narration", text=text)
     save_state(state)
@@ -3429,13 +3431,18 @@ def cmd_memory(args):
 def memory_text(entries):
     """Memory entries as the player reads them: round by round, in the second person."""
     lines, current = [], None
-    label = {"did": "What you did", "reasoned": "Why", "seen": "What happened", "told": "What you were told"}
+    label = {"did": "What you did", "reasoned": "Why", "seen": "What happened", "told": "What you were told",
+             "status": "How things stood after"}
     for e in entries:
         if e["round"] != current:
             current = e["round"]
             lines.append("")
             lines.append("### Moment %d" % current)
-        lines.append("%s: %s" % (label.get(e["kind"], e["kind"]), e["text"]))
+        if e["kind"] == "status":  # a pane: its headings become labels, indented under this moment
+            lines.append("%s:" % label["status"])
+            lines += ["  %s:" % l[3:] if l.startswith("## ") else "    " + l for l in e["text"].splitlines() if l.strip()]
+        else:
+            lines.append("%s: %s" % (label.get(e["kind"], e["kind"]), e["text"]))
     return "\n".join(lines).strip()
 
 
@@ -3448,6 +3455,111 @@ def condensing_brief(pl, rounds):
         "first person, in your own way of speaking, in a few sentences. Keep what mattered to you; you needn't keep the rest.",
         "", "## That stretch", memory_text(entries), "",
         "Reply with one line, exactly in this form:", "MEMORY: <what you remember of that time>"])
+
+
+# ---------------------------------------------------------------- what a player is shown: pane and brief
+# The pane is the margin a human player reads beside the story, as plain text: the same data (the save's view,
+# computed for this player), never anything more. The brief is everything a player agent is handed on its turn:
+# its opening (first turn only), its memory, then the pane. Neither ever carries GM-only text, flags, prices it
+# hasn't been told, other rooms, other players' private state, the log or the meter, nor any word of the
+# machinery: to the player it's a life, not a game.
+
+def pane_text(state):
+    """The acting player's pane, as plain text."""
+    pid, pl = actor_id(state), me(state)
+    v = state["view"]["players"][pid]
+    look_cfg, stats = content.look(), pl["stats"]
+    labels = look_cfg["stat_labels"]
+    lines = ["## Where you are", v["location_name"] + "".join(", " + x for x in (state["view"]["time"], state["view"]["weather"]) if x) + "."]
+    exits = me(state)["map"].get(pl["location"], {}).get("exits", {})
+    if exits:
+        lines.append("Ways on: %s." % "; ".join("%s to %s" % (d, ent("rooms", r).get("name", r) if ent_exists("rooms", r) else r)
+                                               for d, r in exits.items()))
+    company = [c["name"] for c in v["characters_here"]] + [state["players"][o]["name"] for o in players_here(state)[1:]]
+    lines.append("With you: %s." % (", ".join(company) if company else "no one"))
+    lines += ["", "## You",
+              "Health %d of %d. %s." % (stats["hp"], stats["max_hp"], ", ".join("%s %+d" % (labels.get(k, k.capitalize()), stats[k]) for k in STATS)),
+              "Money: %d %s." % (stats["coins"], currency())]
+    carried = ["%s%s%s" % (i["name"], " (in hand)" if i["equipped"] else "", " (made for you)" if i["own"] else "") for i in v["items"]]
+    lines.append("Carrying: %s (load %d of %d)." % (", ".join(carried) if carried else "nothing", v["weight"], v["carry_limit"]))
+    mine = [r for r, rec in state["run"]["rooms"].items() if rec["meta"].get("owner") == pid]
+    if mine:
+        lines.append("Your own places: %s (what you leave there stays yours)." % ", ".join(ent("rooms", r).get("name", r) for r in mine))
+    going = [c for c in state["run"]["commissions"].values() if c.get("by") == pid and c["status"] == "building"]
+    for c in going:
+        lines.append("Being built for you: %s." % c["record"]["meta"]["name"])
+    waiting = [(i, c) for i, c in state["run"]["commissions"].items() if c.get("ordered_by") == pid and c["status"] == "ordered"]
+    for i, c in waiting:
+        meta = (state["run"]["items"].get(i) or c.get("record") or {}).get("meta", {})
+        trade = accepts(c["maker"]) if c["kind"] == "item" else []
+        lines.append("Waiting for you to pay: %s, from %s, for %d %s%s." % (
+            meta.get("name", i), ent("characters", c["maker"]).get("name", c["maker"]), c["price"], currency(),
+            " or %s in trade" % " or ".join(item(t).get("name", t) for t in trade) if trade else ""))
+    quests = [q for q in v["quests"] if not q["side"] or ent("quests", q["id"]).get("giver") in pl.get("met", [])]
+    if quests:
+        lines += ["", "## What you're working on"]
+        for q in quests:
+            state_word = " (done)" if q["complete"] else " (it's too late)" if q["failed"] else ""
+            lines.append("%s%s: %s" % (q["name"], state_word, " ".join(("[done] " if o["done"] else "") + o["text"] for o in q["objectives"])))
+    if v["people"]:
+        lines += ["", "## People you've met", ", ".join("%s%s" % (c["name"], " (%s)" % c["role"] if c["role"] else "") for c in v["people"])]
+    places = [e["name"] for r, e in me(state)["map"].items() if r != pl["location"]]
+    if places:
+        lines += ["", "## Places you've been", ", ".join(places)]
+    if state["view"]["rumors"]:
+        lines += ["", "## Talk going around"] + ["- " + r for r in state["view"]["rumors"]]
+    return "\n".join(lines)
+
+
+def cmd_pane(args):
+    """pane <player>: the player's pane as plain text: what a human player reads in the margin."""
+    state = load_state()
+    player_arg(state, args[0])
+    print(pane_text(state))
+
+
+def dice_lines(state, pid):
+    """The dice lines from the player's last turn, as a human's dice tray shows them."""
+    entries = [e for e in log_entries(state["run"]["id"]) if e["kind"] == "command" and e.get("player") == pid and not e["refused"]]
+    if not entries:
+        return []
+    last = entries[-1].get("round")
+    tray = ("CHECK", "PLAYER ATTACKS", "ROLL", "HURT", "HEAL", "USED")
+    return [line.strip() for e in entries if e.get("round") == last for line in e["output"].splitlines() if line.strip().startswith(tray)]
+
+
+def cmd_brief(args):
+    """brief <player>: everything the player agent is handed on its turn."""
+    state = load_state()
+    pl = player_arg(state, args[0])
+    mem = pl.setdefault("memory", {"recent": [], "condensed": []})
+    out = []
+    if not mem["recent"] and not mem["condensed"]:
+        out += ["## How it begins", pl_opening(state, args[0]), ""]
+    if mem["condensed"]:
+        out += ["## What you remember from before"] + [c["text"] for c in mem["condensed"]] + [""]
+    if mem["recent"]:
+        out += ["## Lately", memory_text(mem["recent"]), ""]
+    if pl.get("noticed"):
+        out += ["## Just now", " ".join(n["text"] for n in pl["noticed"]), ""]
+    out.append(pane_text(state))
+    if SETTINGS["brief"]["dice_lines"]:
+        lines = dice_lines(state, args[0])
+        if lines:
+            out += ["", "## How your last attempts went"] + lines
+    out += ["", "What do you do now?"]
+    text = "\n".join(out)
+    for e in mem["condensed"] + mem["recent"]:
+        e["uses"] += 1
+    log(state, "brief", text=text)
+    save_state(state)
+    print(text)
+
+
+def pl_opening(state, pid):
+    """What the player knows at the start: their cast entry's opening."""
+    entry = next((e for e in content.cast() if e.get("id") == pid), {})
+    return entry.get("opening", "")
 
 
 def cmd_log(args):
@@ -3843,6 +3955,8 @@ COMMANDS = {
     "note": (cmd_note, 1, "note <text>   keep a detail you established about this room"),
     "chronicle": (cmd_chronicle, 1, "chronicle <text>   add a line to the story so far"),
     "round": (cmd_round, 1, "round start | round end   open the next round (draws its order) or close it (the world's clock moves)"),
+    "brief": (cmd_brief, 1, "brief <player>   everything the player agent is handed on its turn (logged)"),
+    "pane": (cmd_pane, 1, "pane <player>   the player's margin as plain text"),
     "reply": (cmd_reply, 2, "reply <player> <file>   the player's reply this turn (DO: and JOURNAL: lines), from a file in proposals/"),
     "narrate": (cmd_narrate, 2, "narrate <player> <file>   the story told to the player this turn, from a file; ends their turn"),
     "memory": (cmd_memory, 2, "memory condense <player> | memory store <player> <file>   fold older rounds into the player's own words"),

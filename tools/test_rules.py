@@ -6,6 +6,7 @@ rules/rpg.py as the game master would, through its command line. The real save i
 """
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -887,7 +888,7 @@ class Engine(unittest.TestCase):
                                              "text": "I spent those first nights looking around and learning nothing."}])
         self.assertEqual(sorted({e["round"] for e in self.save()["players"]["corin"]["memory"]["recent"]}), list(range(1, 11)))
         entries = [json.loads(line) for line in (self.dir / "state" / "log" / ("%s.jsonl" % self.save()["run"]["id"])).read_text().splitlines()]
-        self.assertEqual([(e["rounds"], e["replaced"]) for e in entries if e["kind"] == "memory"], [([1, 5], 15)])
+        self.assertEqual([(e["rounds"], e["replaced"]) for e in entries if e["kind"] == "memory"], [([1, 5], 20)])
         self.assertEqual(len([e for e in entries if e["kind"] == "narration" and e["player"] == "wren"]), 10, "the log forgets nothing")
 
     def test_in_a_simulation_the_clock_moves_by_rounds_not_moves(self):
@@ -957,6 +958,60 @@ class Engine(unittest.TestCase):
                          ("o1", "wren", "I ask Morwen to build me a loft for my things.", "I want somewhere of my own."))
         self.assertTrue(all(e["order"] == "o1" for e in entries if e["kind"] == "order"))
         self.assertEqual(self.save()["run"]["rooms"]["net_loft"]["meta"]["owner"], "wren")
+
+    FORBIDDEN = re.compile(r"\b(games?|rules?|dice|flags?|agents?|models?|players?|logs?|d20|dc|rolls?|checks?|"
+                           r"rpg|refused|generated|meter)\b|\[(agent|minor)|--as|\b[a-z]+_[a-z_]+\b", re.I)
+
+    def test_a_brief_holds_the_players_own_life_and_nothing_of_the_machinery(self):
+        for game in GAMES:
+            self.rpg("game", "switch", game)
+            self.settings_tool("preset", "simulation")
+            self.rpg("newgame", seed=44)
+            ids = list(self.save()["players"])
+            briefs = []
+            for _ in range(3):
+                order = [p.split("(")[1].rstrip(")") for p in self.rpg("round", "start").split(": ", 1)[1].strip().split(", ")]
+                for pid in order:
+                    briefs.append(self.rpg("brief", pid))
+                    exits = list(self.save()["players"][pid]["map"][self.save()["players"][pid]["location"]]["exits"])
+                    self.write("proposals/reply.txt", "DO: I walk %s, humming %s.\nJOURNAL: To see what is there." % (exits[0], pid))
+                    self.rpg("reply", pid, "proposals/reply.txt")
+                    self.rpg("move", exits[0], as_=pid)
+                    self.rpg("check", "wits", "easy", as_=pid)
+                    self.write("proposals/story.txt", "You walk on.")
+                    self.rpg("narrate", pid, "proposals/story.txt")
+                self.rpg("round", "end")
+            for brief in briefs:
+                self.assertIsNone(self.FORBIDDEN.search(brief), (game, self.FORBIDDEN.search(brief), brief))
+            first = self.rpg("brief", ids[0], as_=False)
+            self.assertIn("### Moment 3", first)
+            self.assertNotIn("How it begins", first, "the opening is the first turn's only")
+            self.assertIn("How it begins", briefs[0])
+            other = self.save()["players"][ids[1]]
+            self.assertNotIn("humming %s" % ids[1], first, "another's memory")
+            self.assertIn("humming %s" % ids[0], first)
+            logged = [e for e in self.log_of() if e["kind"] == "brief"]
+            self.assertEqual(logged[-1]["text"], first.rstrip("\n"))
+            self.assertTrue(all(e["uses"] >= 1 for e in self.save()["players"][ids[0]]["memory"]["recent"]))
+
+    def test_dice_lines_reach_the_brief_only_when_the_owner_turns_them_on(self):
+        self.rpg("game", "switch", "dark_lighthouse")
+        self.settings_tool("preset", "simulation")
+        self.rpg("newgame", seed=44)
+        order = [p.split("(")[1].rstrip(")") for p in self.rpg("round", "start").split(": ", 1)[1].strip().split(", ")]
+        for pid in order:
+            self.write("proposals/reply.txt", "DO: I try to climb the wall.")
+            self.rpg("reply", pid, "proposals/reply.txt")
+            self.rpg("check", "agility", "hard", as_=pid)
+            self.write("proposals/story.txt", "You try.")
+            self.rpg("narrate", pid, "proposals/story.txt")
+        self.rpg("round", "end")
+        self.assertNotIn("CHECK agility", self.rpg("brief", order[0], as_=False))
+        self.settings_tool("set", "brief.dice_lines", "true")
+        self.assertIn("CHECK agility vs DC 16", self.rpg("brief", order[0], as_=False))
+
+    def log_of(self):
+        return [json.loads(line) for line in (self.dir / "state" / "log" / ("%s.jsonl" % self.save()["run"]["id"])).read_text().splitlines()]
 
     def test_validate_checks_the_cast(self):
         d = "games/dark_lighthouse/cast.json"
