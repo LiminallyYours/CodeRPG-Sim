@@ -1451,6 +1451,8 @@ def cmd_newgame(args):
         stale.unlink()
     print("NEW GAME: %s" % state["adventure"])
     print("SEED: %s%s (the same seed rolls the same run)" % (seed, ", today's daily world" if run["daily"] else ""))
+    print("CAST: %s" % "; ".join("%s (%s, %s) at %s" % (pl["name"], pid, pl["model"], ent("rooms", pl["location"]).get(
+        "name", pl["location"])) for pid, pl in players.items()))
     for pid, rolled in run["rolls"].items():
         print("ROLLED for %s: %s" % (pid, ", ".join("%s %d" % kv for kv in rolled.items())))
     if run["variants"]:

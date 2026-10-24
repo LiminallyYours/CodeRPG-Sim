@@ -809,9 +809,12 @@ class Engine(unittest.TestCase):
 
     def test_the_save_holds_players_and_as_names_who_acts(self):
         self.rpg("game", "switch", "dark_lighthouse")
-        self.rpg("newgame", seed=43)
+        out = self.rpg("newgame", seed=43)
         s = self.save()
         self.assertEqual(list(s["players"]), ["wren", "corin"])
+        cast = json.loads((self.dir / "games/dark_lighthouse/cast.json").read_text())
+        self.assertIn("CAST: Wren (wren, %s) at Harbor Square; Corin (corin, %s) at The Gull\n"
+                      % (cast[0]["model"], cast[1]["model"]), out)
         self.assertEqual(s["players"]["corin"]["location"], "gull_tavern")
         self.assertEqual(s["players"]["corin"]["stats"]["coins"], 4)
         self.assertEqual(s["view"]["players"]["corin"]["location_name"], "The Gull")
