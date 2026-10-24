@@ -20,7 +20,7 @@ Small shadows slip past your feet now and then, child-sized, with nobody to cast
 Small shadows come pelting uphill out of the fog, dozens of them, tumbling over each other in their hurry to get home.
 
 ## Details
-- The drain: a round grating with holes shaped like little smiles. Leaning close, the player hears a whisper rising from below, in rhyme: "Down in the dark where the drippings drain, who will answer me, once again?" If they answer it (say anything back into the grating), the whisper giggles, "Then you'll say it too, again and again!" and the curse of the Drain-Echo takes hold: `flag set drain_answered`. Ignoring it is perfectly safe.
+- The drain: a round grating with holes shaped like little smiles. Leaning close, the player hears a whisper rising from below, in rhyme: "Down in the dark where the drippings drain, who will answer me, once again?" If they answer it (say anything back into the grating), the whisper only giggles, "Again and again!", and goes back to its patient licking. It's harmless, and it knows nothing worth telling.
 - The poker: in some games an iron poker is jammed through the drain-grating, as if someone was poking at whatever's down there. If it's here, pulling it free takes no roll (`take iron_poker`); the whisper underneath says "Rude." Otherwise the grating is empty.
 - The shadows: trying to catch one is like grabbing smoke. Following them leads south to the meadow.
 - The garden gate to the east: an overgrown garden, where the town might grow.

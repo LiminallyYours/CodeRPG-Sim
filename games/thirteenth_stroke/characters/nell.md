@@ -18,7 +18,6 @@ Warm and brisk, like a nurse with a lollipop. She calls the player "duck" or "su
 ## What she knows
 - Her niece Bettie wound one of the peddler's toys and is asleep, smiling, with no shadow.
 - The bottle on the top shelf holds her Grandpa Fizzlewick's last good laugh. He bottled it the year before he died, "so it wouldn't go to waste". It's been on that shelf forty years. She's never opened it.
-- The drain on Crooked Lane gives people the Drain-Echo if they're daft enough to answer it. A peppermint gargle settles it; she keeps some behind the counter.
 - Pip Pumbleton hasn't slept in three nights and won't go home.
 
 ## What she wants
@@ -27,14 +26,10 @@ Bettie awake and herself again. Failing that, something useful to do with her ha
 ## What she will trade or reveal
 - She sells the bottled laugh for 3 buttons. If the player tells her it might win the children's shadows back and she believes them, she lets it go for 1 button: "Grandpa'd want it spent on something good."
 - Ginger snaps, gumdrops and other sweets for 1 button a bag.
-- She cures the Drain-Echo for free, for anyone who asks, with a gargle of peppermint.
 - She'll pay a button or two to anyone who'll help her mind the fizz-still for a while. It's fiddly, and it wants a clear head.
 
 ## What she makes
 Sweets, fizzes and tonics from her copper still: healing cordials, sherbet that makes you sneeze, gumdrop charms on strings, sugar-glass trinkets. Only what sugar, mint, fruit and her still can make; nothing that puts anyone to sleep, and nothing she can't taste first.
-
-## If drain_answered and not drain_hushed
-This person has the Drain-Echo: every sentence they say ends with ", down in the drain". You recognise it at once and tut. You offer the peppermint gargle before they even ask.
 
 ## If shadows_freed
 Bettie's awake. You're laughing again and giving away gumdrops to everyone.
@@ -47,4 +42,3 @@ Bettie's awake but has no shadow. You've stopped offering sweets.
 - **Ginger snaps:** `coins -1 purchase`, then `gain ginger_snaps`.
 - **Orders:** she makes things to order; the rules set what and for how much. She'll take a bag of ginger snaps in place of money for one order ("Mine are better, but it's the thought").
 - **Minding the still:** if the player helps her at it: `work` (the shop pays for it).
-- **The Drain-Echo:** if the player asks for help with it, she has them gargle peppermint: `flag set drain_hushed`.
