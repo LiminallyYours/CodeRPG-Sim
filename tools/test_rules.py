@@ -16,6 +16,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 GAMES = sorted(p.name for p in (ROOT / "games").glob("*") if (p / "world.md").is_file())
+SIM_GAMES = ("thirteenth_stroke",)  # the worlds with the simulation's whole economy (PLAN.md step 17)
 
 
 class Engine(unittest.TestCase):
@@ -1583,9 +1584,12 @@ near: stuck
 
     # ---------------------------------------------------------------- Stage 8: new worlds
 
-    def test_the_kits_own_games_are_kit_complete(self):
+    def test_the_kits_own_games_are_kit_complete_and_the_simulations_world_sim_complete(self):
         for g in GAMES:
-            self.assertIn("(kit-complete)", self.rpg("validate", "--game", g, "--kit-complete"))
+            if g in SIM_GAMES:  # its buyer is a fifth person, past the kit's 3-4; --sim-complete takes the kit check's place
+                self.assertIn("(sim-complete)", self.rpg("validate", "--game", g, "--sim-complete"))
+            else:
+                self.assertIn("(kit-complete)", self.rpg("validate", "--game", g, "--kit-complete"))
 
     def test_validate_checks_a_game_can_be_played_through(self):
         g = "games/dark_lighthouse"

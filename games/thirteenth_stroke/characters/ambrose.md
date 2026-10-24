@@ -24,6 +24,7 @@ For somebody young and limber to go up the ladder and stop that gear. Failing th
 
 ## What he will trade or reveal
 - He tells the legend to anyone who asks about the clock, the peddler or the sleeping children.
+- He'll pay a few buttons to anyone who'll climb up and oil the big gears for him. His knees won't take the ladder.
 - He'll give his tin whistle to anyone who asks for it and says it might win the children back. It hurts him to part with it, and he says so, but he gives it.
 
 ## What he builds
@@ -41,4 +42,5 @@ He's sitting with his head in his hands. "A hundred years. I'll not see the next
 ## GM only
 - When he has told the player the legend and they agree to help: `flag set heard_of_shadows`.
 - **The tin whistle:** if the player asks for it with a good reason: `gain tin_whistle`. Only once; he has just the one.
-- **Building:** he'll put something up on the old bell-shed footing in the nettle patch to the east of the tower. The rules say what it costs and how long it takes.
+- **Building:** he'll put something up on the old bell-shed footing in the nettle patch to the east of the tower, or in the coal yard to the west. The rules say what it costs and how long it takes.
+- **Oiling the gears:** the work is done up in the gearloft (`work` there); he pays for it.

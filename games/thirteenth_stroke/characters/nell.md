@@ -28,6 +28,7 @@ Bettie awake and herself again. Failing that, something useful to do with her ha
 - She sells the bottled laugh for 3 buttons. If the player tells her it might win the children's shadows back and she believes them, she lets it go for 1 button: "Grandpa'd want it spent on something good."
 - Ginger snaps, gumdrops and other sweets for 1 button a bag.
 - She cures the Drain-Echo for free, for anyone who asks, with a gargle of peppermint.
+- She'll pay a button or two to anyone who'll help her mind the fizz-still for a while. It's fiddly, and it wants a clear head.
 
 ## What she makes
 Sweets, fizzes and tonics from her copper still: healing cordials, sherbet that makes you sneeze, gumdrop charms on strings, sugar-glass trinkets. Only what sugar, mint, fruit and her still can make; nothing that puts anyone to sleep, and nothing she can't taste first.
@@ -45,4 +46,5 @@ Bettie's awake but has no shadow. You've stopped offering sweets.
 - **The bottled laugh:** `coins -3 purchase`, then `gain bottled_giggle`. If the player explains it might save the shadows, a Wits check (`check wits 10`) convinces her: `coins -1 purchase`, then `gain bottled_giggle`. On a failure, she still sells it for 3. She has only the one.
 - **Ginger snaps:** `coins -1 purchase`, then `gain ginger_snaps`.
 - **Orders:** she makes things to order; the rules set what and for how much. She'll take a bag of ginger snaps in place of money for one order ("Mine are better, but it's the thought").
+- **Minding the still:** if the player helps her at it: `work` (the shop pays for it).
 - **The Drain-Echo:** if the player asks for help with it, she has them gargle peppermint: `flag set drain_hushed`.

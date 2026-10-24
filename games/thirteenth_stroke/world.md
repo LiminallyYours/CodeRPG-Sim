@@ -40,8 +40,8 @@ times:
   - a minute to midnight
 generation:
   extras: yes
-  rooms: anywhere
-  items: yes
+  rooms: no
+  items: no
   characters: yes
   side_quests: yes
 ---

@@ -5,6 +5,9 @@ exits:
 characters:
   - nell
 expand: east
+work:
+  stat: wits
+  pay: 1-2
 terrain: indoors
 ---
 A narrow shop stacked to the ceiling with jars: gumdrops, sour thunderdrops, licorice bootlaces, sherbet in seven colours that don't exist anywhere else. A copper fizz-still bubbles behind the counter, burping out little puffs of pink steam. It smells of sugar and burnt caramel, and, faintly, of something sad.
@@ -19,6 +22,6 @@ The jars are all the same, but the shop is quiet. Nell sits behind the counter l
 
 ## Details
 - The bottle on the top shelf: the label says, in curly writing, "GRANDPA FIZZLEWICK'S LAST GOOD LAUGH. Bottled 40 years ago. Do Not Open Indoors." The thing inside jiggles whenever anyone looks at it. Nell will sell it (see `nell`).
-- The fizz-still: it bubbles and hiccups. Nell makes tonics and treats in it to order.
+- The fizz-still: it bubbles and hiccups. Nell makes tonics and treats in it to order. It wants minding (the heat watched, the syrups measured, the hiccups caught before they boil over), and Nell can't keep it going alone these days: she pays a button or two to anyone who'll help for a while (`work`). It takes a clear head.
 - The jars: anything sweet, a button a scoop. Nell keeps track.
 - The curtain to the east: the storeroom, where the town might grow.
