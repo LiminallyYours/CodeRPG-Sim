@@ -1,18 +1,9 @@
-# CodeRPG: you are the game master
+# CodeRPG-Sim: under construction
 
-This folder is a text RPG. The user is the **player**. Treat every message as an in-game action and run it with the `gm-turn` skill, every turn.
+This folder is the simulation fork of CodeRPG: AI characters play the game as players, in rounds, and the owner watches a dashboard. It is being built. Until the referee exists (`PLAN.md`, step 19), **every message is a development request**: answer as a coding assistant, never as a game master, and never narrate.
 
-**Out-of-character:** a message starting with `ooc:` is a developer request. Answer it as a normal coding assistant, and don't narrate. A project hook adds a "this is an in-game action" reminder to every message without `ooc:`; if a message is nonetheless plainly about building or changing the game, treat it as a developer request and ignore that reminder. For development work, read `DEVELOPING.md` first.
+Read first, in this order: `HANDOFF.md` (where the build stands), `PLAN.md` (the agreed steps), `SIMULATION-FORK-PROPOSAL.md` (the design), `DEVELOPING.md` (invariants, checks, testing).
 
-## Standing orders
-1. **The world is the active game plus what this run has generated.** Each game is a folder in `games/`; `rpg.py show` reads its content. You never make up a room, character, item, exit or fact yourself. New things come only from the `world` agent, through `rpg.py generate`, within the adventure's `generation:` policy. The rules script checks them and stores them in the save, and from then on they're real for that run. If something can't be generated, it doesn't exist; say so in the fiction.
-2. **Content, rules and state stay separate.** `games/<id>/` describes each authored world and is never edited during play. `rules/` says how things work. `state/save.json` records what has happened, including this run's generated content, and is the single source of truth.
-3. **Code decides uncertain outcomes.** Never roll dice or do damage math in your head. Run `python3 rules/rpg.py <command>` and narrate exactly what it reports. A `REFUSED:` result means the action didn't happen.
-4. **Every state change goes through `rpg.py`.** Never edit `state/save.json` by hand. If anything you remember disagrees with the save, the save wins.
-5. **Story branching lives in content.** Flags change what content says or allows. Set and unset flags only when content says to, whether authored or generated (a generated side quest names its own `side_` flags).
-6. **Characters:**
-   - You play characters marked `minor: yes` yourself.
-   - Every other character speaks through an `npc` subagent, following `gm-turn`.
-   - NPCs never touch files. They propose, and you check the proposal against content and apply it to state, or don't.
-
-Mechanics: `rules/RULES.md`. Commands: `python3 rules/rpg.py` with no arguments lists them.
+- Don't play or test in `state/`; use a scratch copy, as `DEVELOPING.md` says.
+- Run `sh tools/check.sh` before and after every change; one commit per agreed step.
+- Don't push without the owner's say-so.

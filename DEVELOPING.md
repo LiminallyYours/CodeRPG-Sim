@@ -4,8 +4,7 @@ Notes for whoever works on the game next, human or Claude. `README.md` covers th
 
 ## Start here (Claude)
 
-`CLAUDE.md` makes every session the **game master**, and a hook adds an "in-game action" reminder to every message without `ooc:`. For development:
-- Start messages with `ooc:`, or say in the first message that the whole session is development.
+In the simulation fork, every session is development until the referee is built (`PLAN.md`, step 19); there is no in-game reminder hook and no need for `ooc:`.
 - Never test in the real `state/save.json`; that's the player's game. Use a scratch copy (below).
 - Run `sh tools/check.sh` before and after changes.
 - If `HANDOFF.md` exists, read it next: it says where an in-progress build stands and what was decided.
@@ -117,7 +116,7 @@ This is the subtlest part of `mod/hooks/register.tsx`. If narration goes missing
 - **Writing JSON from Python:** use `ensure_ascii=False`, or icons such as ✦ are written as `\u2726`.
 - **New look or balance setting:** add it with a default to `rules/look.default.json` or `rules/balance.json` (validate rejects keys the defaults don't have), mirror look keys in `CoderpgLook` and `DEFAULT_LOOK` (`mod/hooks/look.ts`), and read it from the save's `view.look`, never from a game folder.
 - **New game:** a folder in `games/` with a `world.md`; everything else is optional. `validate` and `test_rules.py` pick it up automatically. It should also pass `validate --game <id> --kit-complete`, as both shipped games do.
-- **The GM's behaviour:** `CLAUDE.md` holds standing orders (keep it short), `.claude/skills/gm-turn/SKILL.md` the procedure, and `.claude/hooks/turn_reminder.py` the per-message reminder. Sonnet at medium effort cuts corners on short turns, so test procedure changes with it.
+- **The GM's behaviour:** `CLAUDE.md` holds standing orders (keep it short), and `.claude/skills/gm-turn/SKILL.md` the procedure (the fork has no per-message reminder hook). Sonnet at medium effort cuts corners on short turns, so test procedure changes with it.
 
 ## Known limits
 

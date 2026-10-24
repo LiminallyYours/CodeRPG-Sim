@@ -24,7 +24,6 @@ CLAUDE.md                     GM role + standing orders (procedure only, no worl
 .claude/agents/world.md       the world subagent: proposes new people/places/items/side quests as JSON
 .claude/agents/worldsmith.md  the worldsmith (Opus): writes a whole new world into its draft folder, in the background
 .claude/hooks/forge_guard.py  the worldsmith's guard: it may write only in its draft and run only the world check
-.claude/hooks/turn_reminder.py  reminds the GM of the turn procedure on every in-game message
 .claude/hooks/session_start.py  refills the meter each time Claude Code is opened here
 .claude/settings.json         lets the GM run rules/rpg.py without permission prompts;
                               makes the GM wait for NPC replies (CLAUDE_CODE_FORK_SUBAGENT=0)

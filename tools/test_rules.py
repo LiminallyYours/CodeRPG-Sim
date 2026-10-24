@@ -398,16 +398,9 @@ class Engine(unittest.TestCase):
         self.assertIn("'pell' is minor", out)
         self.assertIn("unknown character 'nobody'", out)
 
-    def test_the_prompt_hook_reminds_without_charging_and_opening_refills(self):
+    def test_opening_a_session_refills_the_meter(self):
         self.at_the_lighthouse()
         self.set_meter(9)
-        hook = ".claude/hooks/turn_reminder.py"
-        self.assertIn("gm-turn procedure", self.run_py(hook, stdin=json.dumps({"prompt": "I ask Ysolde about the lens."})).stdout)
-        self.assertEqual(self.meter_file(), 9, "a turn is baseline play: free")
-        hand_back = '<agent-message from="af36dd">\n[Subagent hand-back] The text below is the final report of a subagent.'
-        for quiet in ("ooc: how does the meter work?", "/budget", "/newgame daily", hand_back,
-                      "<task-notification>\n<task-id>b1</task-id>"):
-            self.assertEqual(self.run_py(hook, stdin=json.dumps({"prompt": quiet})).stdout, "", quiet)
         self.assertEqual(self.run_py(".claude/hooks/session_start.py", stdin="{}").stdout, "")
         self.assertEqual(self.meter_file(), 30)
         self.assertEqual(self.meter(), 30)  # and the save's view shows it
@@ -637,19 +630,6 @@ class Engine(unittest.TestCase):
         self.assertIn("CURSE:", self.rpg("look"))
         self.rpg("newgame", seed=41)  # no curse survives a new game
         self.assertEqual(self.save()["view"]["curses"], [])
-
-    def test_the_prompt_hook_tells_the_game_master_how_cursed_words_came_out(self):
-        self.rpg("game", "switch", "flooded_station")
-        self.rpg("newgame", seed=42)
-        hook = ".claude/hooks/turn_reminder.py"
-        plain = self.run_py(hook, stdin=json.dumps({"prompt": "Where is the fuse?"})).stdout
-        self.assertNotIn("came out as", plain)
-        self.rpg("flag", "set", "radio_habit")
-        out = self.run_py(hook, stdin=json.dumps({"prompt": "Where is the fuse?"})).stdout
-        self.assertIn("under Radio Habit", out)
-        self.assertIn("came out as: \u00abWhere is the fuse? …over.\u00bb", out)
-        self.assertIn("What they meant: \u00abWhere is the fuse?\u00bb", out)
-        self.assertEqual(self.run_py(hook, stdin=json.dumps({"prompt": "ooc: is the curse working?"})).stdout, "")
 
     def test_validate_insists_every_curse_has_a_cause_and_a_reachable_cure(self):
         d = "games/dark_lighthouse/curses/"
