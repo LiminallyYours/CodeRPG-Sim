@@ -938,6 +938,24 @@ class Engine(unittest.TestCase):
         self.assertIn("What happened: " + note, self.rpg("brief", "tam"))
         self.assertEqual([(e["player"], e["seen_by"]) for e in self.log_of() if e["kind"] == "witnessed"], [("wren", ["corin", "tam"])])
 
+    def test_what_one_learns_where_others_hear_they_learn_too(self):
+        self.rpg("game", "switch", "thirteenth_stroke")
+        self.rpg("newgame", seed=43)  # Marigold and Dilly in the square, with Pip
+        self.rpg("round", "start")
+        if self.save()["run"]["round_state"]["order"][0] != "marigold":
+            self.take_turn("dilly")
+        self.write("proposals/reply.txt", "DO: I ask Pip about her brother.\nJOURNAL: She knows something.\n")
+        self.rpg("reply", "marigold", "proposals/reply.txt")
+        self.rpg("flag", "set", "heard_of_shadows", as_="marigold")
+        self.write("proposals/note.txt", "Marigold asked Pip about her brother, and Pip told her the whole story.")
+        self.assertIn("a shared flag is everyone's already",
+                      self.rpg("witnessed", "proposals/note.txt", "craves_giggle", as_="marigold", ok=False))
+        self.assertIn("nothing of it to learn", self.rpg("witnessed", "proposals/note.txt", "caught_sneaking", as_="marigold", ok=False))
+        self.assertIn("They learned it too: heard_of_shadows", self.rpg("witnessed", "proposals/note.txt", "heard_of_shadows", as_="marigold"))
+        self.assertEqual(self.save()["players"]["dilly"]["flags"], ["heard_of_shadows"])
+        self.assertIn("[done] Find out why", self.rpg("pane", "dilly"))
+        self.assertEqual([e["learned"] for e in self.log_of() if e["kind"] == "witnessed"], [["heard_of_shadows"]])
+
     def test_no_one_witnesses_a_turn_with_no_one_there(self):
         self.rpg("game", "switch", "dark_lighthouse")
         self.rpg("newgame", seed=43)  # Corin is in the Gull; Wren goes from the square east, where nobody is

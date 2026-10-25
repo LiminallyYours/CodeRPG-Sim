@@ -3724,9 +3724,10 @@ def cmd_say(args):
 
 
 def cmd_witnessed(args):
-    """witnessed <file>: what the others there saw and heard of this turn, as the referee tells it, the world's
-    people's words included. Every other player in the room the turn began in, or the room it ends in, keeps it
-    in memory as `seen`, to read on their next turn. The player's own words go with `say`."""
+    """witnessed <file> [<flag> ...]: what the others there saw and heard of this turn, as the referee tells it, the
+    world's people's words included. Every other player in the room the turn began in, or the room it ends in, keeps
+    it in memory as `seen`, to read on their next turn. The player's own words go with `say`. Flags named after the
+    file are personal ones the player holds that the others learned too, by seeing or hearing it: each gets them."""
     state = load_state()
     require_playing(state)
     pid = actor_id(state)
@@ -3738,13 +3739,21 @@ def cmd_witnessed(args):
                  if p != pid and pl["location"] in rooms and pl["status"] == "playing"]
     if not onlookers:
         raise Refused("no one else was there to see it")
+    learned = args[1:]
+    for f in learned:
+        if f not in personal_flags():
+            raise Refused("%s isn't anyone's own flag: a shared flag is everyone's already" % f)
+        if f not in me(state).get("flags", []):
+            raise Refused("%s doesn't hold %s, so there was nothing of it to learn by watching" % (me(state)["name"], f))
     text = text_arg(args[0], "note", BALANCE["turns"]["witnessed_chars"])
     for p in onlookers:
         remember(state["players"][p], "seen", text, state["run"]["round"])
-    log(state, "witnessed", text=text, seen_by=onlookers)
+        own = state["players"][p].setdefault("flags", [])
+        own += [f for f in learned if f not in own]
+    log(state, "witnessed", text=text, seen_by=onlookers, learned=learned)
     save_state(state)
-    print("WITNESSED by %s: they'll read it on their next turn." % ", ".join(
-        "%s (%s)" % (state["players"][p]["name"], p) for p in onlookers))
+    print("WITNESSED by %s: they'll read it on their next turn.%s" % (", ".join(
+        "%s (%s)" % (state["players"][p]["name"], p) for p in onlookers), " They learned it too: %s." % ", ".join(learned) if learned else ""))
 
 
 def memory_rounds(pl):
@@ -4333,7 +4342,7 @@ COMMANDS = {
     "work": (cmd_work, 0, "work   the player works here for pay, once per visit (a check first)"),
     "sell": (cmd_sell, 1, "sell <item> [buyer]   the player sells something with a tier to a buyer here"),
     "say": (cmd_say, 1, "say <file>   the player's words aloud: the other players here hear them on their next turn"),
-    "witnessed": (cmd_witnessed, 1, "witnessed <file>   what the other players there saw and heard of this turn, for their next"),
+    "witnessed": (cmd_witnessed, 1, "witnessed <file> [<flag> ...]   what the other players there saw and heard of this turn, for their next; the personal flags they learned by it"),
     "scene": (cmd_scene, 2, "scene start <id> | scene end <id> [reward]   play a side scene between two characters"),
     "forge": (cmd_forge, 1, "forge quote | start [sentence] | resume <draft> | status | install <draft> | discard <draft>   new worlds"),
     "world-turn": (cmd_world_turn, 1, "world-turn <file>   apply the world agent's off-screen turn (a JSON file)"),
