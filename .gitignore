@@ -19,3 +19,4 @@ proposals/*.json
 __pycache__/
 *.pyc
 .DS_Store
+state/test-runs/
