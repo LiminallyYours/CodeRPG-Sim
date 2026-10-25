@@ -912,12 +912,27 @@ def migrate(state):
 
 
 def condition_flags(state):
-    """The names content conditions are checked against: the story flags, plus two automatic kinds
-    that are true while they hold: has_<item> (carrying it) and met_<character> (seen them in a room)."""
-    if no_one(state):  # a world turn between rounds: the story flags alone
+    """The names content conditions are checked against: the shared story flags and the acting player's own
+    (the world's `personal_flags`), plus two automatic kinds that are true while they hold: has_<item>
+    (carrying it) and met_<character> (seen them in a room)."""
+    if no_one(state):  # a world turn between rounds: the shared story flags alone
         return list(state["flags"])
-    return (list(state["flags"]) + ["has_" + i for i in me(state)["inventory"]]
+    return (list(state["flags"]) + list(me(state).get("flags", [])) + ["has_" + i for i in me(state)["inventory"]]
             + ["met_" + c for c in me(state).get("met", [])])
+
+
+def personal_flags():
+    """The flags that are each player's own (world.md `personal_flags:`): what a person learns or goes through."""
+    return set(options_of(world().get("personal_flags") or []))
+
+
+def flags_of(state, name):
+    """The list a flag lives in: the acting player's own for a personal flag, the shared story flags otherwise."""
+    if name not in personal_flags():
+        return state["flags"]
+    if no_one(state):
+        raise Refused("%s is someone's own (personal_flags), so it needs --as <player>" % name)
+    return me(state).setdefault("flags", [])
 
 
 _DONE = re.compile(r"^(.*?)\s*\(done when\s+(.+)\)\s*$")
@@ -1201,8 +1216,15 @@ def player_defense(state):
 
 
 def set_flag(state, name):
-    if name not in state["flags"]:
-        state["flags"].append(name)
+    flags = flags_of(state, name)
+    if name not in flags:
+        flags.append(name)
+
+
+def flags_line(state):
+    """The shared story flags, then the acting player's own."""
+    own = [] if no_one(state) else me(state).get("flags", [])
+    return (", ".join(state["flags"]) or "none") + ("; %s's own: %s" % (me(state)["name"], ", ".join(own)) if own else "")
 
 
 def hp_line(state):
@@ -1622,8 +1644,9 @@ def cmd_look(args):
             room.get("name", room["id"]), state["players"][owner]["name"], state["players"][owner]["name"]))
     inv = ["%s%s" % (i, " (equipped)" if i == me(state)["equipped"] else "") for i in me(state)["inventory"]]
     print("INVENTORY: %s  [weight %d/%d]" % (", ".join(inv) or "nothing", carried_weight(state), carry_limit(state)))
-    print("FLAGS: %s" % (", ".join(state["flags"]) or "none"))
-    print("ALSO TRUE: %s" % (", ".join(f for f in flags if f not in state["flags"]) or "none"))
+    print("FLAGS: %s" % flags_line(state))
+    own = me(state).get("flags", [])
+    print("ALSO TRUE: %s" % (", ".join(f for f in flags if f not in state["flags"] and f not in own) or "none"))
     gen_q = [q for q in ent_ids("quests") if is_generated("quests", q)]
     if gen_q:
         print("SIDE QUESTS: %s (read with `rpg.py show quests <id>`)" % ", ".join(gen_q))
@@ -1903,12 +1926,13 @@ def cmd_flag(args):
     if action == "set":
         set_flag(state, name)
     elif action == "unset":
-        if name in state["flags"]:
-            state["flags"].remove(name)
+        if name in flags_of(state, name):
+            flags_of(state, name).remove(name)
     else:
         raise Refused("use: flag set <name> | flag unset <name>")
     save_state(state)
-    print("FLAG %s %s. Flags: %s" % (action, name, ", ".join(state["flags"]) or "none"))
+    print("FLAG %s %s%s. Flags: %s" % (action, name, " (%s's own)" % me(state)["name"] if name in personal_flags() else "",
+                                       flags_line(state)))
 
 
 def cmd_npc_brief(args):
@@ -2752,6 +2776,31 @@ def validate_game(kit=False, sim=False):
         if len(options_of(opts)) < 2:
             problems.append("world.md variants %s: needs at least two comma-separated flags" % name)
         variant_flags.update(options_of(opts))
+    personal = set(options_of(w.get("personal_flags") or []))
+    for f in sorted(personal):
+        if not re.fullmatch(r"[a-z][a-z0-9_]*", f) or f.startswith(("has_", "met_")):
+            problems.append("world.md personal_flags: %r isn't a flag content can set" % f)
+
+    def placing(cond, where):
+        """A personal flag may not decide where things are: each person would see a different world."""
+        hit = personal & set(generate.TERM.findall(str(cond or "")))
+        if hit:
+            problems.append("%s: %s is personal, so it can't decide where things are or what happens off-screen"
+                            % (where, ", ".join(sorted(hit))))
+    for f in sorted(personal & variant_flags):
+        placing(f, "world.md variants")
+    for k in ("flag", "also_flag", "also_if"):
+        placing((w.get("clock") or {}).get(k), "world.md clock %s" % k)
+    for r in content.ids("rooms"):
+        room = content.load("rooms", r)
+        for key in ("exits", "items", "characters"):
+            values = room.get(key) or []
+            for v in (values.values() if isinstance(values, dict) else values):
+                placing(content.split_condition(v)[1], "rooms/%s.md %s" % (r, key))
+    for c in content.ids("characters"):
+        for step in content.plans(content.load("characters", c)["body"]):
+            for key in ("when", "sets", "clears"):
+                placing(step.get(key), "characters/%s.md plan %s" % (c, key))
     if w.get("clock"):
         for k in ("name", "moves", "flag"):
             if k not in w["clock"]:

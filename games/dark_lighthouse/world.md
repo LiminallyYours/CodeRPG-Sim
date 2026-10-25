@@ -17,6 +17,8 @@ inventory:
   - worn_dagger
   - healing_tonic
 equipped: worn_dagger
+# what one person learns or goes through, kept for each person apart; every other flag is shared
+personal_flags: lamp_quest_started, mirror_cursed, tongue_salted
 # each line picks one of its flags at random when a new game starts
 variants:
   craving: craves_honey, craves_fish

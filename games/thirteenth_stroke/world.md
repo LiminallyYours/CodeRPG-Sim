@@ -17,6 +17,8 @@ inventory:
   - bent_umbrella
   - ginger_snaps
 equipped: bent_umbrella
+# what one person learns or goes through, kept for each person apart; every other flag is shared
+personal_flags: heard_of_shadows, caught_sneaking
 # each line picks one of its flags at random when a new game starts
 variants:
   craving: craves_giggle, craves_whistle

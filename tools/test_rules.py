@@ -913,6 +913,31 @@ class Engine(unittest.TestCase):
         self.write("proposals/words.txt", "Anyone?")
         self.assertIn("no one else is here to hear it", self.rpg("say", "proposals/words.txt", as_=first, ok=False))
 
+    def test_what_one_person_learns_stays_their_own(self):
+        self.rpg("game", "switch", "thirteenth_stroke")
+        self.rpg("newgame", seed=43)  # Marigold and Dilly both start in the square, with Pip
+        self.assertIn("(Marigold Thimble's own)", self.rpg("flag", "set", "heard_of_shadows", as_="marigold"))
+        self.assertIn("[done] Find out why", self.rpg("pane", "marigold"))
+        self.assertNotIn("[done] Find out why", self.rpg("pane", "dilly"))
+        told = "You've told this person everything"
+        self.assertIn(told, self.rpg("show", "characters", "pip", as_="marigold"))
+        self.assertNotIn(told, self.rpg("show", "characters", "pip", as_="dilly"))
+        self.rpg("flag", "set", "clock_stopped", as_="marigold")  # a fact about the world: everyone's
+        self.assertIn("Before the Thirteenth Stroke (done)", self.rpg("pane", "dilly"))
+        flags = [l for l in self.rpg("look", as_="dilly").splitlines() if l.startswith("FLAGS:")][0]
+        self.assertIn("clock_stopped", flags)
+        self.assertNotIn("heard_of_shadows", flags)
+        self.assertNotIn("heard_of_shadows", self.save()["flags"])
+        self.rpg("flag", "unset", "heard_of_shadows", as_="marigold")
+        self.assertEqual(self.save()["players"]["marigold"]["flags"], [])
+
+    def test_a_personal_flag_may_not_decide_where_things_are(self):
+        path = self.dir / "games" / "dark_lighthouse" / "world.md"
+        path.write_text(path.read_text().replace("personal_flags: lamp_quest_started,", "personal_flags: grukk_friend, lamp_quest_started,"))
+        out = self.rpg("validate", "--game", "dark_lighthouse", ok=False)
+        self.assertIn("rooms/greywater_bridge.md exits: grukk_friend is personal", out)
+        self.assertIn("rooms/greywater_bridge.md characters: grukk_friend is personal", out)
+
     def test_a_player_hears_the_talk_going_around_only_among_people(self):
         self.rpg("game", "switch", "dark_lighthouse")
         self.rpg("newgame", seed=43)

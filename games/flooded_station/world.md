@@ -17,6 +17,8 @@ inventory:
   - diving_knife
   - med_patch
 equipped: diving_knife
+# what one person learns or goes through, kept for each person apart; every other flag is shared
+personal_flags: halloran_briefed, radio_habit, habit_broken
 # each line picks one of its flags at random when a new game starts
 variants:
   halloran_mood: halloran_stubborn, halloran_shaken
