@@ -177,6 +177,13 @@ def order_asked(state, maker, kind):
     return {"maker": maker, "kind": kind, "order": order}
 
 
+def made_for(state, ident):
+    """The player an item or place was made to order for (who paid for it), or None: made for one person, it stays
+    made for them in whoever's hands it ends up."""
+    com = state["run"]["commissions"].get(ident)
+    return (com.get("by") or com.get("ordered_by")) if com and com["status"] == "done" else None
+
+
 def order_of(state, ident):
     """The order that made this item or place, or None."""
     com = state["run"]["commissions"].get(ident)
@@ -1042,7 +1049,7 @@ def player_view(state):
         "status": me(state)["status"],
         "stats": dict(me(state)["stats"]),
         "items": [{"id": i, "name": item(i).get("name", i) if ent_exists("items", i) else i, "equipped": i == me(state)["equipped"],
-                   "own": made_by("items", i) == "player"} for i in me(state)["inventory"]],
+                   "own": made_for(state, i) == actor_id(state)} for i in me(state)["inventory"]],
         "weight": carried_weight(state),
         "carry_limit": carry_limit(state),
         "characters_here": [who(c) for c in here],
@@ -3968,6 +3975,14 @@ def cmd_trade(args):
         for line in lines:
             print(line)
         return
+    if args[0] == "accept":
+        if len(args) < 2:
+            raise Refused("usage: trade accept <offer>")
+        t = trade_arg(state, args[1])
+        if t["to"] != pid:
+            raise Refused("only %s can accept %s" % (state["players"][t["to"]]["name"], t["id"]))
+        accept_trade(state, t)
+        return
     if args[0] == "decline":
         if len(args) < 2:
             raise Refused("usage: trade decline <offer>")
@@ -3980,7 +3995,49 @@ def cmd_trade(args):
         print("DECLINED %s: %s turns down %s's offer. The story tells %s how it was turned down." % (
             t["id"], me(state)["name"], state["players"][t["from"]]["name"], state["players"][t["from"]]["name"]))
         return
-    raise Refused("use: trade offer <file> | trade decline <offer>")
+    raise Refused("use: trade offer <file> | trade accept <offer> | trade decline <offer>")
+
+
+def accept_trade(state, t):
+    """Hand over both sides of offer `t`, all or nothing: every check is made before anything moves. A refusal says
+    what the story can tell, and leaves the offer standing."""
+    giver, taker = t["from"], t["to"]
+    names = {p: state["players"][p]["name"] for p in (giver, taker)}
+    if giver not in players_here(state)[1:]:
+        raise Refused("%s isn't here any more: things change hands face to face" % names[giver])
+    for pid, side in ((giver, "give"), (taker, "want")):
+        with acting(pid):
+            missing = short_of(state, t[side])
+        if missing:
+            raise Refused("%s doesn't have %s now" % (names[pid], ", ".join(missing)))
+    weight = lambda items: sum(int(item(i).get("weight", 0)) for i in items)  # noqa: E731
+    for pid, gets, goes in ((taker, t["give"]["items"], t["want"]["items"]), (giver, t["want"]["items"], t["give"]["items"])):
+        with acting(pid):
+            load = carried_weight(state) - weight(goes) + weight(gets)
+            if gets and load > carry_limit(state):
+                raise Refused("%s can't carry it all: %s would make a load of %d, and %d is the most they can carry"
+                              % (names[pid], things_text({"items": gets, "coins": 0}), load, carry_limit(state)))
+    for frm, to, side in ((giver, taker, "give"), (taker, giver, "want")):
+        for i in t[side]["items"]:
+            with acting(frm):
+                remove_from_inventory(state, i)  # a thing held in hand is let go of first
+                log_use(state, i, "traded")
+            state["players"][to]["inventory"].append(i)
+        if t[side]["coins"]:
+            with acting(frm):
+                change_coins(state, -t[side]["coins"], "trade", note=t["id"])
+            with acting(to):
+                change_coins(state, t[side]["coins"], "trade", note=t["id"])
+    words, journal = turn_words(state)
+    close_trade(state, t, "accepted", words=words, journal=journal)
+    save_state(state)
+    print("ACCEPTED %s: %s takes %s's offer. %s hands over %s; %s hands over %s." % (
+        t["id"], names[taker], names[giver], names[giver], things_text(t["give"]) if not is_empty(t["give"]) else "nothing",
+        names[taker], things_text(t["want"]) if not is_empty(t["want"]) else "nothing"))
+    for pid in (taker, giver):
+        with acting(pid):
+            print("  %s now has %d %s, carrying: %s  [weight %d/%d]" % (names[pid], me(state)["stats"]["coins"], currency(),
+                  ", ".join(me(state)["inventory"]) or "nothing", carried_weight(state), carry_limit(state)))
 
 
 # ---------------------------------------------------------------- endings: a quest decided is news for everyone
@@ -4644,7 +4701,7 @@ COMMANDS = {
     "work": (cmd_work, 0, "work   the player works here for pay, once per visit (a check first)"),
     "sell": (cmd_sell, 1, "sell <item> [buyer]   the player sells something with a tier to a buyer here"),
     "say": (cmd_say, 1, "say <file>   the player's words aloud: the other players here hear them on their next turn"),
-    "trade": (cmd_trade, 1, "trade offer <file> | trade decline <offer>   the terms of an offer to another player here (a JSON file), or the one it's for turning it down"),
+    "trade": (cmd_trade, 1, "trade offer <file> | accept <offer> | decline <offer>   the terms of an offer to another player here (a JSON file); the one it's for takes it or turns it down"),
     "ending": (cmd_ending, 1, "ending <file>   what everyone else comes to hear of a quest's ending, once one is decided (for no one between rounds)"),
     "witnessed": (cmd_witnessed, 1, "witnessed <file> [<flag> ...]   what the other players there saw and heard of this turn, for their next; the personal flags they learned by it"),
     "scene": (cmd_scene, 2, "scene start <id> | scene end <id> [reward]   play a side scene between two characters"),

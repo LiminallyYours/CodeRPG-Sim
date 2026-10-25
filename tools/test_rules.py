@@ -1136,6 +1136,92 @@ class Engine(unittest.TestCase):
                                                 ("t4", "offered", None), ("t4", "lapsed", "parted")])
         self.assertEqual(self.save()["players"]["tam"]["stats"]["coins"], 4, "nothing changed hands")
 
+    def holdings(self, *pids):
+        players = self.save()["players"]
+        return [(sorted(players[p]["inventory"]), players[p]["equipped"], players[p]["stats"]["coins"]) for p in pids]
+
+    def test_accepting_hands_both_sides_over_at_once(self):
+        self.three_players()
+        self.rpg("newgame", seed=44)
+        wren_had, tam_had = self.holdings("wren", "tam")
+        self.assertEqual((wren_had, tam_had), ((["healing_tonic", "worn_dagger"], "worn_dagger", 3), (["healing_tonic"], None, 4)))
+        out = []
+        self.round_with(wren=lambda pid: out.extend(self.turn(pid, "I offer Tam my dagger and a coin for the tonic.", self.offer(
+            {"to": "tam", "give": {"items": ["worn_dagger"], "coins": 1}, "want": {"items": ["healing_tonic"]}}), ("trade", "accept", "t1"))))
+        self.assertIn("REFUSED: only Tam can accept t1", out[1])
+        self.round_with(tam=lambda pid: out.extend(self.turn(pid, "I take it.", ("trade", "accept", "t1"), ("trade", "accept", "t1"))))
+        self.assertIn("ACCEPTED t1: Tam takes Wren's offer. Wren hands over Worn Dagger and 1 coins; Tam hands over Healing Tonic.", out[2])
+        self.assertIn("REFUSED: t1 is over (accepted)", out[3])
+        self.assertEqual(self.holdings("wren", "tam"), [(["healing_tonic", "healing_tonic"], None, 2), (["worn_dagger"], None, 5)],
+                         "the dagger was in Wren's hand: let go of, and handed over")
+        coins = [(e["player"], e["delta"], e["reason"], e.get("note")) for e in self.log_entries() if e["kind"] == "coins"]
+        self.assertEqual(coins, [("wren", -1, "trade", "t1"), ("tam", 1, "trade", "t1")])
+        accepted = [e for e in self.log_entries() if e["kind"] == "trade"][-1]
+        self.assertEqual((accepted["step"], accepted["player"], accepted["words"]), ("accepted", "tam", "I take it."))
+        self.assertNotIn("Offered", self.rpg("pane", "tam"))
+        # a gift of something made to order: it stays made for Wren, whoever has it
+        charm = {"id": "shell_charm", "name": "Shell Charm", "description": "A cockle shell on a cord.", "tier": "trinket"}
+
+        def order_and_give(pid):
+            self.write("proposals/reply.txt", "DO: I have Morwen make a charm, and give it to Tam.\nJOURNAL: A thank-you.\n")
+            self.rpg("reply", pid, "proposals/reply.txt")
+            self.order("morwen", charm)
+            self.rpg("pay", "shell_charm", as_=pid)
+            out.append(self.rpg("pane", pid))
+            out.append(self.rpg(*self.offer({"to": "tam", "give": {"items": ["shell_charm"]}}), as_=pid))
+            self.write("proposals/story.txt", "Morwen ties off the cord.")
+            self.rpg("narrate", pid, "proposals/story.txt")
+        self.round_with(wren=order_and_give)
+        self.assertIn("Shell Charm (made for you)", out[4])
+        self.assertIn("## Offered to you\n- Wren offers you Shell Charm, and asks nothing in return.", self.rpg("pane", "tam"))
+        self.assertNotIn("shell_charm", self.save()["players"]["tam"]["inventory"], "a gift is the other's only once taken")
+        self.round_with(tam=lambda pid: out.extend(self.turn(pid, "I take the charm.", ("trade", "accept", "t2"))))
+        self.assertIn("ACCEPTED t2: Tam takes Wren's offer. Wren hands over Shell Charm; Tam hands over nothing.", out[6])
+        tam = self.rpg("pane", "tam")
+        self.assertIn("Shell Charm", tam)
+        self.assertNotIn("made for you", tam)
+        used = [(e["order"], e["id"], e["how"], e["player"]) for e in self.log_entries() if e["kind"] == "order" and e["step"] == "used"]
+        self.assertIn(("o1", "shell_charm", "traded", "wren"), used)
+
+    def test_an_accept_that_cant_happen_changes_nothing_and_the_offer_stands(self):
+        self.three_players()
+        self.rpg("newgame", seed=44)
+        out = []
+
+        def offers(pid):
+            self.write("proposals/reply.txt", "DO: I offer Tam my dagger, and then my cutlass and lens.\nJOURNAL: To be rid of them.\n")
+            self.rpg("reply", pid, "proposals/reply.txt")
+            for i in ("boarding_cutlass", "brass_lens"):
+                self.rpg("gain", i, as_=pid)
+            self.rpg(*self.offer({"to": "tam", "give": {"items": ["worn_dagger"]}, "want": {"items": ["honey_cake"]}}), as_=pid)
+            self.rpg("drop", "worn_dagger", as_=pid)  # and then thinks better of it
+            self.write("proposals/story.txt", "You set the dagger down.")
+            self.rpg("narrate", pid, "proposals/story.txt")
+        self.round_with(wren=offers)
+        self.round_with(tam=lambda pid: out.extend(self.turn(pid, "I take Wren's offer.", ("trade", "accept", "t1"))))
+        self.assertIn("REFUSED: Wren doesn't have worn_dagger now", out[0])
+        self.assertIn("## Offered to you", self.rpg("pane", "tam"), "a refused accept leaves the offer standing")
+        self.round_with(wren=lambda pid: self.turn(pid, "I offer Tam the cutlass and the lens for a honey cake.", self.offer(
+            {"to": "tam", "give": {"items": ["boarding_cutlass", "brass_lens"]}, "want": {"items": ["honey_cake"]}})))
+        before = self.holdings("wren", "tam")
+
+        def tries(pid):
+            self.write("proposals/reply.txt", "DO: I take Wren's offer.\nJOURNAL: A fair swap.\n")
+            self.rpg("reply", pid, "proposals/reply.txt")
+            out.append(self.rpg("trade", "accept", "t2", as_=pid, ok=False))  # no honey cake to give yet
+            for _ in range(3):
+                self.rpg("gain", "honey_cake", as_=pid)
+            out.append(self.rpg("trade", "accept", "t2", as_=pid, ok=False))  # 1 + 3 - 1 + 6 = 9, and Tam carries 8 at most
+            self.write("proposals/story.txt", "You reach for it.")
+            self.rpg("narrate", pid, "proposals/story.txt")
+        self.round_with(tam=tries)
+        self.assertIn("REFUSED: Tam doesn't have honey_cake now", out[1])
+        self.assertIn("REFUSED: Tam can't carry it all: Boarding Cutlass and Brass Lens would make a load of 9, and 8 is the most", out[2])
+        self.assertEqual(self.holdings("wren")[0], before[0])
+        self.assertEqual(self.holdings("tam")[0][0], ["healing_tonic"] + ["honey_cake"] * 3)
+        self.assertEqual([e["step"] for e in self.log_entries() if e["kind"] == "trade"], ["offered", "lapsed", "offered"])
+        self.assertFalse([e for e in self.log_entries() if e["kind"] == "coins"])
+
     def test_what_one_person_learns_stays_their_own(self):
         self.rpg("game", "switch", "thirteenth_stroke")
         self.rpg("newgame", seed=43)  # Marigold and Dilly both start in the square, with Pip
