@@ -30,7 +30,7 @@ Each lesson: what happened, then the rule or check it implies.
 - **An economy that closes:** ways to earn (work, a buyer, jobs), ways to spend (needs, wants, makers, a builder), prices told on asking, townspeople who take money.
 - **Consistency:** every character, place and rumor follows every ending (section 2, lessons 1, 2 and 7).
 - **Public knowledge** holding the practical facts (who makes, who builds, how money works), never which places pay for work or who buys.
-- `validate --sim-complete` checks what it can of this (section 5).
+- A stricter check than `--sim-complete` holds a world to this (section 5); The Thirteenth Stroke keeps passing `--sim-complete` and isn't held to it.
 
 ## 4. The test world: Wendleford
 
@@ -62,13 +62,13 @@ Each lesson: what happened, then the rule or check it implies.
 | Lark Lane | Widow Mabry's empty cottage to let; a building plot beside it | wanting a home; the scarce prize |
 | The tithe barn | the reeve's office; the hayloft (sleep free, but rough) | doing without; owing a favour |
 
-**The town's people (9; ★ voiced by their own agent).** ★ Reeve Agnes Pollard (runs and pays the bridge work; lost the wage box; offers its reward; says who gets the harvest honour); ★ Jory Crane, carpenter (the builder: sheds, huts, lean-tos; wanted on the bridge too, so his time is wanted on both sides); ★ Kit, the miller's lad (saw something bobbing on the flood night); Tom Harrow, innkeeper; Ida Fenn, draper (maker); Sam Tolley, smith (maker); Farmer Dunn; Widow Mabry; Ned Pike, dealer (buys things; sells seconds on market days). Every one of them takes money for something.
+**The town's people (9; ★ voiced by their own agent).** ★ Reeve Agnes Pollard (runs and pays the bridge work; lost the wage box; offers its reward; says who gets the harvest honour); ★ Jory Crane, carpenter (the builder: sheds, huts, lean-tos; wanted on the bridge too: he says so, but building a shed doesn't slow the bridge, for now); ★ Kit, the miller's lad (saw something bobbing on the flood night); Tom Harrow, innkeeper; Ida Fenn, draper (maker); Sam Tolley, smith (maker); Farmer Dunn; Widow Mabry; Ned Pike, dealer (buys things; sells seconds on market days). Every one of them takes money for something.
 
 **The ongoing problem.** The harvest: about 8 person-turns of help before the rain; if it's in, a harvest supper on the evening of day 3; if not, part of the crop is lost and bread costs more from day 4. The bridge: about 12 person-turns of paid work, no deadline; while it's broken the far bank is reachable only by the ford.
 
 **The small mystery: the wage box.** On the flood night the reeve's box of bridge wages vanished; until it's found she pays bridge work at half rate. It was swept off the bridge and is caught in the wreck under the water: found by searching the wreck (a check) or by asking Kit; a false lead in the rumors suspects the newcomer at the smithy. One deed ends it; the finder gets 4 pennies and the town's thanks, and only one person can be the one who found it.
 
-**Prices (pennies, in the world's own `balance.json`).** A bed at the Wheatsheaf 2 a night (the hayloft free, but rough: tired the next day); bread or a supper 1, or a meal earned at Dunn's or washing pots; finery about 4; a shed 10; the cottage 8 for a week, paid up front.
+**Prices (pennies, in the world's own `balance.json`; tuned on paper when it is written, then by the test run).** A bed at the Wheatsheaf 2 a night (the hayloft free, but rough: tired the next day); bread or a supper 1, or a meal earned at Dunn's or washing pots; finery about 4 (made as a trinket, at Wendleford's price for trinkets, so the smith's small things cost the same); a shed 10; the cottage 8 for a week, paid up front.
 
 **One opening per person's want.**
 | Person | Want | What serves it |
@@ -84,16 +84,20 @@ Each lesson: what happened, then the rule or check it implies.
 
 ## 5. What the kit needs for it
 - **Time after the story:** a world lists times of day that cycle and counts days (`times_after:` or a cycling `times:`), with daytime text where places and people change.
-- **Needs:** a world lists its needs (`needs:`: food daily, sleep nightly), each met by an item, a room's service, a payment or an act (sleeping); the engine tracks each person's, makes it more pressing with time, applies the setback when it goes unmet (section 4) and says it in words in the brief.
+- **Needs:** a setting switches them on or off (like curses and the deadline clock), so a run can compare needs on against off; a world lists its needs (`needs:`: food daily, sleep nightly), each met by an item, a room's service, a payment or an act (sleeping); the engine tracks each person's, makes it more pressing with time, applies the setback when it goes unmet (section 4) and says it in words in the brief.
 - **Things for sale at set prices:** bread, a bed, a week's rent, a dealer's seconds. Today buying exists only as making to order.
 - **Shared projects:** work at a place adds to a shared total, counted per person in the log, with stages that set flags at set amounts (harvest in, bridge mended); the harvest honour is worked out from the counts.
-- **A world's own prices** (`games/<id>/balance.json`), and perhaps a "finery" tier of item, which the checks may not yet allow.
+- **A world's own prices** (`games/<id>/balance.json`); no new kind of item: finery is a trinket at the world's price (JW), and a separate kind is added only if a run shows it's needed.
 - **"What you're working on"** shows needs, wants and things taken on side by side (`PERSON-STRUCTURE-PROPOSAL.md` section 6, G).
-- **Checks:** the ending-consistency warning (lesson 1); no content naming the original player (lesson 8); `--sim-complete` extended to time that goes on, at least one need and what meets it, hooks of more than one size.
+- **Checks:** the ending-consistency warning (lesson 1); no content naming the original player (lesson 8); a stricter check than `--sim-complete` (its name settled in the build), which Wendleford is held to: time that goes on, at least one need and what meets it, things for sale, a shared project, hooks of more than one size. The Thirteenth Stroke keeps passing `--sim-complete`.
 
-## 6. Open
-1. **Tuning the numbers:** person-turns for the harvest and the bridge, prices, pay, starting money, the rain's round; to be tried on paper and then in the test run.
-2. **Whether a "finery" tier** is a new item tier in the kit or this world's prices for the existing trinket tier.
-3. **Whether needs are a kit feature for every simulation world,** or a setting a world may switch on.
-4. **Whether Jory's time is truly scarce** (building a shed slows the bridge) or only said to be.
-5. **How the forge (worldsmith) is pointed at this spec,** and what `--sim-complete` can check of it by code against what needs a human read.
+## 6. Decided, and open
+
+**Decided (JW, 2026-10-25):**
+1. **The numbers are tuned on paper** when Wendleford is written (step 62): a day's earning against a day's needs, how long a shed takes to save for, how much help the harvest needs against the cast's time; the table is shown to JW before it is committed, and the test run says what to adjust.
+2. **Finery is a trinket** at Wendleford's own price; no new kind of item unless a run shows it's needed.
+3. **Needs are a switch,** and the spec's requirements are **a stricter check** that Wendleford is held to; The Thirteenth Stroke keeps passing `--sim-complete` as it is.
+4. **The carpenter's time is only said to be scarce,** for now: building a shed doesn't slow the bridge. Linking them in code can come later.
+
+**Open:**
+5. **How the forge (worldsmith) is pointed at this spec,** and what the stricter check can verify by code against what needs a human read. Suggested (Claude): after Wendleford's run, once the spec has been tested once, revise it and then aim the forge at the stricter check.

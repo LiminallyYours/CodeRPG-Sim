@@ -237,19 +237,19 @@ Each a commit with checks before and after; each drafted for JW before code, as 
 
 **The world** (`SIM-WORLD-SPEC.md`; order proposed):
 56. **Time that goes on:** times of day that cycle, days counted, daytime text.
-57. **Needs:** a world's `needs:` (food daily, sleep nightly), tracked per person, more pressing with time, a small lasting setback when unmet, told in words; sleep is an act a person chooses; "What you're working on" shows needs, wants and things taken on side by side.
+57. **Needs:** a setting switches them on or off; a world's `needs:` (food daily, sleep nightly), tracked per person, more pressing with time, a small lasting setback when unmet, told in words; sleep is an act a person chooses; "What you're working on" shows needs, wants and things taken on side by side.
 58. **Things for sale at set prices** (bread, a bed, a week's rent, a dealer's seconds), beside making to order.
 59. **Shared projects:** work at a place adds to a shared total, counted per person in the log; stages set flags; who helped most is worked out from the counts.
-60. **Checks:** the ending-consistency warning, no content naming the original player, `--sim-complete` extended.
+60. **Checks:** the ending-consistency warning, no content naming the original player, and a stricter check than `--sim-complete` that Wendleford is held to (`SIM-WORLD-SPEC.md` section 5); The Thirteenth Stroke keeps passing `--sim-complete`.
 61. **R5 and R4:** the definitions file, the cast generator (`tools/cast.py`) and the round-trip check.
-62. **Wendleford,** the test world, from the outline in `SIM-WORLD-SPEC.md` section 4, written by hand, with its own prices; its cast of four made by the generator.
+62. **Wendleford,** the test world, from the outline in `SIM-WORLD-SPEC.md` section 4, written by hand, with its own prices (tuned on paper, the table shown to JW first; finery a trinket at its price); its cast of four made by the generator.
 63. **A test run** of Wendleford (approved separately).
 
 ## Open
 - **The order of steps 50–63: decided** (above).
 - **The test world's outline: agreed** (JW, 2026-10-25, after the first pause): Wendleford, `SIM-WORLD-SPEC.md` section 4: both scarce prizes (the cottage, the harvest honour); effort on shared work counted by code; bread dearer if the harvest fails; money tight; unmet needs a small lasting setback; night a turn like any other (sleep chosen); each person in their own situation. Its numbers are still to tune (spec section 6).
 - **Whether R6 (step 53) is tried first on The Thirteenth Stroke's cast: no** (JW): its cast gets no starting facts; the pair is tested for real in Wendleford's run.
-- **The rest of `SIM-WORLD-SPEC.md` section 6:** the numbers, a finery tier, needs for every simulation world or a setting, whether the carpenter's time is truly scarce, how the forge is pointed at the spec.
+- **`SIM-WORLD-SPEC.md` section 6: decided** (JW): numbers tuned on paper then by the test run; finery a trinket at the world's price; needs a switch, with a stricter check Wendleford is held to; the carpenter's time only said to be scarce. **Still open:** how the forge is pointed at the spec (suggested: after Wendleford's run).
 - **The rest of phase 2** (the trainer and abilities, room uses beyond `stash`, the dashboard's history views, the memory hooks, forging simulation worlds): not discussed; the steps above come first.
 
 ## Future discussions (may lead to requirements)
