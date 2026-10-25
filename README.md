@@ -77,7 +77,8 @@ state/library/<game>.json     what earlier runs made and befriended, carried int
 mod/                          the original's interface mod (unused in phase 1; its checks keep passing)
 tools/                        check.sh (every automated check), test_rules.py (engine tests),
                               ask.py and voice.py (a person, or a townsperson or the world agent, asked
-                              outside the referee's context), rounds.py, audit.py, probe.py,
+                              outside the referee's context), rounds.py, audit.py, probe.py, bench.py (fixed
+                              moments put to people again, cheaply, before a change goes into a run; bench/),
                               dashboard.py (the live view and the CSV export), settings.py (the owner's switches;
                               the referee can't run it), play.py (drive a live session), pictures.py,
                               library.py and worlds.py (the owner keeps or forgets library entries and worlds)

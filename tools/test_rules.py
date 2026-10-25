@@ -1584,9 +1584,15 @@ class Engine(unittest.TestCase):
         self.assertIn("rounds.max_per_run must be a whole number", self.settings_tool("set", "rounds.max_per_run", "-1", ok=False))
 
     STAND_IN = """#!/usr/bin/env python3
-import json, sys, pathlib
+import json, os, sys, pathlib
 d = pathlib.Path(__file__).parent
-n = len(list(d.glob("asked-*.txt")))
+n = 0
+while True:  # claim the next number, safely when several are asked at once (the bench)
+    try:
+        os.close(os.open(str(d / ("asked-%d.txt" % n)), os.O_CREAT | os.O_EXCL | os.O_WRONLY))
+        break
+    except FileExistsError:
+        n += 1
 (d / ("asked-%d.txt" % n)).write_text(sys.stdin.read())
 (d / ("argv-%d.json" % n)).write_text(json.dumps(sys.argv[1:]))
 (d / ("cwd-%d.json" % n)).write_text(json.dumps([str(pathlib.Path.cwd()), sorted(p.name for p in pathlib.Path.cwd().iterdir())]))
@@ -1798,6 +1804,50 @@ print(json.dumps({"type": "result", "is_error": False, "result": answer, "total_
         self.assertIn("needs a model, since the settings ask each person's own", self.rpg("validate", "--game", "thirteenth_stroke", ok=False))
         self.settings_tool("set", "cast.model", "haiku")
         self.rpg("validate", "--game", "thirteenth_stroke")
+
+    def test_the_bench_puts_kept_moments_again_under_each_variant(self):
+        self.rpg("game", "switch", "dark_lighthouse")
+        self.settings_tool("preset", "simulation")
+        self.rpg("newgame", seed=43)
+        order = [p.split("(")[1].rstrip(")") for p in self.rpg("round", "start").split(": ", 1)[1].strip().split(", ")]
+        logged = self.rpg("brief", order[0])
+        for pid in order:
+            self.take_turn(pid)
+        self.rpg("round", "end")
+        log = "state/log/%s.jsonl" % self.save()["run"]["id"]
+        bench = lambda *a, answers=("DO: I wait.\nJOURNAL: x",), ok=True: self.ask(*a, answers=list(answers), ok=ok, tool="tools/bench.py")  # noqa: E731
+        self.assertIn("KEPT past: %s, " % order[0], bench("add", "past", log, order[0], "1", "--note", "a moment from round 1")[0])
+        self.assertEqual(json.loads((self.dir / "bench/moments/past.json").read_text())["brief"] + "\n", logged, "the brief as logged")
+        self.assertIn("KEPT now: %s, " % order[1], bench("save", "now", order[1])[0])
+        self.assertIn("frozen", bench("list")[0])
+        words = self.dir / "rules" / "people" / "brief.md"
+        words.write_text(words.read_text().replace("closing:         What do you do now?", "closing: And now?"))
+        out, asked, _ = bench("run", "--dry")
+        self.assertEqual(asked, [], "a dry run asks no one")
+        self.assertIn("(%s, frozen)\n%s\n" % (order[0], logged.rstrip("\n")), out, "a frozen brief is as it was")
+        self.assertIn("(%s, rebuilt now)" % order[1], out)
+        rebuilt = out.split("(%s, rebuilt now)\n" % order[1])[1].split("\n\n===== ")[0]
+        self.assertTrue(rebuilt.rstrip().endswith("And now?"), "a saved game's brief has the new wording")
+        self.write("bench/variants/plain.md", "---\nname: plain\n---\nYou are someone. Reply with DO: and JOURNAL: lines.\n")
+        entries = len(self.log_entries())
+        out, asked, argv = bench("run", "--variant", ".claude/agents/player.md", "--variant", "bench/variants/plain.md", "--times", "2",
+                                 answers=["DO: I think of Claude.\nJOURNAL: x"])
+        self.assertEqual(len(asked), 8, "2 moments, 2 variants, twice each")
+        self.assertEqual(len(set(asked)), 2, "two briefs, each sent the same every time")
+        self.assertIn(logged.rstrip("\n"), asked, "the frozen one byte for byte")
+        self.assertIn(rebuilt.rstrip("\n"), asked, "the rebuilt one as the dry run showed it")
+        systems = {a[a.index("--system-prompt") + 1] for a in argv}
+        self.assertIn("You are someone. Reply with DO: and JOURNAL: lines.", systems)
+        self.assertEqual(len(systems), 2)
+        self.assertEqual({a[a.index("--model") + 1] for a in argv}, {"sonnet"})
+        self.assertIn("===== now: %s" % order[1], out)
+        self.assertIn("--- plain (instructions ", out)
+        self.assertIn("== LEAKS IN THE BRIEFS\n  none", out)
+        self.assertIn("'Claude'", out.split("== SIGNS OF CLAUDE CODE'S LINES IN THE REPLIES\n")[1])
+        kept = json.loads(sorted((self.dir / "bench/results").glob("*.json"))[-1].read_text())
+        self.assertEqual((len(kept["replies"]), sorted(kept["variants"]), kept["moments"]["past"]["kind"]), (8, ["plain", "today"], "brief"))
+        self.assertEqual(kept["replies"][0]["exact_model"], "claude-test-1")
+        self.assertEqual(len(self.log_entries()), entries, "the game's own log is untouched")
 
     def voice(self, *args, answers, ok=True):
         return self.ask(*args, answers=answers, ok=ok, tool="tools/voice.py")

@@ -56,6 +56,10 @@ python3 rules/rpg.py round end                        # once everyone has had th
 ```
 In a shell script, drive this from Python (`subprocess`), not zsh: zsh doesn't split an unquoted variable into words, so `for p in $order` runs once.
 
+## The bench
+
+Before a change to what people read or how they're asked goes into a run, try it on the bench (`tools/bench.py`, `bench/README.md`): fixed moments put to the people again, several times each, under today's instructions and a variant, for well under a dollar. **Frozen** moments (`bench.py add <name> <log> <person> <round>`) are briefs exactly as a past run showed them, so only the instructions can vary; **saved** ones (`bench.py save <name> <person> [--from <save>]`) are whole saves whose brief is rebuilt with the current code each time, so they show changes to the brief too. `bench.py run --dry` builds the briefs for free; a real `run` spends tokens (ask the owner first), prints the replies side by side by variant, and keeps them with their version tags in `bench/results/`. A scene set up by hand in a scratch copy (moves, takes and flags with `rpg.py`, outside a round, for free) and kept with `save --from` is a saved moment of a situation people rarely reach on their own.
+
 ## A dry run of the referee
 
 The check for anything that changes what the cast is told (`PLAN.md`: a step marked **dry run**). It spends real tokens: ask the owner first.
