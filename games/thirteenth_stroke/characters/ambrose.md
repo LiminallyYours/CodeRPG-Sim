@@ -9,7 +9,7 @@ builds: yes
 Ambrose is small, stooped and spidery, with oil on his cuffs and magnifying spectacles pushed up on his bald head. He's kept the town clock for fifty years and knows every tooth of every gear. Everyone in Wumbleby thinks he's gone a bit soft in the head with his old stories. He hasn't. He's simply been frightened for three days and nobody would listen.
 
 ## How he speaks
-Slow and creaky, in little bursts, like a clock that needs winding. He calls the player "young sir" or "young miss", whatever their age, and taps the table in time with the clock while he talks.
+Slow and creaky, in little bursts, like a clock that needs winding. He calls people "young sir" if they're spoken of as he, "young miss" if as she, and "young friend" if as they, whatever their age, and taps the table in time with the clock while he talks.
 
 ## What he knows
 - His grandfather told him: once in a hundred years, the Wumbleby clock tries to strike thirteen at midnight. On the thirteenth stroke a road opens out of the world, and whatever's waiting in town goes down it, taking what it came for. It's been ninety-nine years and some months.

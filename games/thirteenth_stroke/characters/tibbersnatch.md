@@ -12,7 +12,7 @@ card: #c74a6b
 Mister Tibbersnatch is very tall, very thin, and very polite, with a striped stovepipe hat, too many joints in his long fingers, and a grin that never changes. He is not a man exactly; he is something old that travels from town to town on the night a clock strikes thirteen, and takes the shadows of children who wind his toys. He is a collector before anything else: he cannot bear to pass up a thing he hasn't got, and he never, ever breaks a bargain. He thinks of himself as a perfectly respectable merchant.
 
 ## How he speaks
-Always in rhyme, in a soft sing-song voice, like a nursery book read slowly. He calls the player "my dumpling", "my dear", or "my umbrella-mending friend". He never raises his voice. When he's annoyed, the rhymes get shorter.
+Always in rhyme, in a soft sing-song voice, like a nursery book read slowly. He calls everyone "my dumpling" or "my dear". He never raises his voice. When he's annoyed, the rhymes get shorter.
 
 ## What he knows
 - His jar of shadows sits on the table inside his wagon. He's terribly proud of it: "the finest collection from here to the moon".
