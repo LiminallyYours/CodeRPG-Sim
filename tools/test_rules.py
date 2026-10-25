@@ -1192,6 +1192,24 @@ class Engine(unittest.TestCase):
         self.assertIn("== TRADES\n  t1 r1 wren -> tam: gives worn_dagger, 1 coins; wants healing_tonic: accepted r2\n"
                       "  t2 r3 wren -> tam: gives shell_charm; wants nothing: accepted r4\n== ", out, "coins balanced, so nothing flagged")
 
+    def test_the_dashboard_feed_shows_each_trade_and_what_both_hold_after(self):
+        self.three_players()
+        self.rpg("newgame", seed=44)
+        self.round_with(wren=lambda pid: self.turn(pid, "I offer Tam my dagger and a coin for the tonic.", self.offer(
+            {"to": "tam", "give": {"items": ["worn_dagger"], "coins": 1}, "want": {"items": ["healing_tonic"]}})))
+        self.round_with(tam=lambda pid: self.turn(pid, "I take it.", ("trade", "accept", "t1")))
+        self.round_with(wren=lambda pid: self.turn(pid, "I ask Tam for the dagger back.", self.offer({"to": "tam", "want": {"items": ["worn_dagger"]}})))
+        for _ in range(2):
+            self.round_with()
+        feed = json.loads(self.run_py("-c", "import json, sys; sys.path.insert(0, 'tools'); import dashboard; print(json.dumps(dashboard.live()['feed']))").stdout)
+        turns = {(i["round"], i["name"]): i["trades"] for i in feed if i["kind"] == "turn"}
+        self.assertEqual(turns[(1, "Wren")], ["Offered Tam Worn Dagger, 1 coins for Healing Tonic."])
+        self.assertEqual(turns[(2, "Tam")], ["Took Wren's offer: Wren gave Worn Dagger, 1 coins, Tam gave Healing Tonic. "
+                                             "Wren now has 2 coins and Healing Tonic, Healing Tonic; Tam now has 5 coins and Worn Dagger."])
+        self.assertEqual(turns[(3, "Wren")], ["Asked Tam for Worn Dagger, offering nothing back."])
+        self.assertIn({"kind": "trade", "key": feed[1]["key"], "round": 5, "text": "Wren's offer to Tam lapsed: no answer in time."}, feed,
+                      "an offer lapsing between turns gets a line of its own")
+
     def test_an_accept_that_cant_happen_changes_nothing_and_the_offer_stands(self):
         self.three_players()
         self.rpg("newgame", seed=44)

@@ -65,22 +65,58 @@ def csv_of(entries):
     return out.getvalue()
 
 
-def feed_of(entries, names):
-    """What happened, newest first: each turn (what they did, why, the story they were told, and the words others
-    heard), and the round markers between."""
+LAPSED = {"parted": "they went separate ways", "time": "no answer in time", "replaced": "a new offer replaced it"}
+
+
+def trade_text(e, names, item_name, currency):
+    """One step of a trade, as the owner reads it in the feed."""
+    def things(side):
+        parts = [item_name(i) for i in side["items"]] + (["%d %s" % (side["coins"], currency)] if side["coins"] else [])
+        return ", ".join(parts) or "nothing"
+    by, to = names.get(e["offered_by"], e["offered_by"]), names.get(e["to"], e["to"])
+    give, want = e["give"], e["want"]
+    if e["step"] == "offered":
+        if not (want["items"] or want["coins"]):
+            return "Offered %s %s, asking nothing back." % (to, things(give))
+        if not (give["items"] or give["coins"]):
+            return "Asked %s for %s, offering nothing back." % (to, things(want))
+        return "Offered %s %s for %s." % (to, things(give), things(want))
+    if e["step"] == "accepted":
+        after = "; ".join("%s now has %d %s and %s" % (names.get(p, p), h["coins"], currency, ", ".join(map(item_name, h["items"])) or "nothing else")
+                          for p, h in (e.get("after") or {}).items())
+        tail = " " + after + "." if after else ""
+        if not (give["items"] or give["coins"]):
+            return "Gave %s what they asked for: %s.%s" % (by, things(want), tail)
+        if not (want["items"] or want["coins"]):
+            return "Took %s's gift: %s.%s" % (by, things(give), tail)
+        return "Took %s's offer: %s gave %s, %s gave %s.%s" % (by, by, things(give), to, things(want), tail)
+    if e["step"] == "declined":
+        return "Turned down %s's offer." % by
+    return "%s's offer to %s lapsed: %s." % (by, to, LAPSED.get(e.get("why"), e.get("why") or "it lapsed"))
+
+
+def feed_of(entries, names, item_name=lambda i: i, currency="coins"):
+    """What happened, newest first: each turn (what they did, why, the story they were told, the words others
+    heard, the trades it made or answered), and the round markers between."""
     items, turns = [], {}
     for e in entries:
         key = (e.get("round"), e.get("player"))
         if e["kind"] == "action":
             turn = {"kind": "turn", "key": "%s:%s" % key, "round": e.get("round"), "player": e.get("player"),
                     "name": names.get(e.get("player"), e.get("player")), "model": e.get("model"),
-                    "do": e.get("do", ""), "journal": e.get("journal", ""), "story": None, "heard_by": []}
+                    "do": e.get("do", ""), "journal": e.get("journal", ""), "story": None, "heard_by": [], "trades": []}
             turns[key] = turn
             items.append(turn)
         elif e["kind"] == "narration" and key in turns:
             turns[key]["story"] = e.get("text", "")
         elif e["kind"] == "speech" and key in turns:
             turns[key]["heard_by"] = [names.get(p, p) for p in e.get("heard_by", [])]
+        elif e["kind"] == "trade":
+            text = trade_text(e, names, item_name, currency)
+            if key in turns:
+                turns[key]["trades"].append(text)
+            else:  # an offer lapsing when a round ends is no one's turn
+                items.append({"kind": "trade", "key": "t%d" % len(items), "round": e.get("round"), "text": text})
         elif e["kind"] == "round" and e.get("phase") == "start":
             items.append({"kind": "round", "key": "r%s" % e.get("round"), "round": e.get("round"),
                           "order": [names.get(p, p) for p in e.get("order", [])]})
@@ -127,7 +163,8 @@ def live():
                 "order": [names.get(p, p) for p in rs["order"]] if rs else [],
                 "done": [names.get(p, p) for p in rs.get("done", [])] if rs else []},
         "people": people,
-        "feed": feed_of(entries, names),
+        "feed": feed_of(entries, names, lambda i: rpg.item(i).get("name", i) if rpg.ent_exists("items", i) else i,
+                        look.get("currency", "coins")),
     }
 
 
@@ -243,6 +280,7 @@ button:focus-visible, summary:focus-visible { outline: 2px solid var(--brass); o
 .do { font: 17px/1.5 var(--serif); margin: 0 0 8px; }
 .why { font: italic 15.5px/1.5 var(--serif); color: var(--slate); margin: 0 0 8px; }
 .heard { font-size: 13px; color: var(--slate); margin: 0 0 6px; }
+.trade { font-size: 14px; margin: 0 0 6px; padding-left: 10px; border-left: 2px solid var(--brass); }
 details summary { cursor: pointer; color: var(--slate); font-size: 13.5px; }
 details .story { font: 16px/1.6 var(--serif); margin-top: 8px; }
 details .story p { margin: 0 0 10px; }
@@ -343,6 +381,7 @@ function render(d) {
     feed.replaceChildren(...d.feed.map(item => {
       if (item.kind === "round") return el("p", {class: "marker", text: "Round " + item.round + " begins: " + item.order.join(", then ")});
       if (item.kind === "round_end") return el("p", {class: "marker", text: "Round " + item.round + " ends" + (item.world_turn ? ", and the world turns" : "")});
+      if (item.kind === "trade") return el("p", {class: "marker", text: item.text});
       if (item.kind === "run") return el("p", {class: "marker", text: {pause: "Pause asked", resume: "Resumed", end: "End asked", ended: "The run ended"}[item.action]});
       const story = item.story ? el("details", {"data-key": item.key},
         el("summary", {text: "The story they were told"}),
@@ -356,6 +395,7 @@ function render(d) {
         el("p", {class: "do", text: item.do}),
         item.journal ? el("p", {class: "why", text: item.journal}) : null,
         item.heard_by.length ? el("p", {class: "heard", text: "Heard by " + item.heard_by.join(" and ")}) : null,
+        ...(item.trades || []).map(t => el("p", {class: "trade", text: t})),
         story || el("p", {class: "heard", text: "Their turn is still being played."}));
     }));
   }

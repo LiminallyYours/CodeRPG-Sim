@@ -3541,7 +3541,8 @@ def cmd_round(args):
     if missing:
         raise Refused("round %d isn't over: still to act: %s" % (number, ", ".join(missing)))
     events = tick_move(state) if by_rounds() else []
-    events += lapse_trades(state, number)
+    with acting(None):  # an offer lapsing as the round ends is no one's doing
+        events += lapse_trades(state, number)
     run["round_state"] = None
     log(state, "round", phase="end", order=open_round["order"], events=events, world_turn_due=run["world_turn_due"])
     if run.get("stop") == "end":
@@ -4040,7 +4041,8 @@ def accept_trade(state, t):
             with acting(to):
                 change_coins(state, t[side]["coins"], "trade", note=t["id"])
     words, journal = turn_words(state)
-    close_trade(state, t, "accepted", words=words, journal=journal)
+    after = {p: {"coins": state["players"][p]["stats"]["coins"], "items": list(state["players"][p]["inventory"])} for p in (giver, taker)}
+    close_trade(state, t, "accepted", words=words, journal=journal, after=after)
     save_state(state)
     print("ACCEPTED %s: %s takes %s's offer. %s hands over %s; %s hands over %s." % (
         t["id"], names[taker], names[giver], names[giver], things_text(t["give"]) if not is_empty(t["give"]) else "nothing",
