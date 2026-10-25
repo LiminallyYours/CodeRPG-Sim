@@ -126,6 +126,8 @@ The brief never includes: `## GM only` sections, flags, prices the player has no
 ### 6.4 Contested things
 When two players want the same thing in the same round, the order decides who tries first; a later player's attempt simply finds it gone, and the narration says so. When two players reach for the same thing in the same turn (one grabs what another is holding, both claim a job), the ordinary `check` decides it: each rolls d20 plus the fitting attribute, higher wins, rolls logged. No new rule; this is `check` applied to both.
 
+*As built (JW, 2026-10-25, `PLAN.md` steps 42–44):* turns are one person's at a time, so two people reach for the same thing in one turn only when the one whose turn it is grabs at what another plainly holds. `contest <stat> <their id> <their stat> --take <item>`: the holder holds on unasked and answers on their own turn; each rolls d20 plus the fitting attribute, the higher total takes it, a tie stays with the holder; nobody is hurt. Everything else is settled by the order.
+
 ### 6.5 Players speaking to players
 No precedent exists in the single-player game. Default: when a player speaks to another, the words are stored for the other, who hears them in the narration of their own next turn and may answer on their turn. (Built in phase 1 as `say <file>`: every other player in the room gets the words in their memory as `told`, and reads them in their next brief; JW, 2026-10-24.) A trade between players therefore takes two turns: offer, then accept, and the code applies it when the second says yes (`trade accept <id>`). A same-round short exchange (as two agent characters trade lines today) can be added later behind the existing `lines_per_exchange` setting. Not built now.
 
@@ -191,7 +193,7 @@ The referee's instructions: `CLAUDE.md` (standing orders for a referee), a `refe
 - A fork, not a change to CodeRPG.
 - Same game: player agents decide from information produced by the same routines as the human's (section 2).
 - No human player for now; the save holds a list of players, so a "simulate or play" choice at `newgame` can be added later.
-- Harm between players (theft, fighting, cheating) and haggling are not built; every action carries a type and every price lives in one place, so both can be added later.
+- Harm between players (theft, fighting, cheating) and haggling are not built (an open grab at what another holds was later made a contest, section 6.4; JW, 2026-10-25); every action carries a type and every price lives in one place, so both can be added later.
 - One fixed cast file per game, JSON, changed only by the owner through Claude.
 - Players have memory; condensed automatically for now; forgetting by access and by chance later.
 - Contested things are settled by dice.
@@ -211,7 +213,7 @@ The referee's instructions: `CLAUDE.md` (standing orders for a referee), a `refe
 
 **Phase 1:** the many-player save and `--as`; cast file and `validate`; `brief`, `pane`, `narrate`, `journal`; rounds and the balanced shuffle; memory with condensing; the log; the referee skills; one world with a tooler and a builder (items and rooms only), paid work and a buyer; a cast of three; the dashboard's live view and CSV export. A dry run: two players, three rounds, seeded, in a scratch copy; check every brief for anything outside the fiction, and the log for every coin.
 
-**Phase 2:** the trainer and abilities; room uses beyond `stash`; trades between players; the dashboard's history views; the memory hooks (use counts shown).
+**Phase 2:** the trainer and abilities; room uses beyond `stash`; trades between players; the dashboard's history views; the memory hooks (use counts shown). Trades and contests are built (2026-10-25).
 
 **Later, not planned:** forgetting routines; player-to-player same-round exchanges; haggling; harm; a human player; watching or replaying a run as narration.
 

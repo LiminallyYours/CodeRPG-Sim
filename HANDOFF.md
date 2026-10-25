@@ -11,11 +11,10 @@ Where the build stands, for whoever picks it up next, human or Claude. Read `PLA
 - **Next, in this order:**
   1. **Watch in the next ordinary run:** Pip's and Ambrose's new forms of address; `witnessed --in` (people passed on the way: not seen in either test run, since every move was to the next room); a grab arising unprompted; the chronicle line each round.
   2. **The rest of phase 2,** in JW's order: the trainer and abilities, room uses beyond `stash`, the dashboard's history views, the memory hooks, forging simulation worlds (proposal section 11). Draft the next for JW before any code.
-  3. **Push** the fifth, sixth and seventh sessions' commits when JW says.
 - **Watching, not fixing:** place notes (`audit.py` CONTINUITY: none written in either 6-round run; most details came from content, so perhaps none were due). Loans don't exist: "borrow" becomes a request, and the thing changes hands for good (JW: fine).
 - **Not yet seen live:** condensing at the real settings since the cap went to 45,000 (nothing comes due before round 10); `witnessed --in`; Pip's and Ambrose's new forms of address.
 - **Small things seen, not fixed:** `audit.py`'s LEAKS de-duplicates by context alone, so a second hit in the same short line can go unlisted (SIGNS keys on the match too); people aren't told their own pronouns, only the referee and the townspeople are (Dilly's DO line once said "his"); onlookers' notes sometimes sum up words `say` already carried; the referee's stories sometimes turn spoken words into the second person awkwardly; a reply with no JOURNAL line is stored as given; a `witnessed` note to the rooms a turn starts and ends in tells both what either saw.
-- **Git:** `origin` is `https://github.com/LiminallyYours/CodeRPG-Sim.git`, a public repository; pushed through the end of the fourth session; the fifth, sixth and seventh sessions' commits are local until JW says push. `state/` isn't tracked.
+- **Git:** `origin` is `https://github.com/LiminallyYours/CodeRPG-Sim.git`, a public repository; pushed through the end of the seventh session (JW, 2026-10-25); push only when JW asks. `state/` isn't tracked.
 - **`state/`** holds JW's `hollow-5782` run of The Thirteenth Stroke (ended), its log and the first run's, the original's Dark Lighthouse save on the shelf (`state/shelf/`), and the forged worlds in `state/worlds/`. Don't test in it.
 
 ## Running it (the owner)
