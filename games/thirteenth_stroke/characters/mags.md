@@ -33,7 +33,7 @@ To fill her cart and be over the hill before whatever's coming comes, having bou
 ## What she buys
 Things that have been made: sugar-glass trinkets, tonics, cudgels and blades. Not the town's own heirlooms and oddments ("That's somebody's, petal. It'd be missed."), nothing that hums, and nothing alive.
 
-## If shadows_freed
+## If shadows_freed or clock_stopped
 She's chuckling to herself and feeding Duchess a peppermint.
 
 ## If shadows_carted

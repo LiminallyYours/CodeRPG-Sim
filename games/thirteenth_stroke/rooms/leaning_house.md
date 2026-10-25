@@ -5,7 +5,7 @@ exits:
 items:
   - iron_poker (if poker_in_house)
 characters:
-  - pip (if shadows_freed)
+  - pip (if shadows_freed or clock_stopped)
 expand: no
 terrain: indoors
 ---
@@ -13,7 +13,7 @@ The Pumbletons' house leans so far to the left that the furniture has all slid i
 
 In a bed under the window lies a small boy in striped pyjamas, fast asleep, smiling a wide, sweet, unchanging smile. The firelight falls across him, and the wall behind him is bare: he has no shadow at all. On the floor beside the bed, a tin wind-up rabbit hums to itself, though nobody has wound it. The front door, to the east, lets out onto the Lopsided Square.
 
-## If shadows_freed
+## If shadows_freed or clock_stopped
 Tod is sitting up in bed, yawning and grumpy, and his shadow is on the wall behind him, yawning too. Pip is perched on the end of the bed, pretending she wasn't worried. The tin rabbit lies on its side, silent, its key snapped off.
 
 ## If shadows_carted

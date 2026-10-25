@@ -7,7 +7,7 @@ exits:
   south: crooked_lane
 characters:
   - mags
-  - pip (if not shadows_freed)
+  - pip (if not shadows_freed and not clock_stopped)
   - tibbersnatch (if tibbersnatch_peddling and not tibbersnatch_defeated and not shadows_carted)
 expand: southwest
 terrain: stone
@@ -16,10 +16,10 @@ A square that isn't square: its cobbles slope one way and its houses lean the ot
 
 To the north, the Tock Tower leans over the rooftops, its great clock face ticking loud enough to hear in your teeth. To the east, candy-striped light glows in the window of Fizzlewick's sweet shop. To the west, the tallest, tipsiest house in town, the Pumbletons', leans so far it seems to be listening. To the south, Crooked Lane winds down the hill into the fog. To the southwest, a gap between two houses opens onto a weedy alley nobody has bothered to name.
 
-## If not shadows_freed
+## If not shadows_freed and not clock_stopped
 Pip Pumbleton sits on the fountain's rim in her nightgown and muddy boots, a cricket bat across her knees, glaring down the hill. She is very obviously not going to sleep.
 
-## If not shadows_freed and not shadows_carted
+## If not shadows_freed and not shadows_carted and not clock_stopped
 Down the hill, very faintly, something hums a lullaby. It never quite finishes the tune.
 
 ## If tibbersnatch_peddling and not tibbersnatch_defeated

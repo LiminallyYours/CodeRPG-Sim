@@ -891,6 +891,53 @@ class Engine(unittest.TestCase):
         self.write("proposals/story.txt", story)
         return self.rpg("narrate", pid, "proposals/story.txt")
 
+    def test_a_quest_won_by_one_is_told_to_everyone_and_the_run_goes_on(self):
+        self.rpg("game", "switch", "thirteenth_stroke")
+        self.settings_tool("preset", "simulation")
+        self.rpg("newgame", seed=44)
+        order = [p.split("(")[1].rstrip(")") for p in self.rpg("round", "start").split(": ", 1)[1].strip().split(", ")]
+        first, others = order[0], order[1:]
+        self.write("proposals/reply.txt", "DO: I jam the poker in the gear.\nJOURNAL: To stop the clock.\n")
+        self.rpg("reply", first, "proposals/reply.txt")
+        out = self.rpg("flag", "set", "clock_stopped", as_=first)
+        self.assertIn("ENDING: Before the Thirteenth Stroke is done.", out)
+        self.assertIn("`ending <file>` before `narrate`", out)
+        self.write("proposals/story.txt", "The gear stops dead.")
+        self.assertIn("an ending is still to be told", self.rpg("narrate", first, "proposals/story.txt", ok=False))
+        self.write("proposals/ending.txt", "Word came that the town clock had stopped a whisker before midnight.")
+        self.assertIn("ENDING TOLD", self.rpg("ending", "proposals/ending.txt", as_=first))
+        self.assertIn("no quest has been decided", self.rpg("ending", "proposals/ending.txt", as_=first, ok=False))
+        self.assertIn("NARRATED", self.rpg("narrate", first, "proposals/story.txt"))
+        save = self.save()
+        rooms = {save["players"][p]["location"] for p in others}
+        self.assertGreater(len(rooms), 1, "the others are in several places, and all hear of it")
+        for p in others:
+            self.assertIn({"kind": "seen", "text": "Word came that the town clock had stopped a whisker before midnight."},
+                          [{k: e[k] for k in ("kind", "text")} for e in save["players"][p]["memory"]["recent"]])
+        self.assertNotIn("Word came", json.dumps(save["players"][first]["memory"]), "their own story tells them")
+        self.assertEqual(save["run"]["endings"]["thirteenth_stroke"]["by"], first)
+        for p in others:
+            self.take_turn(p)
+        self.assertNotIn("ENDING", self.rpg("round", "end"))
+        self.rpg("round", "start")  # the run goes on
+        ending = [e for e in self.log_entries() if e["kind"] == "ending"]
+        self.assertEqual([(e["quests"], sorted(e["heard_by"])) for e in ending], [({"thirteenth_stroke": "done"}, sorted(others))])
+
+    def test_an_ending_decided_between_rounds_is_told_for_no_one(self):
+        self.rpg("game", "switch", "thirteenth_stroke")
+        self.settings_tool("preset", "simulation")
+        self.rpg("newgame", seed=44)
+        self.play_round()
+        state = self.save()
+        state["flags"].append("shadows_carted")  # as the clock would at the thirteenth stroke, at a round's end
+        self.write("state/save.json", json.dumps(state))
+        out = self.rpg("round", "start", ok=False)
+        self.assertIn("ENDING: Before the Thirteenth Stroke is lost.", out)
+        self.assertIn("(no --as) before the next `round start`", out)
+        self.write("proposals/ending.txt", "Thirteen strokes boomed out over the town, the last one wrong.")
+        self.assertIn("ENDING TOLD: Marigold Thimble (marigold), ", self.rpg("ending", "proposals/ending.txt", as_=False))
+        self.rpg("round", "start")
+
     def test_words_said_aloud_reach_the_others_here_on_their_next_turn(self):
         self.rpg("game", "switch", "flooded_station")  # Sol and Ade both start on the Landing
         self.rpg("newgame", seed=44)

@@ -38,10 +38,10 @@ Tod pushed the poker from your fireplace through the drain-grating on Crooked La
 ## If poker_in_house
 The poker's by your fireplace at home, where it always is.
 
-## If heard_of_shadows and not shadows_freed
+## If heard_of_shadows and not shadows_freed and not clock_stopped
 You've told this person everything and asked for their help. You're impatient, keep looking up at the clock, and keep asking what they've done so far.
 
-## If shadows_freed
+## If shadows_freed or clock_stopped
 Tod's awake, and you're sitting on the end of his bed at home, pretending you weren't worried. You're so grateful you've gone shy about it. You call the player by their name now, if you know it, or "Mister Umbrella" or "Miss Umbrella", politely.
 
 ## If shadows_carted

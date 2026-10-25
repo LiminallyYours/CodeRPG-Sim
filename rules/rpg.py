@@ -80,7 +80,7 @@ class Refused(Exception):
 ACTOR = None  # the id given with --as; set by main()
 COMMAND = None  # the command being run; set by main()
 REFEREE_COMMANDS = ("round", "run", "log", "brief", "pane", "reply", "narrate", "memory")  # they name the player themselves
-NO_ONE_COMMANDS = ("world-brief", "world-turn")  # a world turn may also be run for no one: between rounds
+NO_ONE_COMMANDS = ("world-brief", "world-turn", "ending")  # also run for no one: between rounds
 
 
 def no_one(state):
@@ -1933,6 +1933,8 @@ def cmd_flag(args):
     save_state(state)
     print("FLAG %s %s%s. Flags: %s" % (action, name, " (%s's own)" % me(state)["name"] if name in personal_flags() else "",
                                        flags_line(state)))
+    for line in ending_lines(state):
+        print(line)
 
 
 def cmd_npc_brief(args):
@@ -2657,7 +2659,7 @@ def cmd_world_turn(args):
         print("  rumor: %s" % r)
     for mv in patch["moves"]:
         print("  %s is now at %s" % (mv["id"], mv["room"]))
-    for line in done:
+    for line in done + ending_lines(state):
         print(line)
 
 
@@ -3490,6 +3492,8 @@ def cmd_round(args):
         if open_round:
             raise Refused("round %d is still open: `round end` first" % run["round"])
         number = run.get("round", 0) + 1
+        if endings_waiting(state):
+            raise Refused("an ending is still to be told: %s" % " ".join(ending_lines(state)))
         why = why_no_round(run, number)
         if why:
             raise Refused(why)
@@ -3521,7 +3525,7 @@ def cmd_round(args):
     after = why_no_round(run, number + 1)
     save_state(state)
     print("ROUND %d ENDS." % number)
-    for line in events:
+    for line in events + ending_lines(state):
         print(line)
     if after:
         print("NO MORE ROUNDS FOR NOW: %s" % after)
@@ -3711,6 +3715,9 @@ def cmd_narrate(args):
         raise Refused("%s hasn't replied this round: `reply %s <file>` first" % (args[0], args[0]))
     if len(args) < 2:
         raise Refused("usage: narrate <player> <file>")
+    if endings_waiting(state):
+        with acting(args[0]):
+            raise Refused("an ending is still to be told: %s" % " ".join(ending_lines(state)))
     text = text_arg(args[1], "narration", BALANCE["turns"]["narration_chars"])
     run = state["run"]
     remember(pl, "seen", text, run["round"])
@@ -3772,6 +3779,71 @@ def cmd_witnessed(args):
     save_state(state)
     print("WITNESSED by %s: they'll read it on their next turn.%s" % (", ".join(
         "%s (%s)" % (state["players"][p]["name"], p) for p in onlookers), " They learned it too: %s." % ", ".join(learned) if learned else ""))
+
+
+# ---------------------------------------------------------------- endings: a quest decided is news for everyone
+# In a world with several people, one person's deed can decide the game's own quest for all of them (stopping the
+# clock wins it for the town). The one whose deed it was hears its ending in their story; everyone else comes to
+# hear of it (`ending <file>`), and their lives go on. The story isn't stored, nor a round started, until they have.
+
+def decided(state):
+    """{quest: "done" | "lost"} for each of the game's own quests (not side quests) decided for anyone still playing."""
+    out = {}
+    for pid in playing(state):
+        with acting(pid):
+            flags = condition_flags(state)
+        for q in ent_ids("quests"):
+            if not is_generated("quests", q) and q not in out:
+                v = quest_view(q, flags)
+                if v["complete"] or v["failed"]:
+                    out[q] = "done" if v["complete"] else "lost"
+    return out
+
+
+def endings_waiting(state):
+    """The quests decided that no one has been told of yet."""
+    told = state["run"].get("endings", {})
+    return {q: o for q, o in decided(state).items() if q not in told}
+
+
+def ending_lines(state):
+    """What the referee is told to do about the endings waiting, or []."""
+    waiting = endings_waiting(state)
+    if not waiting:
+        return []
+    between = ACTOR is None or ACTOR not in state["players"] or not whose_turn(state)
+    lines = ["ENDING: %s is %s." % (ent("quests", q).get("name", q), o) for q, o in waiting.items()]
+    if between:
+        lines.append("Everyone hears of it: write what the town comes to see and hear of it, in the third person, and "
+                     "store it with `ending <file>` (no --as) before the next `round start`.")
+    else:
+        name = state["players"][ACTOR]["name"]
+        lines.append("Tell %s its ending in their story, from the quest's endings (`show quests %s`), inside the fiction: "
+                     "their life goes on. Everyone else hears of it: write what the town comes to see and hear of it, in "
+                     "the third person, and store it with `ending <file>` before `narrate`." % (name, next(iter(waiting))))
+    return lines
+
+
+def cmd_ending(args):
+    """ending <file>: what everyone else comes to see and hear of a quest's ending, for their next turn."""
+    state = load_state()
+    waiting = endings_waiting(state)
+    if not waiting:
+        raise Refused("no quest has been decided that anyone is still to hear of")
+    teller = None if no_one(state) else actor_id(state)
+    if teller:
+        require_playing(state)
+    text = text_arg(args[0], "news", BALANCE["turns"]["witnessed_chars"])
+    hearers = [p for p in playing(state) if p != teller]
+    for p in hearers:
+        remember(state["players"][p], "seen", text, state["run"].get("round", 0))
+    told = state["run"].setdefault("endings", {})
+    for q, o in waiting.items():
+        told[q] = {"outcome": o, "round": state["run"].get("round", 0), "by": teller}
+    log(state, "ending", text=text, quests=waiting, heard_by=hearers)
+    save_state(state)
+    print("ENDING TOLD: %s will read it on their next turn." % (", ".join(
+        "%s (%s)" % (state["players"][p]["name"], p) for p in hearers) or "no one else is playing, so no one"))
 
 
 def memory_rounds(pl):
@@ -4362,6 +4434,7 @@ COMMANDS = {
     "work": (cmd_work, 0, "work   the player works here for pay, once per visit (a check first)"),
     "sell": (cmd_sell, 1, "sell <item> [buyer]   the player sells something with a tier to a buyer here"),
     "say": (cmd_say, 1, "say <file>   the player's words aloud: the other players here hear them on their next turn"),
+    "ending": (cmd_ending, 1, "ending <file>   what everyone else comes to hear of a quest's ending, once one is decided (for no one between rounds)"),
     "witnessed": (cmd_witnessed, 1, "witnessed <file> [<flag> ...]   what the other players there saw and heard of this turn, for their next; the personal flags they learned by it"),
     "scene": (cmd_scene, 2, "scene start <id> | scene end <id> [reward]   play a side scene between two characters"),
     "forge": (cmd_forge, 1, "forge quote | start [sentence] | resume <draft> | status | install <draft> | discard <draft>   new worlds"),

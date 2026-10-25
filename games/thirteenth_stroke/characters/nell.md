@@ -31,7 +31,7 @@ Bettie awake and herself again. Failing that, something useful to do with her ha
 ## What she makes
 Sweets, fizzes and tonics from her copper still: healing cordials, sherbet that makes you sneeze, gumdrop charms on strings, sugar-glass trinkets. Only what sugar, mint, fruit and her still can make; nothing that puts anyone to sleep, and nothing she can't taste first.
 
-## If shadows_freed
+## If shadows_freed or clock_stopped
 Bettie's awake. You're laughing again and giving away gumdrops to everyone.
 
 ## If shadows_carted

@@ -14,7 +14,7 @@ A narrow shop stacked to the ceiling with jars: gumdrops, sour thunderdrops, lic
 
 On the top shelf, all by itself, sits a stoppered bottle with something bright jiggling inside it, tied with a ribbon. The door to the west lets back out onto the Lopsided Square. At the back, to the east, a curtain hides the storeroom.
 
-## If shadows_freed
+## If shadows_freed or clock_stopped
 Nell has thrown the door wide and is handing out free gumdrops to anyone who passes. The fizz-still is singing.
 
 ## If shadows_carted
