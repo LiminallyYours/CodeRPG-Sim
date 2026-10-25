@@ -1381,6 +1381,10 @@ class Engine(unittest.TestCase):
         self.assertIn("next to act: %s (waiting for their reply)" % second, status)
         pl = self.save()["players"][second]
         self.assertIn("%s (%s, %s, " % (pl["name"], second, pl["model"]), status.split("CAST: ")[1])
+        self.assertIn("STORY SO FAR: nothing yet", status)
+        self.rpg("chronicle", "The lamp went out at dusk.", as_=second)
+        self.assertIn("STORY SO FAR:\n- The lamp went out at dusk.\nROUND 1 OPEN", self.rpg("run", "status", as_=False),
+                      "a referee starting a round reads where the story stands")
         self.write("proposals/reply.txt", "DO: I look around.")
         self.rpg("reply", second, "proposals/reply.txt")
         self.assertIn("next to act: %s (they have replied" % second, self.rpg("run", "status", as_=False))
@@ -1487,6 +1491,19 @@ print(json.dumps({"type": "result", "is_error": False, "result": answers[min(n, 
         self.assertEqual([s.split(": ...")[0] for s in signs],
                          ["  r1 %s do 'haiku'" % first, "  r1 %s journal '%s'" % (first, year), "  r1 %s journal 'someone@example.org'" % first])
         self.assertIn("== LEAKS\n  none", out, "a separate list from the leaks")
+
+    def test_audit_shows_what_the_referee_kept_for_later_rounds(self):
+        self.rpg("game", "switch", "thirteenth_stroke")
+        self.settings_tool("preset", "simulation")
+        self.rpg("newgame", seed=43)  # Marigold and Dilly in the square, with Mags (minor) and Pip (agent)
+        self.round_with(marigold=lambda pid: self.turn(pid, "I ask Mags what she buys.", ("look",), ("show", "characters", "mags"),
+                                                       ("note", "Mags's cart has a squeaky left wheel."), ("show", "characters", "pip")),
+                        dilly=lambda pid: self.turn(pid, "I ask Mags about bottles.", ("look",), ("show", "characters", "mags"),
+                                                    ("remember", "mags", "Asked after bottles; promised one by dusk."),
+                                                    ("chronicle", "Dilly promised Mags a bottle by dusk.")))
+        out = self.run_py("tools/audit.py", "state/log/%s.jsonl" % self.save()["run"]["id"]).stdout
+        self.assertIn("== CONTINUITY\n  r1: 1 notes, 1 story lines, 1 remembered\n  r1 marigold: mags (minor) spoken to, nothing remembered\n== ", out,
+                      "Pip speaks through an agent, and Dilly's turn kept what Mags learned")
 
     def test_audit_reads_a_run_back(self):
         self.rpg("game", "switch", "flooded_station")  # Sol and Ade both start on the Landing

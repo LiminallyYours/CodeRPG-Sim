@@ -11,6 +11,9 @@ From the run's log (state/log/<run>.jsonl; the active run's by default):
                  these are their traces. A hit is something to read, not proof ("Haiku" may be a poem)
     WITNESSED    each turn with someone else there, against its onlookers' note, and the flags they learned
     FLAGS        each person's own flags, from the save if it is this run's
+    CONTINUITY   what the referee kept for later rounds, per round (place notes, lines of the story so far, what the
+                 town's people remember), and each minor townsperson whose file was read in a turn (as it is
+                 before they're voiced) with nothing remembered of that turn
     MEMORY       each condensing: whose, which rounds, how many entries folded; a stretch stored twice is flagged
     COINS        every coin that moved, with its reason
     ENDINGS      each quest decided, and who heard of it
@@ -101,6 +104,30 @@ def witnessed(log):
         if problem or learned:
             out.append("  r%s %s: %s%s" % (rnd, pid, problem or "ok", "; learned %s" % ", ".join(learned) if learned else ""))
     return ["  %d turns with someone else there, %d with a note" % (with_people, noted)] + out
+
+
+def continuity(log):
+    kept = collections.OrderedDict()
+    for e in log:
+        if e["kind"] == "command" and not e["refused"] and e["command"] in ("note", "chronicle", "remember") and e.get("round"):
+            kept.setdefault(e["round"], collections.Counter())[e["command"]] += 1
+    out = ["  r%s: %d notes, %d story lines, %d remembered" % (r, c["note"], c["chronicle"], c["remember"]) for r, c in kept.items()]
+    minor, shown, remembered = {}, {}, set()
+    for e in log:
+        if e["kind"] != "command" or e["refused"] or e.get("player") is None:
+            continue
+        turn = (e["round"], e["player"])
+        for m in re.finditer(r"CHARACTERS HERE: (.*)", e["output"]):
+            minor.setdefault(turn, set()).update(re.findall(r"([a-z0-9_]+) \[minor", m.group(1)))
+        if e["command"] == "show" and e["args"][:1] == ["characters"] and len(e["args"]) > 1:
+            shown.setdefault(turn, []).append(e["args"][1])
+        if e["command"] == "remember" and e["args"]:
+            remembered.add(turn + (e["args"][0],))
+    for turn, ids in shown.items():
+        for c in dict.fromkeys(ids):
+            if c in minor.get(turn, ()) and turn + (c,) not in remembered:
+                out.append("  r%s %s: %s (minor) spoken to, nothing remembered" % (turn[0], turn[1], c))
+    return out or ["  nothing kept"]
 
 
 def memory(log):
@@ -202,6 +229,7 @@ def main(argv):
             sys.exit("no active run: name a log")
     log = read_jsonl(path)
     sections = [("LEAKS", leaks(log) or ["  none"]), ("SIGNS OF CLAUDE CODE'S LINES", traces(log)), ("WITNESSED", witnessed(log)), ("FLAGS", flags(path.stem)),
+                ("CONTINUITY", continuity(log)),
                 ("MEMORY", memory(log)), ("COINS", coins(log)), ("ENDINGS", endings(log)), ("SPEND", spend(log))]
     if path_t:
         cut, spawns, referee = transcript(path_t, log)

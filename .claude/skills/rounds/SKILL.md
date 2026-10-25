@@ -22,7 +22,7 @@ Run `python3 rules/rpg.py run status`:
 - **`NEXT ROUND WAITS:`** tell the owner why in one line, and stop.
 
 ## Each round
-1. Run `python3 rules/rpg.py round start`. It prints the round's order: `ROUND <n>: <Name> (<id>), …`. If it refuses, tell the owner why in one line and stop.
+1. Run `python3 rules/rpg.py run status` (after the first round too) and read `STORY SO FAR:`, what has happened in the town so far. Then run `python3 rules/rpg.py round start`. It prints the round's order: `ROUND <n>: <Name> (<id>), …`. If it refuses, tell the owner why in one line and stop.
 2. For each person in that order, one turn:
    1. Run `python3 tools/ask.py <id>`, and wait: it can take a minute. It hands them their brief exactly as `rpg.py brief` prints it, stores their reply with `rpg.py reply` (asking once more if it's refused), and prints what `reply` printed: their `DO:` and `JOURNAL:` lines. You never see their brief, and never need to. If it prints `ASK FAILED`, stop: tell the owner in one line whose turn failed and why. The round stays open, and the next `/rounds` takes it up again.
    2. Run their turn with the `gm-turn` skill: `--as <id>` on every rules command, ending with `narrate`.

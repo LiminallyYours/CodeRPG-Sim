@@ -3593,6 +3593,8 @@ def cmd_run(args):
             run.get("round", 0) - (1 if rs else 0), "" if run.get("round", 0) - (1 if rs else 0) == 1 else "s",
             "at most %d per run" % cap if cap else "no limit on rounds"))
         print(cast_line(state))
+        story = run["chronicle"][-BALANCE["world"]["chronicle_lines"]:]
+        print("\n".join(["STORY SO FAR:"] + ["- " + c for c in story]) if story else "STORY SO FAR: nothing yet")
         if rs:
             nxt = whose_turn(state)
             replied = nxt and (state["players"][nxt].get("turn") or {}).get("round") == run["round"]
