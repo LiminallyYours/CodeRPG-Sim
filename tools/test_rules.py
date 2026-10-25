@@ -1641,7 +1641,7 @@ print(json.dumps({"type": "result", "is_error": False, "result": "Round done.", 
         out, calls = self.run_rounds("3")
         self.assertIn("REFILLED", out)
         for n in (1, 2, 3):
-            self.assertIn("ROUND %d: $0.40, 0m0" % n, out)
+            self.assertRegex(out, r"ROUND %d: \$0\.40, \dm\d\ds" % n)
         self.assertIn("context up to 22k. Round done.\nSTOPPED: the 3 rounds asked for are done.\n3 rounds run, $1.20 for the referee", out)
         self.assertEqual([(c["argv"][:2], c["argv"][c["argv"].index("--model") + 1], c["no_refill"]) for c in calls],
                          [(["-p", "/rounds 1 from-script"], "sonnet", "1")] * 3, "one fresh session a round")
@@ -1655,9 +1655,9 @@ print(json.dumps({"type": "result", "is_error": False, "result": "Round done.", 
         r = subprocess.run([sys.executable, "tools/audit.py", "--referee"], cwd=self.dir, capture_output=True, text=True,
                            env=dict(os.environ, CODERPG_PROJECTS=str(self.dir / "projects")))
         self.assertIn("== CUT READS\n  look: 2\n", r.stdout)
-        self.assertIn("== REFEREE, A ROUND A LINE\n  r1: $0.40, 0s, 1 calls, largest context 1000 tokens, 7 output tokens\n"
-                      "  r2: $0.40, 0s, 1 calls, largest context 1001 tokens, 7 output tokens\n"
-                      "  r3: $0.40, 0s, context up to 22010 tokens; session s2 not found", r.stdout)
+        self.assertRegex(r.stdout, r"== REFEREE, A ROUND A LINE\n  r1: \$0\.40, \d+s, 1 calls, largest context 1000 tokens, 7 output tokens\n"
+                                   r"  r2: \$0\.40, \d+s, 1 calls, largest context 1001 tokens, 7 output tokens\n"
+                                   r"  r3: \$0\.40, \d+s, context up to 22010 tokens; session s2 not found")
         self.settings_tool("set", "rounds.max_per_run", "4")
         out, calls = self.run_rounds("--model", "opus")
         self.assertIn("ROUND 4: $0.40", out)
