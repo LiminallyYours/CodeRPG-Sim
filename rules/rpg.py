@@ -81,6 +81,7 @@ ACTOR = None  # the id given with --as; set by main()
 COMMAND = None  # the command being run; set by main()
 REFEREE_COMMANDS = ("round", "run", "log", "brief", "pane", "reply", "narrate", "memory")  # they name the player themselves
 NO_ONE_COMMANDS = ("world-brief", "world-turn", "ending")  # also run for no one: between rounds
+RECORD_COMMANDS = ("chronicle",)  # the referee's own record: run for no one, at any time, whatever --as says
 
 
 def no_one(state):
@@ -4862,9 +4863,9 @@ def main(argv):
         for name, (_, _, help_text) in COMMANDS.items():
             print("  %-11s %s" % (name, help_text))
         return 2
-    if argv[0] in WORLD_COMMANDS:
+    if argv[0] in WORLD_COMMANDS + RECORD_COMMANDS:
         global ACTOR
-        ACTOR = None  # about the installed games, not anyone in them
+        ACTOR = None  # about the installed games, or the referee's own record: not anyone in them
     global COMMAND
     COMMAND = argv[0]
     fn, nargs, help_text = COMMANDS[argv[0]]

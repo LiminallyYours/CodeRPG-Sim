@@ -1607,6 +1607,20 @@ print(json.dumps({"type": "result", "is_error": False, "result": answers[min(n, 
         return r.stdout, [a.read_text() for a in asked], [json.loads((self.dir / "stand_in" / ("argv-%d.json" % i)).read_text())
                                                         for i in range(len(asked))]
 
+    def test_the_story_so_far_is_the_referees_own_record_for_no_one_at_any_time(self):
+        self.rpg("game", "switch", "dark_lighthouse")
+        self.rpg("newgame", seed=43)
+        first, second = [p.split("(")[1].rstrip(")") for p in self.rpg("round", "start").split(": ", 1)[1].strip().split(", ")]
+        self.take_turn(first)
+        self.assertIn("CHRONICLED", self.rpg("chronicle", "The lamp went out at dusk.", as_=first),
+                      "a line written after their story is stored, though the turn is no longer theirs")
+        self.take_turn(second)
+        self.rpg("round", "end")
+        self.rpg("chronicle", "Nobody slept.", as_=False)
+        self.assertEqual(self.save()["run"]["chronicle"][-2:], ["The lamp went out at dusk.", "Nobody slept."])
+        lines = [e for e in self.log_entries() if e["kind"] == "command" and e["command"] == "chronicle"]
+        self.assertEqual([(e["refused"], e["player"]) for e in lines], [(False, None), (False, None)], "no one's, each time")
+
     def log_entries(self):
         return [json.loads(line) for line in (self.dir / "state" / "log" / ("%s.jsonl" % self.save()["run"]["id"])).read_text().splitlines()]
 
