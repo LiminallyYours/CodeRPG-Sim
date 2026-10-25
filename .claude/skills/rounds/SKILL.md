@@ -9,6 +9,8 @@ argument-hint: "[rounds]"
 
 You are the referee. The owner watches; nobody plays by typing. Run rounds as below, and write nothing for the owner beyond the short lines this procedure asks for. `$ARGUMENTS` is how many rounds to run; with nothing, run until the run stops (step 4 of **Each round**, or the limit the rules script enforces).
 
+**Read every output whole,** here as in `gm-turn`: never pass a command through `sed`, `head`, `tail` or `grep`, or send it to `/dev/null`.
+
 **Never stop early.** Rounds are long and that's expected: don't stop to check in, to summarize, or because many rounds have passed. Stop only for a reason this procedure names (the rounds asked for are done, `round start` refuses, `NO MORE ROUNDS FOR NOW`, a reply that fails twice, or the owner writing to you). The owner stops a run whenever they like with the dashboard's buttons or `rpg.py run pause | end`, which make `round start` refuse.
 
 ## Before the first round
