@@ -865,7 +865,7 @@ class Engine(unittest.TestCase):
             self.rpg("move", d, as_="corin")
         self.rpg("remember", "ysolde", "Asked about the lens and listened.")
         brief = self.rpg("npc-brief", "ysolde", as_="corin")
-        self.assertIn("Present: Corin, Wren.", brief)
+        self.assertIn("Present: Corin (they/them), Wren (they/them).", brief, "how to speak of each, the same every time")
         self.assertIn("Corin is the one talking to you.", brief)
         self.assertIn("## What you remember about Corin\nYou have never met this person before.", brief)
         self.assertIn("## What you remember about Wren\n- Asked about the lens and listened.", brief)

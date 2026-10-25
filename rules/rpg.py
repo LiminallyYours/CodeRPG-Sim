@@ -1999,8 +1999,10 @@ def cmd_npc_brief(args):
     people = players_here(state)  # the one speaking to them first; to them, players are people like any other
     others = ["%s (%s)" % (ent("characters", c).get("name", c), ent("characters", c).get("role", ""))
               for c in characters_here(state) if c != ident]
+    # each person with how to speak of them, so the world's people do it the same way every time (step 41: Dilly was
+    # "young miss" one round and "young sir" the next)
     lines += ["## The scene", "You are at %s. Present: %s." % (
-        room.get("name", room["id"]), ", ".join([state["players"][pid]["name"] for pid in people] + others)),
+        room.get("name", room["id"]), ", ".join(["%s (%s)" % (state["players"][pid]["name"], pronouns(pid)) for pid in people] + others)),
         "%s is the one talking to you." % me(state)["name"], ""]
     if leaving:
         lines += ["This is your parting line: what just happened takes you out of this scene.", ""]
