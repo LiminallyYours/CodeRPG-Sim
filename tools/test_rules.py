@@ -1319,6 +1319,15 @@ class Engine(unittest.TestCase):
         self.assertIn("shell_charm", self.save()["players"]["tam"]["inventory"])
         used = [(e["order"], e["id"], e["how"], e["player"]) for e in self.log_entries() if e["kind"] == "order" and e["step"] == "used"]
         self.assertIn(("o1", "shell_charm", "snatched", "wren"), used)
+        out = self.run_py("tools/audit.py", "state/log/%s.jsonl" % self.save()["run"]["id"]).stdout
+        self.assertIn("== CONTESTS\n  r3 tam -> wren: worn_dagger, agility 20 against might 20: kept (a tie)\n"
+                      "  r3 tam -> wren: worn_dagger, agility 17 against might 18: kept\n"
+                      "  r3 tam -> wren: worn_dagger, agility 19 against might 13: taken\n", out)
+        feed = json.loads(self.run_py("-c", "import json, sys; sys.path.insert(0, 'tools'); import dashboard; print(json.dumps(dashboard.live()['feed']))").stdout)
+        turns = {(i["round"], i["name"]): i["trades"] for i in feed if i["kind"] == "turn"}
+        self.assertEqual(turns[(3, "Tam")], ["Grabbed at Wren's Worn Dagger: agility 20 against might 20; Wren kept hold of it (a tie).",
+                                             "Grabbed at Wren's Worn Dagger: agility 17 against might 18; Wren kept hold of it.",
+                                             "Grabbed at Wren's Worn Dagger: agility 19 against might 13; took it."])
 
     def test_those_passed_on_the_way_see_someone_go_by(self):
         self.rpg("game", "switch", "thirteenth_stroke")

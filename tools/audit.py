@@ -18,6 +18,8 @@ From the run's log (state/log/<run>.jsonl; the active run's by default):
     COINS        every coin that moved, with its reason
     TRADES       each offer between people: who to whom, the terms, and how it ended (accepted, declined or lapsed,
                  and when); for one accepted, whether the coins moved under its id come to nothing either way
+    CONTESTS     each grab at what another person held: who grabbed at whom, for what, each one's stat and total, and
+                 who ended up with it
     ENDINGS      each quest decided, and who heard of it
     SPEND        what the people's replies cost, by model (the `spend` tools/ask.py logs)
 From the referee's session transcript (~/.claude/projects/<folder>/<session>.jsonl), if given, or with --referee
@@ -169,6 +171,17 @@ def trades(log):
     return out or ["  none"]
 
 
+def contests(log):
+    out = []
+    for e in log:
+        if e["kind"] == "contest":
+            me, them = e["rolls"][e["player"]], e["rolls"][e["against"]]
+            out.append("  r%s %s -> %s: %s, %s %d against %s %d: %s" % (
+                e["round"], e["player"], e["against"], e["item"], me["stat"], me["total"], them["stat"], them["total"],
+                "taken" if e["winner"] == e["player"] else "kept (a tie)" if me["total"] == them["total"] else "kept"))
+    return out or ["  none"]
+
+
 def endings(log):
     out = ["  r%s: %s, heard by %s" % (e["round"], ", ".join("%s %s" % kv for kv in e["quests"].items()), ", ".join(e["heard_by"]) or "no one")
            for e in log if e["kind"] == "ending"]
@@ -280,7 +293,7 @@ def main(argv):
     log = read_jsonl(path)
     sections = [("LEAKS", leaks(log) or ["  none"]), ("SIGNS OF CLAUDE CODE'S LINES", traces(log)), ("WITNESSED", witnessed(log)), ("FLAGS", flags(path.stem)),
                 ("CONTINUITY", continuity(log)),
-                ("MEMORY", memory(log)), ("COINS", coins(log)), ("TRADES", trades(log)), ("ENDINGS", endings(log)), ("SPEND", spend(log))]
+                ("MEMORY", memory(log)), ("COINS", coins(log)), ("TRADES", trades(log)), ("CONTESTS", contests(log)), ("ENDINGS", endings(log)), ("SPEND", spend(log))]
     if path_t:
         cut, spawns, referee = transcript(path_t, log)
         sections += [("CUT READS", cut), ("SPAWNS", spawns), ("REFEREE", referee)]

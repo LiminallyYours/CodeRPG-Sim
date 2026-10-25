@@ -95,9 +95,17 @@ def trade_text(e, names, item_name, currency):
     return "%s's offer to %s lapsed: %s." % (by, to, LAPSED.get(e.get("why"), e.get("why") or "it lapsed"))
 
 
+def contest_text(e, names, item_name):
+    """A grab at what another person held, as the owner reads it in the feed (the owner may see the numbers)."""
+    me, them = e["rolls"][e["player"]], e["rolls"][e["against"]]
+    who = names.get(e["against"], e["against"])
+    end = "took it" if e["winner"] == e["player"] else "%s kept hold of it%s" % (who, " (a tie)" if me["total"] == them["total"] else "")
+    return "Grabbed at %s's %s: %s %d against %s %d; %s." % (who, item_name(e["item"]), me["stat"], me["total"], them["stat"], them["total"], end)
+
+
 def feed_of(entries, names, item_name=lambda i: i, currency="coins"):
     """What happened, newest first: each turn (what they did, why, the story they were told, the words others
-    heard, the trades it made or answered), and the round markers between."""
+    heard, the trades it made or answered and the grabs it made), and the round markers between."""
     items, turns = [], {}
     for e in entries:
         key = (e.get("round"), e.get("player"))
@@ -117,6 +125,8 @@ def feed_of(entries, names, item_name=lambda i: i, currency="coins"):
                 turns[key]["trades"].append(text)
             else:  # an offer lapsing when a round ends is no one's turn
                 items.append({"kind": "trade", "key": "t%d" % len(items), "round": e.get("round"), "text": text})
+        elif e["kind"] == "contest" and key in turns:
+            turns[key]["trades"].append(contest_text(e, names, item_name))
         elif e["kind"] == "round" and e.get("phase") == "start":
             items.append({"kind": "round", "key": "r%s" % e.get("round"), "round": e.get("round"),
                           "order": [names.get(p, p) for p in e.get("order", [])]})
