@@ -17,7 +17,7 @@ A player agent's turn **is** a human player's turn with a different name attache
 The only differences allowed:
 1. every rules command carries which player is acting;
 2. the narration goes into that player's record instead of a screen;
-3. the player's memory is handed back to it each turn, because a human carries memory in their head and an agent cannot.
+3. the player's memory is handed back to it each turn, because a human carries memory in their head and an agent cannot. Memory includes what they knew when the night began, not only what has happened since (JW, 2026-10-25: their starting facts, the world's public knowledge and a short, generic account of how life works, shown every turn; never which places pay for work or who buys; `PERSON-STRUCTURE-PROPOSAL.md` 5.6).
 
 Anything else that differs is a bug. In particular, nothing a player agent is shown may mention the game, rules, dice counts beyond what a human sees, logs, agents, models or the other characters being players. To them, the other players are people.
 
