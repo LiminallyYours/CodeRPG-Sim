@@ -6,6 +6,7 @@
     "allow": [
       "Bash(python3 rules/rpg.py *)",
       "Bash(python3 tools/ask.py *)",
+      "Bash(python3 tools/voice.py *)",
       "Read(games/**)",
       "Read(rules/**)",
       "Read(state/**)",
