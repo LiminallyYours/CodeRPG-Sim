@@ -237,6 +237,7 @@ Each a commit with checks before and after; each drafted for JW before code, as 
 53. **R6, what a person knows:** starting facts (`knows`), the world's public knowledge, the generic account of how life works, pronouns, `look`, `people`; the world's problem in public knowledge and its quest in "What you're working on" once taken on; the standing place for the run's events. Built right after 52, and tried with it on the bench.
 54. **R7, memory:** A, B, D and endings that never fade.
 55. **R8:** the model as a run setting, one model (Sonnet) by default.
+   **As built (ninth session, 2026-10-25; JW: record the exact version):** `cast.model` in every preset (`sonnet`; `haiku`, `opus`, `fable`, or `own` for each cast entry's `model`, which becomes optional and is then required by `validate`). `model_for()` feeds the CAST line (so `ask.py`'s model), the `action` and `memory` entries and the dashboard; `settings show` prints `PEOPLE:`. `claude -p`'s answer names the exact version under `modelUsage` (one Haiku call, $0.0001: `claude-haiku-5-5`), so `ask.py` and `voice.py` log it as `exact_model`, and `audit.py` VERSIONS lists each nickname's versions by round, flagging a change partway. The cast files keep their own models, for `own`. Briefs unchanged.
 
 **The world** (`SIM-WORLD-SPEC.md`; order proposed):
 56. **Time that goes on:** times of day that cycle, days counted, daytime text.
