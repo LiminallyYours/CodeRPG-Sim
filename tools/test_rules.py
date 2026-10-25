@@ -839,7 +839,7 @@ class Engine(unittest.TestCase):
         out = self.rpg("newgame", seed=43)
         self.assertIn("Dilly Quickstep (dilly, haiku, they/them) at ", out)
         self.assertIn("Hobb Ashcombe (hobb, sonnet, he/him) at ", out)
-        self.assertIn("PEOPLE HERE: Dilly Quickstep (dilly, they/them).", self.rpg("look", as_="marigold"))
+        self.assertIn("PEOPLE HERE: Dilly Quickstep (dilly, they/them; carrying lamplighters_pole).", self.rpg("look", as_="marigold"))
         self.assertIn("Marigold Thimble (she/her) at The Lopsided Square", self.rpg("world-brief", "turn", as_=False))
 
     def test_two_players_share_a_room_and_its_things(self):
@@ -848,8 +848,9 @@ class Engine(unittest.TestCase):
         self.assertNotIn("PEOPLE HERE", self.rpg("look", as_="wren"))
         self.rpg("move", "south", as_="corin")  # from the Gull to Harbor Square, where Wren is
         self.assertEqual(self.save()["players"]["corin"]["location"], "harbor_square")
-        self.assertIn("PEOPLE HERE: Corin (corin, they/them).", self.rpg("look", as_="wren"))  # the cast names none
-        self.assertIn("PEOPLE HERE: Wren (wren, they/them).", self.rpg("look", as_="corin"))
+        self.assertIn("PEOPLE HERE: Corin (corin, they/them; carrying healing_tonic).", self.rpg("look", as_="wren"))  # the cast names none
+        self.assertIn("PEOPLE HERE: Wren (wren, they/them; carrying worn_dagger (in hand), healing_tonic).", self.rpg("look", as_="corin"))
+        self.assertIn("What they carry is theirs: the story shows only what anyone could plainly see of it.", self.rpg("look", as_="corin"))
         self.rpg("drop", "healing_tonic", as_="corin")
         self.assertIn("healing_tonic", self.rpg("look", as_="wren").split("ITEMS HERE:")[1].split("\n")[0])
         self.rpg("take", "healing_tonic", as_="wren")

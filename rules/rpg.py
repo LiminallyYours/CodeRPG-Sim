@@ -1610,8 +1610,11 @@ def cmd_look(args):
     others = players_here(state)[1:]
     if others:
         print("PEOPLE HERE: %s. Each acts on their own turn: never speak or decide for them. What the player says "
-              "aloud, they hear: `say <file>`; what they see and hear of the turn: `witnessed <file>`." % ", ".join(
-            "%s (%s, %s)" % (state["players"][p]["name"], p, pronouns(p)) for p in others))
+              "aloud, they hear: `say <file>`; what they see and hear of the turn: `witnessed <file>`. What they carry is "
+              "theirs: the story shows only what anyone could plainly see of it." % ", ".join(
+            "%s (%s, %s; carrying %s)" % (state["players"][p]["name"], p, pronouns(p), ", ".join(
+                i + (" (in hand)" if i == state["players"][p]["equipped"] else "") for i in state["players"][p]["inventory"]) or "nothing")
+            for p in others))
     offers = open_trades(state, actor_id(state))
     if offers:
         terms = lambda s: ", ".join(s["items"] + (["%d %s" % (s["coins"], currency())] if s["coins"] else [])) or "nothing"  # noqa: E731
