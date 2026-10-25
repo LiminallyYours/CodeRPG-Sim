@@ -111,6 +111,7 @@
     "do_chars": 1200,
     "journal_chars": 600,
     "said_chars": 600,
+    "witnessed_chars": 800,
     "narration_chars": 4000,
     "memory_chars": 2400
   }

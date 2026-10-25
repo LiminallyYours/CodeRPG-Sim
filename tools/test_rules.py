@@ -913,6 +913,43 @@ class Engine(unittest.TestCase):
         self.write("proposals/words.txt", "Anyone?")
         self.assertIn("no one else is here to hear it", self.rpg("say", "proposals/words.txt", as_=first, ok=False))
 
+    def test_the_others_there_see_and_hear_a_turn_on_their_next(self):
+        self.three_players()  # Wren and Tam in Harbor Square, Corin north in the Gull
+        self.rpg("newgame", seed=43)
+        note = "Wren asks Morwen about the lamp and heads north into the Gull. Morwen calls after her: \"Mind the stairs.\""
+        for pid in [p.split("(")[1].rstrip(")") for p in self.rpg("round", "start").split(": ", 1)[1].strip().split(", ")]:
+            if pid != "wren":
+                self.take_turn(pid)
+                continue
+            self.write("proposals/reply.txt", "DO: I ask Morwen about the lamp, then go to the Gull.\nJOURNAL: The lamp.\n")
+            self.rpg("reply", "wren", "proposals/reply.txt")
+            self.rpg("move", "north", as_="wren")
+            self.write("proposals/note.txt", "x" * 801)
+            self.assertIn("at most 800 characters", self.rpg("witnessed", "proposals/note.txt", as_="wren", ok=False))
+            self.write("proposals/note.txt", note)
+            self.assertIn("Corin (corin), Tam (tam)", self.rpg("witnessed", "proposals/note.txt", as_="wren"))
+            self.write("proposals/story.txt", "You climb to the Gull.")
+            self.rpg("narrate", "wren", "proposals/story.txt")
+        self.rpg("round", "end")
+        players = self.save()["players"]
+        for pid in ("corin", "tam"):  # Tam saw her leave, Corin saw her come in
+            self.assertIn({"round": 1, "kind": "seen", "text": note, "uses": 0}, players[pid]["memory"]["recent"])
+        self.assertNotIn(note, json.dumps(players["wren"]["memory"]))
+        self.assertIn("What happened: " + note, self.rpg("brief", "tam"))
+        self.assertEqual([(e["player"], e["seen_by"]) for e in self.log_of() if e["kind"] == "witnessed"], [("wren", ["corin", "tam"])])
+
+    def test_no_one_witnesses_a_turn_with_no_one_there(self):
+        self.rpg("game", "switch", "dark_lighthouse")
+        self.rpg("newgame", seed=43)  # Corin is in the Gull; Wren goes from the square east, where nobody is
+        self.rpg("round", "start")
+        if self.save()["run"]["round_state"]["order"][0] != "wren":
+            self.take_turn("corin")
+        self.write("proposals/reply.txt", "DO: I walk east.\nJOURNAL: To see the coast.\n")
+        self.rpg("reply", "wren", "proposals/reply.txt")
+        self.rpg("move", "east", as_="wren")
+        self.write("proposals/note.txt", "Wren walks east.")
+        self.assertIn("no one else was there to see it", self.rpg("witnessed", "proposals/note.txt", as_="wren", ok=False))
+
     def test_what_one_person_learns_stays_their_own(self):
         self.rpg("game", "switch", "thirteenth_stroke")
         self.rpg("newgame", seed=43)  # Marigold and Dilly both start in the square, with Pip

@@ -3673,7 +3673,7 @@ def cmd_reply(args):
         if len(reply[k]) > limits[k + "_chars"]:
             raise Refused("the %s line is at most %d characters" % (k.upper(), limits[k + "_chars"]))
     number = state["run"]["round"]
-    pl["turn"] = {"round": number, "do": reply["do"], "journal": reply["journal"]}
+    pl["turn"] = {"round": number, "do": reply["do"], "journal": reply["journal"], "room": pl["location"]}  # where it began
     remember(pl, "did", reply["do"], number)
     if reply["journal"]:
         remember(pl, "reasoned", reply["journal"], number)
@@ -3721,6 +3721,30 @@ def cmd_say(args):
     save_state(state)
     print("SAID by %s, heard by %s: they'll read it on their next turn, and may answer then." % (
         speaker, ", ".join("%s (%s)" % (state["players"][p]["name"], p) for p in listeners)))
+
+
+def cmd_witnessed(args):
+    """witnessed <file>: what the others there saw and heard of this turn, as the referee tells it, the world's
+    people's words included. Every other player in the room the turn began in, or the room it ends in, keeps it
+    in memory as `seen`, to read on their next turn. The player's own words go with `say`."""
+    state = load_state()
+    require_playing(state)
+    pid = actor_id(state)
+    turn = open_turn(state, pid)
+    if not turn:
+        raise Refused("%s hasn't replied this round: `reply %s <file>` first" % (pid, pid))
+    rooms = {turn.get("room", me(state)["location"]), me(state)["location"]}
+    onlookers = [p for p, pl in state["players"].items()
+                 if p != pid and pl["location"] in rooms and pl["status"] == "playing"]
+    if not onlookers:
+        raise Refused("no one else was there to see it")
+    text = text_arg(args[0], "note", BALANCE["turns"]["witnessed_chars"])
+    for p in onlookers:
+        remember(state["players"][p], "seen", text, state["run"]["round"])
+    log(state, "witnessed", text=text, seen_by=onlookers)
+    save_state(state)
+    print("WITNESSED by %s: they'll read it on their next turn." % ", ".join(
+        "%s (%s)" % (state["players"][p]["name"], p) for p in onlookers))
 
 
 def memory_rounds(pl):
@@ -4309,6 +4333,7 @@ COMMANDS = {
     "work": (cmd_work, 0, "work   the player works here for pay, once per visit (a check first)"),
     "sell": (cmd_sell, 1, "sell <item> [buyer]   the player sells something with a tier to a buyer here"),
     "say": (cmd_say, 1, "say <file>   the player's words aloud: the other players here hear them on their next turn"),
+    "witnessed": (cmd_witnessed, 1, "witnessed <file>   what the other players there saw and heard of this turn, for their next"),
     "scene": (cmd_scene, 2, "scene start <id> | scene end <id> [reward]   play a side scene between two characters"),
     "forge": (cmd_forge, 1, "forge quote | start [sentence] | resume <draft> | status | install <draft> | discard <draft>   new worlds"),
     "world-turn": (cmd_world_turn, 1, "world-turn <file>   apply the world agent's off-screen turn (a JSON file)"),
