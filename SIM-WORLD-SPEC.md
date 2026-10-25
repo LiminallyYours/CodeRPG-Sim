@@ -1,6 +1,6 @@
 # Spec: worlds for the simulation
 
-Written 2026-10-25 by Claude with JW, in the eighth session (a design discussion), from the seven runs so far and the 14-round run's stories read in order. **Status: a first draft.** Section 2 holds lessons JW asked to keep in a document of their own; section 4's first part is decided; everything marked *proposed* or listed in section 6 is still open. Nothing here is built. `PERSON-STRUCTURE-PROPOSAL.md` is the person's side; this file is the world's.
+Written 2026-10-25 by Claude with JW, in the eighth session (a design discussion), from the seven runs so far and the 14-round run's stories read in order. **Status: a first draft.** Section 2 holds lessons JW asked to keep in a document of their own; section 4 (the test world, Wendleford) is decided in outline, its numbers still to tune; what is listed in section 6 is still open. Nothing here is built. `PERSON-STRUCTURE-PROPOSAL.md` is the person's side; this file is the world's.
 
 ## 1. What this is for
 Two uses:
@@ -32,30 +32,68 @@ Each lesson: what happened, then the rule or check it implies.
 - **Public knowledge** holding the practical facts (who makes, who builds, how money works), never which places pay for work or who buys.
 - `validate --sim-complete` checks what it can of this (section 5).
 
-## 4. The test world
+## 4. The test world: Wendleford
 
 ### Decided (JW, 2026-10-25)
 - **A new world, built for the purpose.** The Thirteenth Stroke stays as it is.
 - **A plain market town:** no magic. It tests whether the four people carry over to a different world, gives the model's sense of how fairy tales go less to pull on (`PERSON-STRUCTURE-PROPOSAL.md` section 1), and makes prices and needs read naturally.
-- **The shared problem: an ongoing one and a small mystery, at different sizes,** so there is a choice of how to help. The ongoing problem takes effort over days and no single deed ends it (for example, the river has washed out the mill bridge and the harvest must come in before the rain), so how much someone cares shows as how much they help.
-- **Needs: a bed and food.** A bed each night (paid at an inn, or sleeping rough) and food each day (bought, or earned as a meal).
+- **The premise:** Wendleford, a small market town on a river, at harvest. Two nights ago a flood took the mill bridge; the mill and Farmer Dunn's fields are across the water, reachable only by the ford downstream; the barley is standing and rain is coming. Everyone knows; nobody is obliged to help.
+- **The shared problem, at two sizes:** an ongoing one (the harvest and the bridge) and a small mystery (the wage box), so there is a choice of how to help.
+- **Needs: a bed and food.** An unmet need brings **a small, lasting setback**, told in words, never numbers: a night without proper sleep, tired the next day (things that take effort go a little harder); a day without food, hungry; two days, weak (strength down one) until fed. Nobody is hurt or dies of it.
+- **Night is a turn like any other:** sleep is something a person chooses to do (a paid bed, the hayloft, or rough); a night spent otherwise counts as no sleep.
+- **Money is tight:** daily needs cost about 3 pennies, work pays 1–3 a visit, people start with 4–6, so everyone must earn by about day 2 and saving takes focus.
+- **Two scarce prizes:** the cottage on Lark Lane (one tenant, first to pay) and the harvest honour at the supper (for whoever the town saw help most, worked out from the effort counts).
+- **Effort on shared work is counted per person by code** (a shared project: work adds to a total; stages set flags), the direct measure of caring.
+- **The town's problem reaches everyone's needs:** if the harvest isn't in before the rain, bread costs more from day 4.
+- **Each person starts in their own situation,** all with little money, each with a need coming due within a day or two (for example: one boards at their employer's in return for work hours, one sleeps in the hayloft by the reeve's leave, one has a bed paid through tonight, one a room with rent due on day 2). The generator writes them from the archetypes and this world (`PERSON-STRUCTURE-PROPOSAL.md` 5.9).
 
-### Proposed, not yet decided
-- **Time:** a round is a quarter of a day (morning, afternoon, evening, night), so 14 rounds is three and a half days and needs run by the day.
-- **Size:** about 8 places, apart enough to split people up.
-- **One opening per person's want:** a plot to build on (a home of one's own), fine cloth or finery (being admired, fine things), a market stall with bargains (can't resist a bargain), a workshop or scrap to tinker with (inventing); plus one scarce prize several would want.
-- **Coverage:** every way of acting in `character-structure.xlsx` (Ways of acting sheet) can be reached on the first day.
-- **How it is made:** an outline agreed with JW first, then the world written by hand in a build session. The forge for simulation worlds isn't built (phase 2); forging a second world against this spec later is the real test of the spec. The cast: the same four people, made for this world by the generator (`PERSON-STRUCTURE-PROPOSAL.md` 5.9), its first real use.
+### The outline (sketched by Claude, agreed by JW; numbers to be tuned)
+**Time.** A round is a quarter of a day: morning, afternoon, evening, night. The run starts on the morning of day 1, a market day; the next market day is day 4. The rain comes on the night of day 3 (round 12) whatever anyone does, so a 14-round run sees what follows.
 
-## 5. What the kit needs for it (proposed)
+**Places (8).**
+| Place | What's there | What it would show |
+|---|---|---|
+| Market Square | the hub; the pump; the notice board (the reeve's reward notice); the baker's stall; on market days, Ned Pike's stall of cheap seconds | bargains, news, meeting by chance |
+| The Wheatsheaf (inn) | beds, suppers, talk; work washing pots (wits) | spending on needs; where rumors are heard |
+| Fenn's, the draper | maker of clothes and finery to order | wanting fine things; saving for them |
+| The Smithy | maker of tools and trinkets; work at the bellows (might); a scrap heap | earning; tinkering |
+| The broken bridge | the rebuilding, paid by the reeve (a shared project); the wreck in the water (the mystery) | paid help; investigating |
+| Dunn's fields and the mill (across the ford, a check to cross) | the harvest, unpaid, a meal for half a day's help (a shared project); the miller's lad | caring without pay |
+| Lark Lane | Widow Mabry's empty cottage to let; a building plot beside it | wanting a home; the scarce prize |
+| The tithe barn | the reeve's office; the hayloft (sleep free, but rough) | doing without; owing a favour |
+
+**The town's people (9; ★ voiced by their own agent).** ★ Reeve Agnes Pollard (runs and pays the bridge work; lost the wage box; offers its reward; says who gets the harvest honour); ★ Jory Crane, carpenter (the builder: sheds, huts, lean-tos; wanted on the bridge too, so his time is wanted on both sides); ★ Kit, the miller's lad (saw something bobbing on the flood night); Tom Harrow, innkeeper; Ida Fenn, draper (maker); Sam Tolley, smith (maker); Farmer Dunn; Widow Mabry; Ned Pike, dealer (buys things; sells seconds on market days). Every one of them takes money for something.
+
+**The ongoing problem.** The harvest: about 8 person-turns of help before the rain; if it's in, a harvest supper on the evening of day 3; if not, part of the crop is lost and bread costs more from day 4. The bridge: about 12 person-turns of paid work, no deadline; while it's broken the far bank is reachable only by the ford.
+
+**The small mystery: the wage box.** On the flood night the reeve's box of bridge wages vanished; until it's found she pays bridge work at half rate. It was swept off the bridge and is caught in the wreck under the water: found by searching the wreck (a check) or by asking Kit; a false lead in the rumors suspects the newcomer at the smithy. One deed ends it; the finder gets 4 pennies and the town's thanks, and only one person can be the one who found it.
+
+**Prices (pennies, in the world's own `balance.json`).** A bed at the Wheatsheaf 2 a night (the hayloft free, but rough: tired the next day); bread or a supper 1, or a meal earned at Dunn's or washing pots; finery about 4; a shed 10; the cottage 8 for a week, paid up front.
+
+**One opening per person's want.**
+| Person | Want | What serves it |
+|---|---|---|
+| Hobb | a place of his own; hates owing; thrifty | the cottage (scarce), or a shed on the plot from Jory; the hayloft is free, by the reeve's leave (owing) |
+| Marigold | to be admired; fine things | finery from Fenn's; the harvest supper and its honour |
+| Dilly | the credit; restless; can't resist a bargain | the wage box (one finder); Ned's seconds on market days |
+| Hester | to invent; helps unasked; curious | the scrap heap and the smithy; the bridge as an engineering problem; the mystery |
+
+**Ways of acting, all reachable on day 1:** use, build, influence, investigate, convince, buy, sell, trade, stay silent, go, work, give and help, grab, wait. Fight can happen but has no reason to; for a plain town that is honest, and noted rather than given an invented foe.
+
+**How it is made:** written by hand in a build session from this outline; the forge for simulation worlds isn't built (phase 2), and forging a second world against this spec later is the real test of the spec. The cast: the same four people, made for this world by the generator, its first real use.
+
+## 5. What the kit needs for it
 - **Time after the story:** a world lists times of day that cycle and counts days (`times_after:` or a cycling `times:`), with daytime text where places and people change.
-- **Needs:** a world lists its needs (`needs:`, e.g. food daily, a bed nightly), each met by an item, a room's service or a payment; the engine tracks each person's, makes it more pressing with time, and says it in words in the brief ("You haven't eaten since morning"), never as numbers. Its effect when unmet (tired, weaker) is to be decided.
+- **Needs:** a world lists its needs (`needs:`: food daily, sleep nightly), each met by an item, a room's service, a payment or an act (sleeping); the engine tracks each person's, makes it more pressing with time, applies the setback when it goes unmet (section 4) and says it in words in the brief.
+- **Things for sale at set prices:** bread, a bed, a week's rent, a dealer's seconds. Today buying exists only as making to order.
+- **Shared projects:** work at a place adds to a shared total, counted per person in the log, with stages that set flags at set amounts (harvest in, bridge mended); the harvest honour is worked out from the counts.
+- **A world's own prices** (`games/<id>/balance.json`), and perhaps a "finery" tier of item, which the checks may not yet allow.
 - **"What you're working on"** shows needs, wants and things taken on side by side (`PERSON-STRUCTURE-PROPOSAL.md` section 6, G).
 - **Checks:** the ending-consistency warning (lesson 1); no content naming the original player (lesson 8); `--sim-complete` extended to time that goes on, at least one need and what meets it, hooks of more than one size.
 
 ## 6. Open
-1. The test world's outline: places, the ongoing problem and the small mystery, the openings per want, the scarce prize, what a bed and food cost, who pays for work (next, in the session after this draft).
-2. What happens when a need goes unmet.
-3. Whether needs are a kit feature for every simulation world, or a setting a world may switch on.
-4. The time scale: a quarter day per round, or something else.
-5. How the forge (worldsmith) is pointed at this spec, and what `--sim-complete` can check of it by code against what needs a human read.
+1. **Tuning the numbers:** person-turns for the harvest and the bridge, prices, pay, starting money, the rain's round; to be tried on paper and then in the test run.
+2. **Whether a "finery" tier** is a new item tier in the kit or this world's prices for the existing trinket tier.
+3. **Whether needs are a kit feature for every simulation world,** or a setting a world may switch on.
+4. **Whether Jory's time is truly scarce** (building a shed slows the bridge) or only said to be.
+5. **How the forge (worldsmith) is pointed at this spec,** and what `--sim-complete` can check of it by code against what needs a human read.

@@ -217,7 +217,7 @@ A discussion, not a build (JW). Read for it: the 14-round run's stories in order
 Hobb's round-8 brief from the 14-round run (in the tower, just given the whistle for nothing; hates owing, wants four walls, 6 buttons), re-asked four ways through `claude -p` exactly as `ask.py` does, Sonnet, three replies each. "Knows" adds a `## What I know` section with his opening's two facts (Ambrose builds; Nell makes to order); "options" changes `player.md` to ask for two to four options, each for something they want, need or care about, before choosing. **Asked Ambrose to build him a shed:** as in the run 0 of 3; knows 0 of 3 (one misread it and offered to build Ambrose a shed); options 0 of 3 (the want came up as an option once, unchosen; one left 2 buttons on Ambrose's bench, the first money spent by choice in any run); **both 3 of 3**, each still repaying Ambrose first (coal all winter). Knowing and weighing belong together. One situation, chosen as the best case. Files: `state/test-runs/hobb8-options/` (local; `run.py` reproduces it).
 
 ## The steps
-Each a commit with checks before and after; each drafted for JW before code, as before. **Steps 45–49 are decided; the order of 50–61 is proposed, not yet confirmed.**
+Each a commit with checks before and after; each drafted for JW before code, as before. **Steps 45–49 are decided; the order of 50–63 is proposed, not yet confirmed.**
 
 **The referee:**
 45. **Belongings as last seen:** `gm-turn`: another person's belonging is mentioned only as it was last shown (their DO line, a story or a note); one put away stays unmentioned until brought out.
@@ -237,17 +237,19 @@ Each a commit with checks before and after; each drafted for JW before code, as 
 
 **The world** (`SIM-WORLD-SPEC.md`; order proposed):
 56. **Time that goes on:** times of day that cycle, days counted, daytime text.
-57. **Needs:** a world's `needs:`, tracked per person, more pressing with time, told in words; "What you're working on" shows needs, wants and things taken on side by side.
-58. **Checks:** the ending-consistency warning, no content naming the original player, `--sim-complete` extended.
-59. **R5 and R4:** the definitions file, the cast generator (`tools/cast.py`) and the round-trip check.
-60. **The test world** from the outline agreed with JW, written by hand, and its cast of four made by the generator.
-61. **A test run** of the test world (approved separately).
+57. **Needs:** a world's `needs:` (food daily, sleep nightly), tracked per person, more pressing with time, a small lasting setback when unmet, told in words; sleep is an act a person chooses; "What you're working on" shows needs, wants and things taken on side by side.
+58. **Things for sale at set prices** (bread, a bed, a week's rent, a dealer's seconds), beside making to order.
+59. **Shared projects:** work at a place adds to a shared total, counted per person in the log; stages set flags; who helped most is worked out from the counts.
+60. **Checks:** the ending-consistency warning, no content naming the original player, `--sim-complete` extended.
+61. **R5 and R4:** the definitions file, the cast generator (`tools/cast.py`) and the round-trip check.
+62. **Wendleford,** the test world, from the outline in `SIM-WORLD-SPEC.md` section 4, written by hand, with its own prices; its cast of four made by the generator.
+63. **A test run** of Wendleford (approved separately).
 
 ## Open
-- **The order of steps 50–61** (person proposal E).
-- **The test world's outline** (`SIM-WORLD-SPEC.md` section 6): places, the ongoing problem and the small mystery, an opening per want, the scarce prize, prices of a bed and food, paid work. JW will start this next.
+- **The order of steps 50–63** (person proposal E).
+- **The test world's outline: agreed** (JW, 2026-10-25, after the first pause): Wendleford, `SIM-WORLD-SPEC.md` section 4: both scarce prizes (the cottage, the harvest honour); effort on shared work counted by code; bread dearer if the harvest fails; money tight; unmet needs a small lasting setback; night a turn like any other (sleep chosen); each person in their own situation. Its numbers are still to tune (spec section 6).
 - **Whether R6 (step 53) is tried first on The Thirteenth Stroke's cast** with hand-written starting facts, or waits for the test world's generated cast. The Thirteenth Stroke stays as it is in content, but its cast entries would need `knows`.
-- **The rest of `SIM-WORLD-SPEC.md` section 6:** what an unmet need does, needs as a feature for every simulation world or a setting, the time scale, how the forge is pointed at the spec.
+- **The rest of `SIM-WORLD-SPEC.md` section 6:** the numbers, a finery tier, needs for every simulation world or a setting, whether the carpenter's time is truly scarce, how the forge is pointed at the spec.
 - **The rest of phase 2** (the trainer and abilities, room uses beyond `stash`, the dashboard's history views, the memory hooks, forging simulation worlds): not discussed; the steps above come first.
 
 ## Future discussions (may lead to requirements)
