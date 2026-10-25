@@ -1188,6 +1188,9 @@ class Engine(unittest.TestCase):
         self.assertNotIn("made for you", tam)
         used = [(e["order"], e["id"], e["how"], e["player"]) for e in self.log_entries() if e["kind"] == "order" and e["step"] == "used"]
         self.assertIn(("o1", "shell_charm", "traded", "wren"), used)
+        out = self.run_py("tools/audit.py", "state/log/%s.jsonl" % self.save()["run"]["id"]).stdout
+        self.assertIn("== TRADES\n  t1 r1 wren -> tam: gives worn_dagger, 1 coins; wants healing_tonic: accepted r2\n"
+                      "  t2 r3 wren -> tam: gives shell_charm; wants nothing: accepted r4\n== ", out, "coins balanced, so nothing flagged")
 
     def test_an_accept_that_cant_happen_changes_nothing_and_the_offer_stands(self):
         self.three_players()

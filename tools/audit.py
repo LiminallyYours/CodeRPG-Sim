@@ -16,6 +16,8 @@ From the run's log (state/log/<run>.jsonl; the active run's by default):
                  before they're voiced) with nothing remembered of that turn
     MEMORY       each condensing: whose, which rounds, how many entries folded; a stretch stored twice is flagged
     COINS        every coin that moved, with its reason
+    TRADES       each offer between people: who to whom, the terms, and how it ended (accepted, declined or lapsed,
+                 and when); for one accepted, whether the coins moved under its id come to nothing either way
     ENDINGS      each quest decided, and who heard of it
     SPEND        what the people's replies cost, by model (the `spend` tools/ask.py logs)
 From the referee's session transcript (~/.claude/projects/<folder>/<session>.jsonl), if given, or with --referee
@@ -149,6 +151,24 @@ def coins(log):
     return out or ["  none moved"]
 
 
+def trades(log):
+    offers = collections.OrderedDict()
+    for e in log:
+        if e["kind"] == "trade":
+            offers.setdefault(e["trade"], []).append(e)
+    side = lambda s: ", ".join(s["items"] + (["%d coins" % s["coins"]] if s["coins"] else [])) or "nothing"  # noqa: E731
+    out = []
+    for tid, steps in offers.items():
+        first, last = steps[0], steps[-1]
+        how = "still open" if last["step"] == "offered" else "%s r%s%s" % (last["step"], last["round"], " (%s)" % last["why"] if last.get("why") else "")
+        line = "  %s r%s %s -> %s: gives %s; wants %s: %s" % (tid, first["round"], first["offered_by"], first["to"], side(first["give"]), side(first["want"]), how)
+        if last["step"] == "accepted":
+            moved = sum(c["delta"] for c in log if c["kind"] == "coins" and c.get("reason") == "trade" and c.get("note") == tid)
+            line += "" if moved == 0 else "  <<< coins don't balance (%+d)" % moved
+        out.append(line)
+    return out or ["  none"]
+
+
 def endings(log):
     out = ["  r%s: %s, heard by %s" % (e["round"], ", ".join("%s %s" % kv for kv in e["quests"].items()), ", ".join(e["heard_by"]) or "no one")
            for e in log if e["kind"] == "ending"]
@@ -260,7 +280,7 @@ def main(argv):
     log = read_jsonl(path)
     sections = [("LEAKS", leaks(log) or ["  none"]), ("SIGNS OF CLAUDE CODE'S LINES", traces(log)), ("WITNESSED", witnessed(log)), ("FLAGS", flags(path.stem)),
                 ("CONTINUITY", continuity(log)),
-                ("MEMORY", memory(log)), ("COINS", coins(log)), ("ENDINGS", endings(log)), ("SPEND", spend(log))]
+                ("MEMORY", memory(log)), ("COINS", coins(log)), ("TRADES", trades(log)), ("ENDINGS", endings(log)), ("SPEND", spend(log))]
     if path_t:
         cut, spawns, referee = transcript(path_t, log)
         sections += [("CUT READS", cut), ("SPAWNS", spawns), ("REFEREE", referee)]
