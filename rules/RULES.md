@@ -26,6 +26,9 @@ A content file may name an exact DC for a specific action, and that DC wins. A n
 
 Don't roll for things that are certain, trivial, or impossible. Just narrate those.
 
+## Contests: `contest <your stat> <their id> <their stat> --take <item>`
+When the player grabs at something another person there holds, the other holds on: nobody asks them, as nobody would. Each rolls d20 plus the attribute that fits how they go about it (Might to wrench it away or hold on tight, Agility to snatch it quickly or whisk it out of reach). The higher total wins the thing; a tie leaves it with the one holding it. Naturals count for nothing here, only the totals. Nobody is hurt, and nothing is rolled if the grab couldn't happen: they aren't here, aren't holding it, or the player couldn't carry it. The other answers on their own turn.
+
 ## Combat: `attack <character>`
 Only characters whose file gives `hp`, `defense`, `attack` and `damage` can be fought. Each `attack` is **one exchange**:
 1. **You swing.** Roll d20 + Might against the foe's `defense`. On a hit, roll your equipped weapon's `damage` dice, or 1d2 if you're unarmed. Every hit deals at least 1.

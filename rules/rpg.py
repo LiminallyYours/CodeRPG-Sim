@@ -4095,6 +4095,59 @@ def accept_trade(state, t):
                   ", ".join(me(state)["inventory"]) or "nothing", carried_weight(state), carry_limit(state)))
 
 
+# ---------------------------------------------------------------- contests: a grab at what another person holds
+# Turns are one person's at a time, so two people reach for the same thing in one turn only when the one whose turn
+# it is grabs at what another holds (proposal 6.4). The other holds on, unasked, as anyone would: both roll, and the
+# higher wins; a tie stays with the one holding it. Nobody is hurt. They answer on their own turn.
+
+def cmd_contest(args):
+    """contest <your stat> <their id> <their stat> --take <item>: grab at something another person here holds. Each
+    rolls the check die plus the stat named for them; the higher total takes it, and a tie leaves it where it is."""
+    state = load_state()
+    require_playing(state)
+    pid = actor_id(state)
+    take = None
+    if "--take" in args:
+        i = args.index("--take")
+        take, args = (args[i + 1] if i + 1 < len(args) else None), args[:i] + args[i + 2:]
+    if len(args) != 3 or not take:
+        raise Refused("usage: contest <your stat> <their id> <their stat> --take <item>")
+    mine, other, theirs = args[0].lower(), args[1], args[2].lower()
+    for stat in (mine, theirs):
+        if stat not in STATS:
+            raise Refused("stat must be one of %s" % ", ".join(STATS))
+    if other == pid:
+        raise Refused("a contest is with someone else")
+    if other not in state["players"]:
+        raise Refused("no one called %r is playing (players: %s)" % (other, ", ".join(state["players"])))
+    names = {p: state["players"][p]["name"] for p in (pid, other)}
+    if other not in players_here(state)[1:]:
+        raise Refused("%s isn't here" % names[other])
+    if take not in state["players"][other]["inventory"]:
+        raise Refused("%s isn't holding %s" % (names[other], take))
+    check_carry(state, take)  # before any die is rolled: a grab that couldn't be carried off isn't tried
+    rolls = {}
+    for p, stat in ((pid, mine), (other, theirs)):
+        nat = dice.roll(BALANCE["check_die"])[1][0]
+        rolls[p] = {"stat": stat, "d20": nat, "mod": state["players"][p]["stats"][stat], "total": nat + state["players"][p]["stats"][stat]}
+    winner = pid if rolls[pid]["total"] > rolls[other]["total"] else other
+    if winner == pid:
+        with acting(other):
+            remove_from_inventory(state, take)  # a thing held in hand is let go of first
+            log_use(state, take, "snatched")
+        me(state)["inventory"].append(take)
+    words, journal = turn_words(state)
+    log(state, "contest", against=other, item=take, rolls=rolls, winner=winner, words=words, journal=journal)
+    save_state(state)
+    print("CONTEST for %s: %s %s d20 %d %+d = %d; %s %s d20 %d %+d = %d -> %s" % (
+        item(take).get("name", take), names[pid], mine, rolls[pid]["d20"], rolls[pid]["mod"], rolls[pid]["total"],
+        names[other], theirs, rolls[other]["d20"], rolls[other]["mod"], rolls[other]["total"],
+        "%s TAKES it  [weight %d/%d]" % (names[pid], carried_weight(state), carry_limit(state)) if winner == pid else
+        "%s KEEPS hold of it%s" % (names[other], " (a tie)" if rolls[pid]["total"] == rolls[other]["total"] else "")))
+    print("Tell it as it happens, never the numbers; %s was there and sees it in the onlookers' note (`witnessed`). "
+          "They answer on their own turn." % names[other])
+
+
 # ---------------------------------------------------------------- endings: a quest decided is news for everyone
 # In a world with several people, one person's deed can decide the game's own quest for all of them (stopping the
 # clock wins it for the town). The one whose deed it was hears its ending in their story; everyone else comes to
@@ -4757,6 +4810,7 @@ COMMANDS = {
     "sell": (cmd_sell, 1, "sell <item> [buyer]   the player sells something with a tier to a buyer here"),
     "say": (cmd_say, 1, "say <file>   the player's words aloud: the other players here hear them on their next turn"),
     "trade": (cmd_trade, 1, "trade offer <file> | accept <offer> | decline <offer>   the terms of an offer to another player here (a JSON file); the one it's for takes it or turns it down"),
+    "contest": (cmd_contest, 3, "contest <your stat> <their id> <their stat> --take <item>   grab at what another player here holds: both roll, the higher takes it, a tie stays with them"),
     "ending": (cmd_ending, 1, "ending <file>   what everyone else comes to hear of a quest's ending, once one is decided (for no one between rounds)"),
     "witnessed": (cmd_witnessed, 1, "witnessed <file> [<flag> ...]   what the other players there saw and heard of this turn, for their next; the personal flags they learned by it"),
     "scene": (cmd_scene, 2, "scene start <id> | scene end <id> [reward]   play a side scene between two characters"),

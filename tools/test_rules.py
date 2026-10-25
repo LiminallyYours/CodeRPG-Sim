@@ -1251,6 +1251,75 @@ class Engine(unittest.TestCase):
         self.assertEqual([e["step"] for e in self.log_entries() if e["kind"] == "trade"], ["offered", "lapsed", "offered"])
         self.assertFalse([e for e in self.log_entries() if e["kind"] == "coins"])
 
+    def grabs(self, pid, do, *tries):
+        """`pid`'s turn: each try a (seed, contest arguments) pair, run as them with those dice. Returns the outputs."""
+        self.write("proposals/reply.txt", "DO: %s\nJOURNAL: I want it.\n" % do)
+        self.rpg("reply", pid, "proposals/reply.txt")
+        out = [self.rpg("contest", *args, as_=pid, seed=seed, ok=None) for seed, args in tries]
+        self.write("proposals/story.txt", "You reach for it.")
+        self.rpg("narrate", pid, "proposals/story.txt")
+        return out
+
+    def test_a_grab_goes_to_the_higher_roll_and_a_tie_stays_with_the_one_holding_it(self):
+        self.three_players()  # Wren (Gumption +2, the dagger in hand) and Tam (Wiggle +1) in Harbor Square; Corin in the Gull
+        self.rpg("newgame", seed=44)
+        before, out = self.holdings("wren", "tam"), []
+        grab = ("agility", "wren", "might", "--take", "worn_dagger")
+
+        def refused(pid):
+            out.extend(self.grabs(pid, "I grab at things.", *[(1, a) for a in (
+                ("might", "corin", "might", "--take", "worn_dagger"), ("might", "tam", "might", "--take", "healing_tonic"),
+                ("luck", "wren", "might", "--take", "worn_dagger"), ("might", "wren", "might", "--take", "brass_lens"),
+                ("might", "wren", "might"))]))
+            out.append(self.rpg("contest", *grab, as_="wren", ok=False))
+        self.round_with(tam=refused)
+        for said, got in zip(["Corin isn't here", "a contest is with someone else", "stat must be one of might, agility, wits",
+                              "Wren isn't holding brass_lens", "usage: contest", "it's"], out):
+            self.assertIn(said, got)
+        self.assertEqual(self.holdings("wren", "tam"), before)
+
+        def too_heavy(pid):
+            self.write("proposals/reply.txt", "DO: I grab Wren's dagger, my arms full.\nJOURNAL: I want it.\n")
+            self.rpg("reply", pid, "proposals/reply.txt")
+            for i in ("boarding_cutlass", "brass_lens", "honey_cake"):
+                self.rpg("gain", i, as_=pid)  # a load of 8, the most Tam can carry
+            out.append(self.rpg("contest", *grab, as_=pid, seed=2, ok=False))
+            for i in ("boarding_cutlass", "brass_lens", "honey_cake"):
+                self.rpg("lose", i, as_=pid)
+            self.write("proposals/story.txt", "Your arms are full.")
+            self.rpg("narrate", pid, "proposals/story.txt")
+        self.round_with(tam=too_heavy)
+        self.assertIn("REFUSED: too heavy", out[-1])
+        self.assertFalse([e for e in self.log_entries() if e["kind"] == "contest"], "a refused grab rolls nothing")
+        # seed 7: 19 + 1 against 18 + 2, a tie; seed 1: 16 + 1 against 16 + 2; seed 2: 18 + 1 against 11 + 2
+        self.round_with(tam=lambda pid: out.extend(self.grabs(pid, "I snatch Wren's dagger.", (7, grab), (1, grab), (2, grab))))
+        self.assertIn("CONTEST for Worn Dagger: Tam agility d20 19 +1 = 20; Wren might d20 18 +2 = 20 -> Wren KEEPS hold of it (a tie)", out[-3])
+        self.assertIn("Wren might d20 16 +2 = 18 -> Wren KEEPS hold of it\n", out[-2])
+        self.assertIn("-> Tam TAKES it  [weight 2/8]", out[-1])
+        self.assertIn("Wren was there and sees it in the onlookers' note (`witnessed`)", out[-1])
+        self.assertEqual(self.holdings("wren", "tam"), [(["healing_tonic"], None, 3), (["healing_tonic", "worn_dagger"], None, 4)],
+                         "the dagger was in Wren's hand: let go of, and taken")
+        contests = [e for e in self.log_entries() if e["kind"] == "contest"]
+        self.assertEqual([(e["player"], e["against"], e["item"], e["winner"], e["rolls"]["tam"]["total"], e["rolls"]["wren"]["total"])
+                          for e in contests], [("tam", "wren", "worn_dagger", "wren", 20, 20), ("tam", "wren", "worn_dagger", "wren", 17, 18),
+                                               ("tam", "wren", "worn_dagger", "tam", 19, 13)])
+        self.assertEqual((contests[-1]["rolls"]["wren"]["stat"], contests[-1]["words"]), ("might", "I snatch Wren's dagger."))
+        # a thing made to order, grabbed: its order's record says so
+        charm = {"id": "shell_charm", "name": "Shell Charm", "description": "A cockle shell on a cord.", "tier": "trinket"}
+
+        def order(pid):
+            self.write("proposals/reply.txt", "DO: I have Morwen make me a charm.\nJOURNAL: For luck.\n")
+            self.rpg("reply", pid, "proposals/reply.txt")
+            self.order("morwen", charm)
+            self.rpg("pay", "shell_charm", as_=pid)
+            self.write("proposals/story.txt", "Morwen ties off the cord.")
+            self.rpg("narrate", pid, "proposals/story.txt")
+        self.round_with(wren=order)
+        self.round_with(tam=lambda pid: self.grabs(pid, "I snatch the charm.", (2, ("agility", "wren", "might", "--take", "shell_charm"))))
+        self.assertIn("shell_charm", self.save()["players"]["tam"]["inventory"])
+        used = [(e["order"], e["id"], e["how"], e["player"]) for e in self.log_entries() if e["kind"] == "order" and e["step"] == "used"]
+        self.assertIn(("o1", "shell_charm", "snatched", "wren"), used)
+
     def test_those_passed_on_the_way_see_someone_go_by(self):
         self.rpg("game", "switch", "thirteenth_stroke")
         self.rpg("newgame", seed=43)  # Hobb in the tower; Marigold and Dilly in the square below; Hester in Crooked Lane
