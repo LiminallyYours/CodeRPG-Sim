@@ -1010,11 +1010,12 @@ class Engine(unittest.TestCase):
         self.write("proposals/reply.txt", "DO: I ask Pip about her brother.\nJOURNAL: She knows something.\n")
         self.rpg("reply", "marigold", "proposals/reply.txt")
         self.rpg("flag", "set", "heard_of_shadows", as_="marigold")
-        self.write("proposals/note.txt", "Marigold asked Pip about her brother, and Pip told her the whole story.")
-        self.assertIn("a shared flag is everyone's already",
-                      self.rpg("witnessed", "proposals/note.txt", "craves_giggle", as_="marigold", ok=False))
-        self.assertIn("nothing of it to learn", self.rpg("witnessed", "proposals/note.txt", "caught_sneaking", as_="marigold", ok=False))
-        self.assertIn("They learned it too: heard_of_shadows", self.rpg("witnessed", "proposals/note.txt", "heard_of_shadows", as_="marigold"))
+        def witnessed(flag, ok=True):  # the note file is used up each time, refused or not
+            self.write("proposals/note.txt", "Marigold asked Pip about her brother, and Pip told her the whole story.")
+            return self.rpg("witnessed", "proposals/note.txt", flag, as_="marigold", ok=ok)
+        self.assertIn("a shared flag is everyone's already", witnessed("craves_giggle", ok=False))
+        self.assertIn("nothing of it to learn", witnessed("caught_sneaking", ok=False))
+        self.assertIn("They learned it too: heard_of_shadows", witnessed("heard_of_shadows"))
         self.assertEqual(self.save()["players"]["dilly"]["flags"], ["heard_of_shadows"])
         self.assertIn("[done] Find out why", self.rpg("pane", "dilly"))
         self.assertEqual([e["learned"] for e in self.log_of() if e["kind"] == "witnessed"], [["heard_of_shadows"]])
@@ -1249,6 +1250,36 @@ class Engine(unittest.TestCase):
         self.assertEqual(self.holdings("tam")[0][0], ["healing_tonic"] + ["honey_cake"] * 3)
         self.assertEqual([e["step"] for e in self.log_entries() if e["kind"] == "trade"], ["offered", "lapsed", "offered"])
         self.assertFalse([e for e in self.log_entries() if e["kind"] == "coins"])
+
+    def test_those_passed_on_the_way_see_someone_go_by(self):
+        self.rpg("game", "switch", "thirteenth_stroke")
+        self.rpg("newgame", seed=43)  # Hobb in the tower; Marigold and Dilly in the square below; Hester in Crooked Lane
+        out = []
+
+        def hobb(pid):
+            self.write("proposals/reply.txt", "DO: I go down through the square to Crooked Lane.\nJOURNAL: To find a poker.\n")
+            self.rpg("reply", pid, "proposals/reply.txt")
+            self.rpg("move", "south", as_=pid)
+            self.rpg("move", "south", as_=pid)
+            for note, extra in (("Hobb came down the lane from the square.", ()), ("Hobb crossed the square, heading south.", ("--in", "lopsided_square")),
+                                ("Hobb again.", ("--in", "crooked_lane")), ("Hobb again.", ("--in", "lopsided_square"))):
+                self.write("proposals/note.txt", note)
+                out.append(self.rpg("witnessed", "proposals/note.txt", *extra, as_=pid, ok=None))
+            self.write("proposals/story.txt", "You go down to the lane.")
+            self.rpg("narrate", pid, "proposals/story.txt")
+        self.round_with(hobb=hobb)
+        self.assertIn("WITNESSED by Hester Gimbal (hester)", out[0])
+        self.assertIn("ALSO PASSED: lopsided_square, where Marigold Thimble, Dilly Quickstep saw Hobb Ashcombe go by: a short note of that "
+                      "for them, `witnessed <file> --in lopsided_square`.", out[0])
+        self.assertIn("WITNESSED by Marigold Thimble (marigold), Dilly Quickstep (dilly)", out[1])
+        self.assertNotIn("ALSO PASSED", out[1])
+        self.assertIn("REFUSED: crooked_lane isn't a room Hobb Ashcombe passed through this turn with someone else in it (lopsided_square)", out[2])
+        self.assertIn("WITNESSED by Marigold", out[3], "a second note for the same room is the referee's to judge")
+        seen = lambda p: [m["text"] for m in self.save()["players"][p]["memory"]["recent"] if m["kind"] == "seen"]  # noqa: E731
+        self.assertIn("Hobb crossed the square, heading south.", seen("dilly"))
+        self.assertNotIn("Hobb came down the lane from the square.", seen("dilly"), "they saw only the passing")
+        self.assertEqual(seen("hester")[-1:], ["Hobb came down the lane from the square."])
+        self.assertFalse(list((self.dir / "proposals").glob("note.txt")), "a refused note's file is used up too")
 
     def test_what_one_person_learns_stays_their_own(self):
         self.rpg("game", "switch", "thirteenth_stroke")

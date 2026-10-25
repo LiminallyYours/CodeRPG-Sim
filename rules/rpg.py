@@ -1710,6 +1710,9 @@ def cmd_move(args):
         raise Refused("the way %s is blocked (needs %s)" % (want, cond))
     me(state)["location"] = dest
     me(state)["worked"] = None  # a new visit: there may be work here again
+    turn = me(state).get("turn") or {}
+    if turn.get("round") == state["run"].get("round") and state["run"].get("round_state"):
+        turn.setdefault("passed", []).append(dest)  # who saw them go by (witnessed --in)
     log_use(state, dest, "entered")
     left, _ = scene_playing(state)
     events = lapse_trades(state)
@@ -3787,10 +3790,23 @@ def cmd_say(args):
         speaker, ", ".join("%s (%s)" % (state["players"][p]["name"], p) for p in listeners)))
 
 
+def passed_by(state, pid, turn):
+    """{room: [the other players there]} for each room `pid` passed through this turn (neither where it began nor where
+    it ends), with someone else in it: they saw them go by."""
+    ends = {turn.get("room"), state["players"][pid]["location"]}
+    out = {}
+    for r in turn.get("passed", []):
+        here = [p for p, pl in state["players"].items() if p != pid and pl["location"] == r and pl["status"] == "playing"]
+        if r not in ends and here:
+            out[r] = here
+    return out
+
+
 def cmd_witnessed(args):
-    """witnessed <file> [<flag> ...]: what the others there saw and heard of this turn, as the referee tells it, the
-    world's people's words included. Every other player in the room the turn began in, or the room it ends in, keeps
-    it in memory as `seen`, to read on their next turn. The player's own words go with `say`. Flags named after the
+    """witnessed <file> [<flag> ...] [--in <room>]: what the others there saw and heard of this turn, as the referee
+    tells it, the world's people's words included. Every other player in the room the turn began in, or the room it
+    ends in, keeps it in memory as `seen`, to read on their next turn; with `--in <room>`, only those in a room the
+    player passed through on the way, who saw them go by. The player's own words go with `say`. Flags named after the
     file are personal ones the player holds that the others learned too, by seeing or hearing it: each gets them."""
     state = load_state()
     require_playing(state)
@@ -3798,26 +3814,47 @@ def cmd_witnessed(args):
     turn = open_turn(state, pid)
     if not turn:
         raise Refused("%s hasn't replied this round: `reply %s <file>` first" % (pid, pid))
-    rooms = {turn.get("room", me(state)["location"]), me(state)["location"]}
-    onlookers = [p for p, pl in state["players"].items()
-                 if p != pid and pl["location"] in rooms and pl["status"] == "playing"]
+    within = None
+    if "--in" in args:
+        i = args.index("--in")
+        within, args = (args[i + 1] if i + 1 < len(args) else None), args[:i] + args[i + 2:]
+    if not args:
+        raise Refused("usage: witnessed <file> [<flag> ...] [--in <room>]")
+    text = text_arg(args[0], "note", BALANCE["turns"]["witnessed_chars"])  # used up, refused or not
+    passed = passed_by(state, pid, turn)
+    if within is not None:
+        if within not in passed:
+            raise Refused("%s isn't a room %s passed through this turn with someone else in it (%s)" % (
+                within, me(state)["name"], ", ".join(passed) or "there's none"))
+        onlookers = passed[within]
+    else:
+        rooms = {turn.get("room", me(state)["location"]), me(state)["location"]}
+        onlookers = [p for p, pl in state["players"].items()
+                     if p != pid and pl["location"] in rooms and pl["status"] == "playing"]
     if not onlookers:
-        raise Refused("no one else was there to see it")
+        raise Refused("no one else was there to see it%s" % (
+            "; on the way, %s" % "; ".join("%s was in %s (`--in %s`)" % (", ".join(state["players"][p]["name"] for p in ps), r, r)
+                                           for r, ps in passed.items()) if passed else ""))
     learned = args[1:]
     for f in learned:
         if f not in personal_flags():
             raise Refused("%s isn't anyone's own flag: a shared flag is everyone's already" % f)
         if f not in me(state).get("flags", []):
             raise Refused("%s doesn't hold %s, so there was nothing of it to learn by watching" % (me(state)["name"], f))
-    text = text_arg(args[0], "note", BALANCE["turns"]["witnessed_chars"])
     for p in onlookers:
         remember(state["players"][p], "seen", text, state["run"]["round"])
         own = state["players"][p].setdefault("flags", [])
         own += [f for f in learned if f not in own]
-    log(state, "witnessed", text=text, seen_by=onlookers, learned=learned)
+    noted = turn.setdefault("noted", [])
+    noted.append(within or "ends")
+    log(state, "witnessed", text=text, seen_by=onlookers, learned=learned, **({"passing": within} if within else {}))
     save_state(state)
     print("WITNESSED by %s: they'll read it on their next turn.%s" % (", ".join(
         "%s (%s)" % (state["players"][p]["name"], p) for p in onlookers), " They learned it too: %s." % ", ".join(learned) if learned else ""))
+    for r, ps in passed.items():
+        if r not in noted:
+            print("ALSO PASSED: %s, where %s saw %s go by: a short note of that for them, `witnessed <file> --in %s`." % (
+                r, ", ".join(state["players"][p]["name"] for p in ps), me(state)["name"], r))
 
 
 # ---------------------------------------------------------------- trades: one person offers, the other decides
