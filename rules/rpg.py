@@ -3742,10 +3742,10 @@ def cmd_say(args):
     each listener's memory, to be read on their next turn and answered then if they like (proposal 6.5)."""
     state = load_state()
     require_playing(state)
+    words = text_arg(args[0], "words", BALANCE["turns"]["said_chars"]).strip('"“” ')  # used up, heard or not
     listeners = players_here(state)[1:]
     if not listeners:
         raise Refused("no one else is here to hear it")
-    words = text_arg(args[0], "words", BALANCE["turns"]["said_chars"]).strip('"“” ')
     speaker = me(state)["name"]
     for pid in listeners:
         remember(state["players"][pid], "told", '%s says: "%s"' % (speaker, words), state["run"].get("round", 0))

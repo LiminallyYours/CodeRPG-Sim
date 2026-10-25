@@ -967,6 +967,7 @@ class Engine(unittest.TestCase):
         self.rpg("move", next(iter(exits)), as_=first)
         self.write("proposals/words.txt", "Anyone?")
         self.assertIn("no one else is here to hear it", self.rpg("say", "proposals/words.txt", as_=first, ok=False))
+        self.assertFalse((self.dir / "proposals/words.txt").exists(), "words no one heard leave nothing behind")
 
     def test_the_others_there_see_and_hear_a_turn_on_their_next(self):
         self.three_players()  # Wren and Tam in Harbor Square, Corin north in the Gull
