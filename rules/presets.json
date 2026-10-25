@@ -62,6 +62,9 @@
       "max_chars": 12000,
       "condenser": "self"
     },
+    "cast": {
+      "model": "sonnet"
+    },
     "brief": {
       "dice_lines": false
     },
@@ -131,6 +134,9 @@
       "condense_every": 5,
       "max_chars": 12000,
       "condenser": "self"
+    },
+    "cast": {
+      "model": "sonnet"
     },
     "brief": {
       "dice_lines": false
@@ -202,6 +208,9 @@
       "max_chars": 12000,
       "condenser": "self"
     },
+    "cast": {
+      "model": "sonnet"
+    },
     "brief": {
       "dice_lines": false
     },
@@ -271,6 +280,9 @@
       "condense_every": 5,
       "max_chars": 45000,
       "condenser": "self"
+    },
+    "cast": {
+      "model": "sonnet"
     },
     "brief": {
       "dice_lines": false

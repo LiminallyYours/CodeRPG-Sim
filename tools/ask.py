@@ -77,7 +77,8 @@ def claude_command(model, agent=AGENT, effort=None):
 
 
 def call(model, prompt, agent=AGENT, effort=None):
-    """The answer to `prompt`, exactly as given, and what it cost; Failed if it didn't come."""
+    """The answer to `prompt`, exactly as given, what it cost, and the exact model version that answered (the one
+    claude -p names, since "sonnet" names whichever is newest), or None; Failed if it didn't come."""
     try:
         r = subprocess.run(claude_command(model, agent, effort), cwd=neutral_folder(), input=prompt, capture_output=True, text=True, timeout=600)
     except (OSError, subprocess.TimeoutExpired) as e:
@@ -88,11 +89,13 @@ def call(model, prompt, agent=AGENT, effort=None):
         out = {}
     if r.returncode != 0 or out.get("is_error") or not isinstance(out.get("result"), str):
         raise Failed("the answer didn't come (exit %d)\n%s" % (r.returncode, (r.stdout + r.stderr).strip()[-600:]))
-    return out["result"], float(out.get("total_cost_usd") or 0)
+    usage = out.get("modelUsage")
+    exact = ",".join(sorted(usage)) if isinstance(usage, dict) and usage else None
+    return out["result"], float(out.get("total_cost_usd") or 0), exact
 
 
 def ask(model, prompt):
-    """Their answer to `prompt`, exactly as given, and what it cost."""
+    """Their answer to `prompt`, exactly as given, what it cost, and the exact model that answered."""
     try:
         return call(model, prompt)
     except Failed as e:
@@ -117,10 +120,10 @@ def main(argv):
     prompt = printed(out)
     path = "proposals/%s-%s.txt" % ("memory" if memory else "reply", pid)
     for attempt in (1, 2):
-        answer, spend = ask(model, prompt)
+        answer, spend, exact = ask(model, prompt)
         (ROOT / path).write_text(answer, encoding="utf-8")
         store = ("memory", "store", pid) if memory else ("reply", pid)
-        code, out = rpg(*store, path, "--spend", "%.6f" % spend, *told)
+        code, out = rpg(*store, path, "--spend", "%.6f" % spend, *told, *(["--exact-model", exact] if exact else []))
         if code == 0:
             print(out, end="")
             return 0

@@ -69,7 +69,7 @@ JOURNAL: <one to three sentences, first person: why, and what they are working t
 ```
 The `DO` line is the typed action. The `JOURNAL` lines are the written reason JW asked for; they go into the log and into the player's own memory.
 
-**Model per player:** the cast entry names it, and the referee passes it when spawning the one `player` agent (the Agent tool takes a model at spawn; verified 2026-10-24). The model used is logged with every action.
+**Model per player:** the cast entry names it, and the referee passes it when spawning the one `player` agent (the Agent tool takes a model at spawn; verified 2026-10-24). The model used is logged with every action. *As decided later (JW, 2026-10-25; `PLAN.md` step 55):* the model is a run setting, `cast.model`, one model for everyone (Sonnet) by default, so a difference between people can't be put down to their models; `own` uses each cast entry's. The exact version that answered is logged too.
 
 ## 5. Money, spending and earning
 

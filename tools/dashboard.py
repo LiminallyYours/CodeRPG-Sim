@@ -156,7 +156,7 @@ def live():
         v = view.get("players", {}).get(pid, {})
         turn = pl.get("turn") or {}
         people.append({
-            "id": pid, "name": pl["name"], "model": pl.get("model"), "status": pl["status"],
+            "id": pid, "name": pl["name"], "model": rpg.model_for(save, pid), "status": pl["status"],
             "place": v.get("location_name", pl["location"]),
             "hp": pl["stats"]["hp"], "max_hp": pl["stats"]["max_hp"], "coins": pl["stats"]["coins"],
             "carrying": [i["name"] + (" (in hand)" if i.get("equipped") else "") for i in v.get("items", [])],

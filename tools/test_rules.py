@@ -825,8 +825,9 @@ class Engine(unittest.TestCase):
         s = self.save()
         self.assertEqual(list(s["players"]), ["wren", "corin"])
         cast = json.loads((self.dir / "games/dark_lighthouse/cast.json").read_text())
-        self.assertIn("CAST: Wren (wren, %s, they/them) at Harbor Square; Corin (corin, %s, they/them) at The Gull\n"
-                      % (cast[0]["model"], cast[1]["model"]), out)
+        self.assertIn("CAST: Wren (wren, sonnet, they/them) at Harbor Square; Corin (corin, sonnet, they/them) at The Gull\n", out,
+                      "everyone on the one model the settings name")
+        self.assertNotEqual(cast[1]["model"], "sonnet", "though Corin's own is another")
         self.assertEqual(s["players"]["corin"]["location"], "gull_tavern")
         self.assertEqual(s["players"]["corin"]["stats"]["coins"], 4)
         self.assertEqual(s["view"]["players"]["corin"]["location_name"], "The Gull")
@@ -838,7 +839,7 @@ class Engine(unittest.TestCase):
     def test_the_cast_says_how_to_speak_of_each_person(self):
         self.rpg("game", "switch", "thirteenth_stroke")
         out = self.rpg("newgame", seed=43)
-        self.assertIn("Dilly Quickstep (dilly, haiku, they/them) at ", out)
+        self.assertIn("Dilly Quickstep (dilly, sonnet, they/them) at ", out)
         self.assertIn("Hobb Ashcombe (hobb, sonnet, he/him) at ", out)
         self.assertIn("PEOPLE HERE: Dilly Quickstep (dilly, they/them; carrying lamplighters_pole).", self.rpg("look", as_="marigold"))
         self.assertIn("Marigold Thimble (she/her) at The Lopsided Square", self.rpg("world-brief", "turn", as_=False))
@@ -1516,7 +1517,7 @@ class Engine(unittest.TestCase):
         status = self.rpg("run", "status", as_=False)
         self.assertIn("next to act: %s (waiting for their reply)" % second, status)
         pl = self.save()["players"][second]
-        self.assertIn("%s (%s, %s, " % (pl["name"], second, pl["model"]), status.split("CAST: ")[1])
+        self.assertIn("%s (%s, sonnet, " % (pl["name"], second), status.split("CAST: ")[1])
         self.assertIn("STORY SO FAR: nothing yet", status)
         self.rpg("chronicle", "The lamp went out at dusk.", as_=second)
         self.assertIn("STORY SO FAR:\n- The lamp went out at dusk.\nROUND 1 OPEN", self.rpg("run", "status", as_=False),
@@ -1533,7 +1534,7 @@ class Engine(unittest.TestCase):
         entries = [json.loads(line) for line in (self.dir / "state" / "log" / ("%s.jsonl" % self.save()["run"]["id"])).read_text().splitlines()]
         actions = [e for e in entries if e["kind"] == "action"]
         self.assertEqual([(e["player"], e["do"], e["model"], e["order_position"]) for e in actions],
-                         [(first, "I look around.", self.save()["players"][first]["model"], 1), (second, "I look around.", self.save()["players"][second]["model"], 2)])
+                         [(first, "I look around.", "sonnet", 1), (second, "I look around.", "sonnet", 2)], "the model each was asked on")
         self.assertEqual(len([e for e in entries if e["kind"] == "narration"]), 2)
 
     def test_the_owner_pauses_resumes_and_ends_a_run_between_rounds(self):
@@ -1593,7 +1594,7 @@ answers = json.loads((d / "answers.json").read_text())
 answer = answers[min(n, len(answers) - 1)]
 if answer == "<fail>":
     print(json.dumps({"type": "result", "is_error": True, "result": "API Error: overloaded"})); sys.exit(1)
-print(json.dumps({"type": "result", "is_error": False, "result": answer, "total_cost_usd": 0.0012}))
+print(json.dumps({"type": "result", "is_error": False, "result": answer, "total_cost_usd": 0.0012, "modelUsage": {"claude-test-1": {}}}))
 """
 
     def ask(self, *args, answers, ok=True, tool="tools/ask.py"):
@@ -1710,7 +1711,7 @@ print(json.dumps({"type": "result", "is_error": False, "result": answer, "total_
         self.assertNotIn("## Who I am", out, "the referee never holds the brief")
         briefs = [e["text"] for e in self.log_entries() if e["kind"] == "brief"]
         self.assertEqual(asked, [briefs[-1]], "the brief, byte for byte as printed and logged")
-        model = next(e["model"] for e in json.loads((self.dir / "games/dark_lighthouse/cast.json").read_text()) if e["id"] == first)
+        model = "sonnet"  # the one model the settings name for everyone (cast.model)
         self.assertEqual(argv[0][argv[0].index("--model") + 1], model)
         for flag in ("-p", "--safe-mode", "--no-session-persistence"):
             self.assertIn(flag, argv[0])
@@ -1767,6 +1768,36 @@ print(json.dumps({"type": "result", "is_error": False, "result": answer, "total_
         line = next(l for l in out.split("== VERSIONS\n")[1].splitlines() if l.startswith("  brief:"))
         self.assertTrue(line.endswith("(r2-2)  <<< changed partway"), line)
         self.assertIn("  instructions:player: %s (r1-2)\n" % tag(sent[0]), out)
+
+    def test_everyone_is_asked_on_one_model_unless_the_settings_say_each_their_own(self):
+        self.rpg("game", "switch", "thirteenth_stroke")
+        self.settings_tool("preset", "simulation")
+        self.assertIn("PEOPLE: everyone asked on sonnet", self.rpg("settings"))
+        cast = json.loads((self.dir / "games" / "thirteenth_stroke" / "cast.json").read_text())
+        self.assertGreater(len({e["model"] for e in cast}), 1, "the cast names more than one model of its own")
+        self.rpg("newgame", seed=43)
+        status = self.rpg("run", "status", as_=False)
+        for e in cast:
+            self.assertIn("(%s, sonnet, " % e["id"], status)
+        first = self.rpg("round", "start").split(": ", 1)[1].split("(")[1].split(")")[0]
+        _, _, argv = self.ask(first, answers=["DO: I wait.\nJOURNAL: To see."])
+        self.assertEqual(argv[0][argv[0].index("--model") + 1], "sonnet")
+        action = [e for e in self.log_entries() if e["kind"] == "action"][-1]
+        self.assertEqual((action["model"], action["exact_model"]), ("sonnet", "claude-test-1"), "the nickname, and the version that answered")
+        out = self.run_py("tools/audit.py", "state/log/%s.jsonl" % self.save()["run"]["id"]).stdout
+        self.assertIn("  model sonnet: claude-test-1 (r1-1)\n", out)
+        self.settings_tool("set", "cast.model", "own")
+        self.assertIn("PEOPLE: each asked on their own model", self.rpg("settings"))
+        status = self.rpg("run", "status", as_=False)
+        for e in cast:
+            self.assertIn("(%s, %s, " % (e["id"], e["model"]), status)
+        self.assertIn("cast.model must be haiku or sonnet or opus or fable or own", self.settings_tool("set", "cast.model", "gpt", ok=False))
+        self.settings_tool("set", "cast.model", "own")  # a refused value stays saved until it's put right
+        path = self.dir / "games" / "thirteenth_stroke" / "cast.json"
+        path.write_text(json.dumps([{k: v for k, v in e.items() if k != "model"} for e in cast]))
+        self.assertIn("needs a model, since the settings ask each person's own", self.rpg("validate", "--game", "thirteenth_stroke", ok=False))
+        self.settings_tool("set", "cast.model", "haiku")
+        self.rpg("validate", "--game", "thirteenth_stroke")
 
     def voice(self, *args, answers, ok=True):
         return self.ask(*args, answers=answers, ok=ok, tool="tools/voice.py")

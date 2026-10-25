@@ -115,7 +115,7 @@ def main(argv):
     model, effort = front_matter(file)
     for attempt in (1, 2):
         try:
-            reply, spend = ask.call(model, prompt, file, effort)
+            reply, spend, exact = ask.call(model, prompt, file, effort)
             break
         except ask.Failed as e:
             why = e
@@ -127,7 +127,7 @@ def main(argv):
         saved = "proposals/world-%s.json" % kind
         (ROOT / saved).write_text(reply, encoding="utf-8")
     record = {"agent": agent, "about": about, "model": model, "effort": effort, "added": added, "again": again, "reply": reply,
-              "instructions": str(file.relative_to(ROOT))}
+              "instructions": str(file.relative_to(ROOT)), "exact_model": exact}
     (ROOT / "proposals" / "voiced.json").write_text(json.dumps(record, ensure_ascii=False), encoding="utf-8")
     code, out = ask.rpg("voiced", "proposals/voiced.json", "--spend", "%.6f" % spend, *as_args)
     if code != 0:

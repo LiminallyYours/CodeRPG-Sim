@@ -1531,10 +1531,16 @@ def pronouns(pid):
     return cast_entry(pid).get("pronouns") or "they/them"
 
 
+def model_for(state, pid):
+    """The model `pid` is asked on: the owner's `cast.model` for everyone, or, when it's `own`, their cast entry's."""
+    setting = SETTINGS["cast"]["model"]
+    return state["players"][pid].get("model") if setting == "own" else setting
+
+
 def cast_line(state):
     """CAST: who plays, with the model each is asked on, their pronouns, and where each is now."""
     return "CAST: %s" % "; ".join("%s (%s, %s, %s) at %s%s" % (
-        pl["name"], pid, pl["model"], pronouns(pid), ent("rooms", pl["location"]).get("name", pl["location"]),
+        pl["name"], pid, model_for(state, pid), pronouns(pid), ent("rooms", pl["location"]).get("name", pl["location"]),
         "" if pl["status"] == "playing" else ", %s" % pl["status"]) for pid, pl in state["players"].items())
 
 
@@ -1558,7 +1564,7 @@ def cast_player(entry, w, run):
     stats["coins"] = int(entry.get("coins", w.get("coins", 0)))
     inventory = list(entry.get("inventory", w.get("inventory") or []))
     equipped = entry.get("equipped", w.get("equipped") if "inventory" not in entry else None)
-    return {"name": entry["name"], "model": entry["model"], "status": "playing", "location": entry["home"],
+    return {"name": entry["name"], "model": entry.get("model"), "status": "playing", "location": entry["home"],
             "stats": stats, "inventory": inventory, "equipped": equipped if equipped in inventory else None,
             "map": {}, "met": [], "present": None, "worked": None}
 
@@ -2730,7 +2736,8 @@ def validate_game(kit=False, sim=False):
     overrides = own.get("overrides") or {}
     unknown_keys(overrides, presets["normal"], "settings.json overrides", problems)
     merged = content.deep_merge(presets.get(own.get("preset", "normal"), presets["normal"]), overrides)
-    for key, allowed in (("rounds.clock", ("move", "round")), ("memory.condenser", ("self", "neutral"))):
+    for key, allowed in (("rounds.clock", ("move", "round")), ("memory.condenser", ("self", "neutral")),
+                         ("cast.model", tuple(BALANCE["cast"]["models"]) + ("own",))):
         section, name = key.split(".")
         if (merged.get(section) or {}).get(name) not in allowed:
             problems.append("settings.json: %s must be %s" % (key, " or ".join(allowed)))
@@ -3151,8 +3158,10 @@ def validate_cast(problems):
         motives = e.get("motivations")
         if not isinstance(motives, list) or not motives or not all(isinstance(m, str) and m.strip() for m in motives):
             problems.append("%s: motivations must be a list of short lines" % where)
-        if e.get("model") not in limits["models"]:
+        if "model" in e and e["model"] not in limits["models"]:
             problems.append("%s: model must be one of %s" % (where, ", ".join(limits["models"])))
+        elif "model" not in e and SETTINGS["cast"]["model"] == "own":
+            problems.append("%s: needs a model, since the settings ask each person's own (cast.model: own)" % where)
         if not content.exists("rooms", str(e.get("home", ""))):
             problems.append("%s: home %r is not a room" % (where, e.get("home")))
         attrs = e.get("attributes")
@@ -3721,6 +3730,21 @@ def take_spend(args):
     return args[:i] + args[i + 2:], usd
 
 
+def take_exact_model(args):
+    """The arguments without `--exact-model <id>`, and that id (the model version claude -p said it answered on), or None."""
+    if "--exact-model" not in args:
+        return args, None
+    i = args.index("--exact-model")
+    if i + 1 >= len(args):
+        raise Refused("--exact-model takes the model's id")
+    return args[:i] + args[i + 2:], args[i + 1]
+
+
+def exact(model):
+    """The log field for the exact model version a reply came from, if it's known."""
+    return {} if not model else {"exact_model": model}
+
+
 def spent(usd):
     """The log field for what a reply cost, if it's known."""
     return {} if usd is None else {"spend": usd}
@@ -3730,6 +3754,7 @@ def cmd_reply(args):
     """reply <player> <file> [--spend <usd>]: the player's reply this turn: what they do (DO:) and why (JOURNAL:)."""
     args, usd = take_spend(args)
     args, instructions = take_instructions(args)
+    args, exact_model = take_exact_model(args)
     state = load_state()
     pl = player_arg(state, args[0])
     if open_turn(state, args[0]):
@@ -3746,7 +3771,7 @@ def cmd_reply(args):
     remember(pl, "did", reply["do"], number)
     if reply["journal"]:
         remember(pl, "reasoned", reply["journal"], number)
-    log(state, "action", do=reply["do"], journal=reply["journal"], model=pl.get("model"),
+    log(state, "action", do=reply["do"], journal=reply["journal"], model=model_for(state, args[0]), **exact(exact_model),
         versions=versions(state, args[0], instructions), **spent(usd))
     save_state(state)
     print("REPLY from %s (%s): DO: %s" % (pl["name"], pronouns(args[0]), reply["do"]))
@@ -4239,6 +4264,7 @@ def cmd_voiced(args):
     tags = record_texts(state, {"instructions:" + Path(rec["instructions"]).stem: agent_instructions(rec["instructions"])}
                         ) if isinstance(rec.get("instructions"), str) else {}
     log(state, "voice", agent=rec["agent"], about=rec["about"], model=rec["model"], effort=rec.get("effort"), versions=tags,
+        **exact(rec.get("exact_model") if isinstance(rec.get("exact_model"), str) else None),
         added=rec["added"], again=bool(rec.get("again")), reply=rec["reply"], **spent(usd))
     print("VOICED: the %s agent, for %s (%s)" % (rec["agent"], rec["about"], rec["model"]))
 
@@ -4265,6 +4291,7 @@ def cmd_memory(args):
     own words."""
     args, usd = take_spend(args)
     args, instructions = take_instructions(args)
+    args, exact_model = take_exact_model(args)
     state = load_state()
     if len(args) < 2 or args[0] not in ("condense", "store"):
         raise Refused("use: memory condense <player> | memory store <player> <file>")
@@ -4297,7 +4324,7 @@ def cmd_memory(args):
     mem["condensed"].append({"rounds": [rounds[0], rounds[-1]], "kind": "condensed", "text": text,
                              "round": state["run"]["round"], "uses": 0})
     mem.pop("condensing")
-    log(state, "memory", rounds=[rounds[0], rounds[-1]], text=text, replaced=len(before),
+    log(state, "memory", rounds=[rounds[0], rounds[-1]], text=text, replaced=len(before), model=model_for(state, args[1]), **exact(exact_model),
         versions=versions(state, args[1], instructions), **spent(usd))
     save_state(state)
     print("REMEMBERED by %s, rounds %d-%d, in their own words (%d entries folded in)." % (pl["name"], rounds[0], rounds[-1], len(before)))
@@ -4723,6 +4750,8 @@ def cmd_settings(args):
     m = SETTINGS["memory"]
     print("MEMORY: the last %s rounds word for word; older ones condensed every %s rounds, or past %s characters held (%s)"
           % (m["recent_rounds"], m["condense_every"], m["max_chars"], m["condenser"]))
+    model = SETTINGS["cast"]["model"]
+    print("PEOPLE: %s" % ("each asked on their own model, as cast.json names it" if model == "own" else "everyone asked on %s" % model))
 
 
 # ---------------------------------------------------------------- games: list, show, switch
@@ -5007,9 +5036,9 @@ COMMANDS = {
     "run": (cmd_run, 1, "run status | pause | resume | end   the owner's say over a run: a pause or end waits for the round in progress"),
     "brief": (cmd_brief, 1, "brief <player> [--instructions <file>]   everything the player agent is handed on its turn (logged)"),
     "pane": (cmd_pane, 1, "pane <player>   the player's margin as plain text"),
-    "reply": (cmd_reply, 2, "reply <player> <file> [--spend <usd>] [--instructions <file>]   the player's reply this turn (DO: and JOURNAL: lines), from a file in proposals/"),
+    "reply": (cmd_reply, 2, "reply <player> <file> [--spend <usd>] [--instructions <file>] [--exact-model <id>]   the player's reply this turn (DO: and JOURNAL: lines), from a file in proposals/"),
     "narrate": (cmd_narrate, 2, "narrate <player> <file>   the story told to the player this turn, from a file; ends their turn"),
-    "memory": (cmd_memory, 2, "memory condense <player> | memory store <player> <file> [--spend <usd>] [--instructions <file>]   fold older rounds into the player's own words"),
+    "memory": (cmd_memory, 2, "memory condense <player> | memory store <player> <file> [--spend <usd>] [--instructions <file>] [--exact-model <id>]   fold older rounds into the player's own words"),
     "log": (cmd_log, 0, "log [n]   the run's last n log entries (default 10), one line each, for checking"),
     "validate": (cmd_validate, 0, "validate [--game <id> | --dir <folder>] [--kit-complete] [--sim-complete]   check games' content, soundness and settings"),
     "game": (cmd_game, 0, "game [list | show | switch <id>]   the installed games; switching keeps each one's save"),
