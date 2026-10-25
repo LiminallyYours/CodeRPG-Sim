@@ -26,7 +26,7 @@ SIM_GAMES = ("thirteenth_stroke",)  # the worlds with the simulation's whole eco
 class Engine(unittest.TestCase):
     def setUp(self):
         self.dir = Path(tempfile.mkdtemp(prefix="rpg-test-"))
-        for d in ("rules", "games", "proposals", "tools", ".claude/hooks", "mod/sounds"):
+        for d in ("rules", "games", "proposals", "tools", ".claude/hooks", ".claude/agents", "mod/sounds"):
             shutil.copytree(ROOT / d, self.dir / d, ignore=shutil.ignore_patterns("__pycache__", "*.json.tmp"))
         (self.dir / "state").mkdir()
         for stale in (self.dir / "proposals").glob("*.json"):
@@ -1183,6 +1183,93 @@ class Engine(unittest.TestCase):
         self.assertIn("no limit on rounds", self.rpg("run", "status"))
         self.rpg("round", "start")
         self.assertIn("rounds.max_per_run must be a whole number", self.settings_tool("set", "rounds.max_per_run", "-1", ok=False))
+
+    STAND_IN = """#!/usr/bin/env python3
+import json, sys, pathlib
+d = pathlib.Path(__file__).parent
+n = len(list(d.glob("asked-*.txt")))
+(d / ("asked-%d.txt" % n)).write_text(sys.stdin.read())
+(d / ("argv-%d.json" % n)).write_text(json.dumps(sys.argv[1:]))
+answers = json.loads((d / "answers.json").read_text())
+print(json.dumps({"type": "result", "is_error": False, "result": answers[min(n, len(answers) - 1)], "total_cost_usd": 0.0012}))
+"""
+
+    def ask(self, *args, answers, ok=True):
+        """tools/ask.py with a stand-in for claude that keeps what it was handed (asked-<n>.txt, argv-<n>.json) and
+        gives the answers in turn."""
+        shutil.rmtree(self.dir / "stand_in", ignore_errors=True)
+        stand_in = self.write("stand_in/claude", self.STAND_IN)
+        stand_in.chmod(0o755)
+        self.write("stand_in/answers.json", json.dumps(answers))
+        env = dict(os.environ, CODERPG_CLAUDE=str(stand_in))
+        r = subprocess.run([sys.executable, "tools/ask.py", *args], cwd=self.dir, env=env, capture_output=True, text=True, timeout=60)
+        self.assertNotIn("Traceback", r.stderr, r.stderr)
+        self.assertEqual(r.returncode == 0, ok, r.stdout + r.stderr)
+        asked = sorted((self.dir / "stand_in").glob("asked-*.txt"))
+        return r.stdout, [a.read_text() for a in asked], [json.loads((self.dir / "stand_in" / ("argv-%d.json" % i)).read_text())
+                                                        for i in range(len(asked))]
+
+    def log_entries(self):
+        return [json.loads(line) for line in (self.dir / "state" / "log" / ("%s.jsonl" % self.save()["run"]["id"])).read_text().splitlines()]
+
+    def test_ask_hands_the_brief_on_unchanged_and_stores_the_reply(self):
+        self.rpg("game", "switch", "dark_lighthouse")
+        self.settings_tool("preset", "simulation")
+        self.rpg("newgame", seed=43)
+        first = self.rpg("round", "start").split(": ", 1)[1].split("(")[1].split(")")[0]
+        out, asked, argv = self.ask(first, answers=["DO: I look out to sea.\nJOURNAL: To get my bearings."])
+        self.assertIn("REPLY from", out)
+        self.assertIn("DO: I look out to sea.", out)
+        self.assertNotIn("## Who I am", out, "the referee never holds the brief")
+        briefs = [e["text"] for e in self.log_entries() if e["kind"] == "brief"]
+        self.assertEqual(asked, [briefs[-1]], "the brief, byte for byte as printed and logged")
+        model = next(e["model"] for e in json.loads((self.dir / "games/dark_lighthouse/cast.json").read_text()) if e["id"] == first)
+        self.assertEqual(argv[0][argv[0].index("--model") + 1], model)
+        for flag in ("-p", "--safe-mode", "--no-session-persistence"):
+            self.assertIn(flag, argv[0])
+        self.assertEqual(argv[0][argv[0].index("--tools") + 1], "", "no tools")
+        system = argv[0][argv[0].index("--system-prompt") + 1]
+        self.assertTrue(system.startswith("You are a person living your own life."), system[:80])
+        self.assertNotIn("---", system, "the instructions without player.md's front matter")
+        action = [e for e in self.log_entries() if e["kind"] == "action"][-1]
+        self.assertEqual((action["do"], action["spend"]), ("I look out to sea.", 0.0012))
+        self.assertIn("already replied", self.rpg("reply", first, "proposals/reply-%s.txt" % first, ok=False))
+
+    def test_ask_asks_once_more_when_a_reply_is_refused_and_then_gives_up(self):
+        self.rpg("game", "switch", "dark_lighthouse")
+        self.settings_tool("preset", "simulation")
+        self.rpg("newgame", seed=43)
+        first = self.rpg("round", "start").split(": ", 1)[1].split("(")[1].split(")")[0]
+        out, asked, _ = self.ask(first, answers=["I just stand there.", "DO: I wait.\nJOURNAL: Nothing yet."])
+        self.assertIn("DO: I wait.", out)
+        self.assertEqual(len(asked), 2)
+        self.assertEqual(asked[0], asked[1], "asked again with the same brief")
+        self.rpg("game", "switch", "flooded_station")
+        self.settings_tool("preset", "simulation")
+        self.rpg("newgame", seed=43)
+        first = self.rpg("round", "start").split(": ", 1)[1].split("(")[1].split(")")[0]
+        out, asked, _ = self.ask(first, answers=["Nothing to say."], ok=False)
+        self.assertIn("ASK FAILED: %s's reply was refused twice" % first, out)
+        self.assertEqual(len(asked), 2)
+
+    def test_ask_memory_condenses_through_the_person_and_asks_nothing_when_nothing_is_due(self):
+        self.rpg("game", "switch", "dark_lighthouse")
+        self.settings_tool("preset", "simulation")
+        self.settings_tool("set", "memory.recent_rounds", "1")
+        self.settings_tool("set", "memory.max_chars", "500")
+        self.rpg("newgame", seed=43)
+        self.play_round()
+        out, asked, _ = self.ask("wren", "--memory", answers=["MEMORY: Nothing much."])
+        self.assertIn("NOTHING TO CONDENSE", out)
+        self.assertEqual(asked, [])
+        self.play_round()
+        out, asked, argv = self.ask("wren", "--memory", answers=["MEMORY: I looked about the harbor."])
+        self.assertIn("REMEMBERED by Wren, rounds 1-1", out)
+        condensing = [e for e in self.log_entries() if e["kind"] == "command" and e["command"] == "memory"
+                      and e["args"][:1] == ["condense"] and not e["refused"]][-1]
+        self.assertEqual(asked, [condensing["output"]])
+        memory = [e for e in self.log_entries() if e["kind"] == "memory"][-1]
+        self.assertEqual((memory["text"], memory["spend"]), ("I looked about the harbor.", 0.0012))
 
     def test_memory_keeps_recent_rounds_and_condenses_older_ones_in_their_own_words(self):
         self.rpg("game", "switch", "dark_lighthouse")

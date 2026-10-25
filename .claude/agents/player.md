@@ -1,6 +1,6 @@
 ---
 name: player
-description: Lives one moment of one person's life in a CodeRPG-Sim world. The referee spawns it, fresh and blocking, with the brief from `rpg.py brief <id>` (or a memory brief from `rpg.py memory condense <id>`) and that person's model from the cast. It has no tools; it says what the person does and why, and the referee runs it as a turn.
+description: Lives one moment of one person's life in a CodeRPG-Sim world. `tools/ask.py` asks it, fresh each time, with the brief from `rpg.py brief <id>` (or a memory brief from `rpg.py memory condense <id>`) on that person's model from the cast, using these instructions as the whole system prompt. It has no tools; it says what the person does and why, and the referee runs it as a turn.
 tools: []
 omitClaudeMd: true
 ---

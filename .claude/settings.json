@@ -5,6 +5,7 @@
   "permissions": {
     "allow": [
       "Bash(python3 rules/rpg.py *)",
+      "Bash(python3 tools/ask.py *)",
       "Read(games/**)",
       "Read(rules/**)",
       "Read(state/**)",

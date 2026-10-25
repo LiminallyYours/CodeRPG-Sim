@@ -3659,8 +3659,26 @@ def open_turn(state, pid):
     return turn if turn.get("round") == run["round"] else None
 
 
+def take_spend(args):
+    """The arguments without `--spend <usd>`, and that amount (what a reply cost, from tools/ask.py), or None."""
+    if "--spend" not in args:
+        return args, None
+    i = args.index("--spend")
+    try:
+        usd = float(args[i + 1])
+    except (IndexError, ValueError):
+        raise Refused("--spend takes an amount in dollars")
+    return args[:i] + args[i + 2:], usd
+
+
+def spent(usd):
+    """The log field for what a reply cost, if it's known."""
+    return {} if usd is None else {"spend": usd}
+
+
 def cmd_reply(args):
-    """reply <player> <file>: the player's reply this turn: what they do (DO:) and why (JOURNAL:)."""
+    """reply <player> <file> [--spend <usd>]: the player's reply this turn: what they do (DO:) and why (JOURNAL:)."""
+    args, usd = take_spend(args)
     state = load_state()
     pl = player_arg(state, args[0])
     if open_turn(state, args[0]):
@@ -3677,7 +3695,7 @@ def cmd_reply(args):
     remember(pl, "did", reply["do"], number)
     if reply["journal"]:
         remember(pl, "reasoned", reply["journal"], number)
-    log(state, "action", do=reply["do"], journal=reply["journal"], model=pl.get("model"))
+    log(state, "action", do=reply["do"], journal=reply["journal"], model=pl.get("model"), **spent(usd))
     save_state(state)
     print("REPLY from %s: DO: %s" % (pl["name"], reply["do"]))
     if reply["journal"]:
@@ -3774,7 +3792,9 @@ def condensing_due(pl):
 
 
 def cmd_memory(args):
-    """memory condense <player> | memory store <player> <file>: fold older rounds into the player's own words."""
+    """memory condense <player> | memory store <player> <file> [--spend <usd>]: fold older rounds into the player's
+    own words."""
+    args, usd = take_spend(args)
     state = load_state()
     if len(args) < 2 or args[0] not in ("condense", "store"):
         raise Refused("use: memory condense <player> | memory store <player> <file>")
@@ -3807,7 +3827,7 @@ def cmd_memory(args):
     mem["condensed"].append({"rounds": [rounds[0], rounds[-1]], "kind": "condensed", "text": text,
                              "round": state["run"]["round"], "uses": 0})
     mem.pop("condensing")
-    log(state, "memory", rounds=[rounds[0], rounds[-1]], text=text, replaced=len(before))
+    log(state, "memory", rounds=[rounds[0], rounds[-1]], text=text, replaced=len(before), **spent(usd))
     save_state(state)
     print("REMEMBERED by %s, rounds %d-%d, in their own words (%d entries folded in)." % (pl["name"], rounds[0], rounds[-1], len(before)))
 
@@ -4354,9 +4374,9 @@ COMMANDS = {
     "run": (cmd_run, 1, "run status | pause | resume | end   the owner's say over a run: a pause or end waits for the round in progress"),
     "brief": (cmd_brief, 1, "brief <player>   everything the player agent is handed on its turn (logged)"),
     "pane": (cmd_pane, 1, "pane <player>   the player's margin as plain text"),
-    "reply": (cmd_reply, 2, "reply <player> <file>   the player's reply this turn (DO: and JOURNAL: lines), from a file in proposals/"),
+    "reply": (cmd_reply, 2, "reply <player> <file> [--spend <usd>]   the player's reply this turn (DO: and JOURNAL: lines), from a file in proposals/"),
     "narrate": (cmd_narrate, 2, "narrate <player> <file>   the story told to the player this turn, from a file; ends their turn"),
-    "memory": (cmd_memory, 2, "memory condense <player> | memory store <player> <file>   fold older rounds into the player's own words"),
+    "memory": (cmd_memory, 2, "memory condense <player> | memory store <player> <file> [--spend <usd>]   fold older rounds into the player's own words"),
     "log": (cmd_log, 0, "log [n]   the run's last n log entries (default 10), one line each, for checking"),
     "validate": (cmd_validate, 0, "validate [--game <id> | --dir <folder>] [--kit-complete] [--sim-complete]   check games' content, soundness and settings"),
     "game": (cmd_game, 0, "game [list | show | switch <id>]   the installed games; switching keeps each one's save"),
