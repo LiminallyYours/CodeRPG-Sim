@@ -269,7 +269,7 @@
     "memory": {
       "recent_rounds": 5,
       "condense_every": 5,
-      "max_chars": 12000,
+      "max_chars": 45000,
       "condenser": "self"
     },
     "brief": {

@@ -4166,6 +4166,9 @@ def cmd_settings(args):
     cap = int(SETTINGS["rounds"]["max_per_run"])
     print("ROUNDS: the world's clock moves by %s; %s" % (SETTINGS["rounds"]["clock"],
                                                        "at most %d rounds per run" % cap if cap else "no limit on rounds"))
+    m = SETTINGS["memory"]
+    print("MEMORY: the last %s rounds word for word; older ones condensed every %s rounds, or past %s characters held (%s)"
+          % (m["recent_rounds"], m["condense_every"], m["max_chars"], m["condenser"]))
 
 
 # ---------------------------------------------------------------- games: list, show, switch

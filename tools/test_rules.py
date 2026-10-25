@@ -1220,6 +1220,8 @@ class Engine(unittest.TestCase):
         self.rpg("game", "switch", "dark_lighthouse")
         self.settings_tool("preset", "simulation")
         self.assertIn("ROUNDS: the world's clock moves by round; at most 50 rounds per run", self.rpg("settings"))
+        self.assertIn("MEMORY: the last 5 rounds word for word; older ones condensed every 5 rounds, or past 45000 characters held (self)",
+                      self.rpg("settings"))
         self.settings_tool("set", "rounds.max_per_run", "2")
         self.rpg("newgame", seed=43)
         self.play_round()
