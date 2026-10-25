@@ -1270,6 +1270,40 @@ print(json.dumps({"type": "result", "is_error": False, "result": answers[min(n, 
     def log_entries(self):
         return [json.loads(line) for line in (self.dir / "state" / "log" / ("%s.jsonl" % self.save()["run"]["id"])).read_text().splitlines()]
 
+    def test_audit_reads_a_run_back(self):
+        self.rpg("game", "switch", "flooded_station")  # Sol and Ade both start on the Landing
+        self.settings_tool("preset", "simulation")
+        self.rpg("newgame", seed=44)
+        first, second = [p.split("(")[1].rstrip(")") for p in self.rpg("round", "start").split(": ", 1)[1].strip().split(", ")]
+        self.write("proposals/reply.txt", "DO: I wave.\nJOURNAL: To be friendly.\n")
+        self.rpg("reply", first, "proposals/reply.txt")
+        self.rpg("look", as_=first)
+        self.write("proposals/note.txt", "Someone waved from the far end of the landing.")
+        self.rpg("witnessed", "proposals/note.txt", as_=first)
+        self.write("proposals/story.txt", "You wave.")
+        self.rpg("narrate", first, "proposals/story.txt")
+        self.take_turn(second)  # someone there, and no note: the audit says so
+        self.rpg("round", "end")
+        brief = self.rpg("brief", first)
+        rows = [{"type": "assistant", "message": {"id": "m1", "usage": {"input_tokens": 10, "cache_read_input_tokens": 990, "output_tokens": 5},
+                 "content": [{"type": "tool_use", "name": "Bash", "input": {"command": "python3 rules/rpg.py look --as %s | sed -n 1,5p" % first}},
+                             {"type": "tool_use", "name": "Agent", "input": {"subagent_type": "npc", "prompt": "Made up by the referee."}},
+                             {"type": "tool_use", "name": "Agent", "input": {"subagent_type": "player", "model": "haiku", "prompt": brief}}]}}]
+        self.write("transcript.jsonl", "\n".join(json.dumps(r) for r in rows))
+        log = "state/log/%s.jsonl" % self.save()["run"]["id"]
+        r = self.run_py("tools/audit.py", log, "--transcript", "transcript.jsonl")
+        out = r.stdout
+        self.assertEqual(r.returncode, 0, out)
+        self.assertIn("== LEAKS\n  none", out)
+        self.assertIn("2 turns with someone else there, 1 with a note", out)
+        self.assertIn("r1 %s: no note" % second, out)
+        self.assertIn("== COINS\n  none moved", out)
+        self.assertIn("  %s: none" % first, out.split("== FLAGS")[1])
+        self.assertIn("== CUT READS\n  look: 1", out)
+        self.assertIn("npc (its own model): <<< NOT what rpg.py printed", out)
+        self.assertIn("player (haiku): holds what rpg.py printed", out)
+        self.assertIn("1 calls; largest context 1000 tokens; 5 output tokens", out)
+
     def test_ask_hands_the_brief_on_unchanged_and_stores_the_reply(self):
         self.rpg("game", "switch", "dark_lighthouse")
         self.settings_tool("preset", "simulation")
