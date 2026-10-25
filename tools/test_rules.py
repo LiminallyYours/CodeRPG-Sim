@@ -1248,6 +1248,7 @@ d = pathlib.Path(__file__).parent
 n = len(list(d.glob("asked-*.txt")))
 (d / ("asked-%d.txt" % n)).write_text(sys.stdin.read())
 (d / ("argv-%d.json" % n)).write_text(json.dumps(sys.argv[1:]))
+(d / ("cwd-%d.json" % n)).write_text(json.dumps([str(pathlib.Path.cwd()), sorted(p.name for p in pathlib.Path.cwd().iterdir())]))
 answers = json.loads((d / "answers.json").read_text())
 print(json.dumps({"type": "result", "is_error": False, "result": answers[min(n, len(answers) - 1)], "total_cost_usd": 0.0012}))
 """
@@ -1323,7 +1324,12 @@ print(json.dumps({"type": "result", "is_error": False, "result": answers[min(n, 
         system = argv[0][argv[0].index("--system-prompt") + 1]
         self.assertTrue(system.startswith("You are a person living your own life."), system[:80])
         self.assertNotIn("---", system, "the instructions without player.md's front matter")
-        action = [e for e in self.log_entries() if e["kind"] == "action"][-1]
+        where, inside = json.loads((self.dir / "stand_in" / "cwd-0.json").read_text())
+        self.assertEqual(inside, [], "asked from an empty folder")
+        for name in (self.dir.name, ROOT.name, "coderpg"):
+            self.assertNotIn(name.lower(), Path(where).resolve().as_posix().lower(), "whose path names nothing of the game's folder")
+        self.assertFalse(Path(where).exists(), "and taken away after")
+        action =[e for e in self.log_entries() if e["kind"] == "action"][-1]
         self.assertEqual((action["do"], action["spend"]), ("I look out to sea.", 0.0012))
         self.assertIn("already replied", self.rpg("reply", first, "proposals/reply-%s.txt" % first, ok=False))
 

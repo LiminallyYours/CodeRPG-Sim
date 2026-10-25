@@ -9,7 +9,9 @@ It prints only what `reply` (or `memory store`) prints, so the referee never hol
 exactly as printed because nobody retypes it. The person is `claude -p` under the owner's Claude Code login, with
 the model the cast gives them, the player agent's instructions as the whole system prompt, no tools, and
 `--safe-mode`, which keeps out CLAUDE.md, skills, plugins, hooks (the meter's SessionStart would refill it) and
-MCP servers. A refused reply is asked for once more with the same text, as the rounds procedure says. Each
+MCP servers, asked from an empty temporary folder whose path names nothing of this one. Claude Code still adds its
+own lines (a billing line, "a Claude agent", the owner's email, an environment note with the folder, platform,
+model and date): a known limit (DEVELOPING.md, Known limits). A refused reply is asked for once more with the same text, as the rounds procedure says. Each
 reply's cost goes in the log with it (`--spend`). CODERPG_CLAUDE names another program in place of `claude`
 (the tests use a stand-in).
 """
@@ -18,6 +20,7 @@ import os
 import re
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -45,12 +48,20 @@ def model_of(pid):
     return m.group(1)
 
 
+def neutral_base():
+    """Where a person's empty folder goes: Claude Code tells them the folder they're asked from, so its path must
+    name nothing of this one (a temp folder inside a Claude Code session can carry the project's name)."""
+    base = tempfile.gettempdir()
+    return base if ROOT.name.lower() not in base.lower() else "/tmp"
+
+
 def ask(model, prompt):
     """Their answer to `prompt`, exactly as given, and what it cost."""
     cmd = [os.environ.get("CODERPG_CLAUDE", "claude"), "-p", "--safe-mode", "--tools", "", "--no-session-persistence",
            "--output-format", "json", "--model", model, "--system-prompt", instructions()]
     try:
-        r = subprocess.run(cmd, cwd=ROOT, input=prompt, capture_output=True, text=True, timeout=600)
+        with tempfile.TemporaryDirectory(dir=neutral_base()) as here:
+            r = subprocess.run(cmd, cwd=here, input=prompt, capture_output=True, text=True, timeout=600)
     except (OSError, subprocess.TimeoutExpired) as e:
         sys.exit("ASK FAILED: %s" % e)
     try:

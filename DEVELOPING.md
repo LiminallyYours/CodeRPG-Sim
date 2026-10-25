@@ -146,6 +146,7 @@ The original's mod, unused in phase 1 of the fork but kept passing its tests. Th
 
 - **Between people, only words for now.** Handing something over, trading, contests and harm wait for phase 2; the referee treats an attempt as refused.
 - **Rumors are heard among people,** not when someone tells them: the referee voices `[minor]` characters without a command the engine could catch, so a person hears the talk going around whenever any of the world's people is with them at their brief or `look`.
+- **Claude Code adds its own lines to every person's call** (`tools/ask.py`), whatever `--system-prompt` says; a capture of the request (2026-10-25, Claude Code 2.1.310, `ANTHROPIC_BASE_URL` pointed at a local stand-in that forwarded nothing) showed, around `player.md`'s instructions and the brief: a billing line, "You are a Claude agent, built on Anthropic's Claude Agent SDK.", a reminder carrying the owner's login email, and an environment note (the working folder, platform, model name and date). `ask.py` asks from an empty temporary folder, so the path names nothing; the rest can't be switched off. A person's own question about it is answered from those lines (step 28's probe), so the fiction rests on their not asking.
 - **The meter refills per Claude Code session.** A long run on one meter slows to the game as written once it's spent (no world turns, no new orders), and the cast sees only that the maker is busy.
 
 The original's mod (unused in phase 1):
