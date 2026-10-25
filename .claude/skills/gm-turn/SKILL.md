@@ -171,8 +171,8 @@ A maker makes things to order within their trade; a builder builds a small place
 
 ## World turns
 When `look`, `move` or `round end` says `WORLD TURN DUE`, run the world turn. During a turn, do it before you store the narration:
-1. Run `python3 rules/rpg.py world-brief turn`.
-2. Spawn the `world` agent with that brief.
+1. Run `python3 rules/rpg.py world-brief turn`, every time: the world has moved on since the last one.
+2. Spawn the `world` agent with exactly what it printed: never an earlier brief, and never one you write or patch yourself.
 3. Write its JSON to `proposals/world-turn.json`, then run `python3 rules/rpg.py world-turn proposals/world-turn.json`.
 
 Don't narrate the world turn. Its rumors surface later, when people talk: minor and generated characters may repeat them, and agent NPCs already see them in their briefs.
