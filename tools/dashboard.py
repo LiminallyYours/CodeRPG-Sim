@@ -4,13 +4,19 @@
     python3 tools/dashboard.py [--port N]     then open http://127.0.0.1:<port>/ (the port is dashboard.port)
     python3 tools/dashboard.py --csv [run]    the run's log as CSV on stdout (the current run if none is named)
 
-It reads the save and the run's log, and refreshes every few seconds: the round and its order, each person's
-place, health, money, belongings and latest journal line, and a feed of what each did, why, and the story they
-were told. Its two buttons ask `rpg.py run pause` and `run end`; the dashboard never writes a game file itself.
+It reads the save and the run's log, and refreshes every few seconds: the round and its order; each person's
+place, health, money, belongings, latest journal line, how long their brief has grown, what they've cost and the
+exact model that answered; what's happening now (who is deciding or being played, for how long, and the referee's
+latest commands); what the run has spent, for whom, and each round's time, cost, context and refusals; and a feed
+of each turn (what they did and why, the townspeople's words, onlookers' notes, trades, coins and orders, the
+chronicle, the story, and what they were told, fetched when opened), what came between rounds (the world's turn,
+memories condensed) and endings. "Everything" (or `/?view=all`) adds the referee's commands and each turn's cost.
+Its two buttons ask `rpg.py run pause` and `run end`; the dashboard never writes a game file itself.
 The log is also served as CSV, one row per entry, for analysis elsewhere (`/export.csv`, or `--csv`).
 Python's standard library only.
 """
 import csv
+import datetime
 import io
 import json
 import subprocess
@@ -103,39 +109,221 @@ def contest_text(e, names, item_name):
     return "Grabbed at %s's %s: %s %d against %s %d; %s." % (who, item_name(e["item"]), me["stat"], me["total"], them["stat"], them["total"], end)
 
 
-def feed_of(entries, names, item_name=lambda i: i, currency="coins"):
-    """What happened, newest first: each turn (what they did, why, the story they were told, the words others
-    heard, the trades it made or answered and the grabs it made), and the round markers between."""
-    items, turns = [], {}
-    for e in entries:
-        key = (e.get("round"), e.get("player"))
-        if e["kind"] == "action":
-            turn = {"kind": "turn", "key": "%s:%s" % key, "round": e.get("round"), "player": e.get("player"),
-                    "name": names.get(e.get("player"), e.get("player")), "model": e.get("model"),
-                    "do": e.get("do", ""), "journal": e.get("journal", ""), "story": None, "heard_by": [], "trades": []}
-            turns[key] = turn
-            items.append(turn)
-        elif e["kind"] == "narration" and key in turns:
-            turns[key]["story"] = e.get("text", "")
-        elif e["kind"] == "speech" and key in turns:
-            turns[key]["heard_by"] = [names.get(p, p) for p in e.get("heard_by", [])]
-        elif e["kind"] == "trade":
-            text = trade_text(e, names, item_name, currency)
-            if key in turns:
-                turns[key]["trades"].append(text)
+QUIET = ("run", "show", "log")  # the referee's own lookups, left out of what it's seen doing
+STILL = 300  # seconds with nothing logged, in a run that's going, before the page says so
+SPEND_PARTS = {"referee": "referee", "action": "people", "voice": "voices", "memory": "memory"}  # who each kind's spend is for
+
+
+def clip(text, n=160):
+    """The first line of a command's words or output, cut to n characters."""
+    line = (text or "").strip().split("\n", 1)[0]
+    return line if len(line) <= n else line[:n - 1] + "…"
+
+
+def said_of(reply):
+    """A townsperson's words, from their agent's SAY: line (the whole reply if it has none)."""
+    return next((line[4:].strip() for line in reply.splitlines() if line.startswith("SAY:")), reply.strip())
+
+
+def when(e):
+    try:
+        return datetime.datetime.fromisoformat(e["t"])
+    except (KeyError, TypeError, ValueError):
+        return None
+
+
+def seconds_between(a, b):
+    ta, tb = when(a), when(b)
+    return int((tb - ta).total_seconds()) if ta and tb else None
+
+
+def order_text(e, name, currency):
+    """One step of an order, as the owner reads it in the feed."""
+    o, step = "Order %s: " % e.get("order"), e.get("step")
+    if step == "asked":
+        return o + "asked %s to %s." % (name(e.get("maker")), "build" if e.get("what") == "build" else "make something")
+    if step == "shaped":
+        return o + "%s will %s %s." % (name(e.get("maker")), "build" if e.get("use") == "stash" else "make", e.get("name") or e.get("id"))
+    if step in ("priced", "paid"):
+        return o + "%s %s %s." % (step, e.get("price"), currency)
+    if step == "declined":
+        return o + "declined (%s)." % e.get("reason", "")
+    if step == "used":
+        return o + "%s used (%s)." % (name(e.get("id")), e.get("how", ""))
+    return o + "%s." % step
+
+
+def world_lines(output, name):
+    """What a world turn changed, from `world-turn`'s output: its rumors and who moved where."""
+    out = []
+    for line in output.splitlines():
+        if line.startswith("  rumor: "):
+            out.append("Rumor: " + line[9:])
+        elif line.startswith("  ") and " is now at " in line:
+            who, room = line.strip().split(" is now at ", 1)
+            out.append("%s is now at %s." % (name(who), name(room)))
+    return out
+
+
+def add(item, key, value):
+    item.setdefault(key, []).append(value)
+
+
+def build_feed(entries, names, name, currency="coins"):
+    """What happened, oldest first: each turn (from their brief: what they did, why, the story they were told, the
+    words others heard, what the townspeople said, the onlookers' notes, trades, grabs, coins and orders, what was
+    made, the chronicle, and the referee's commands), the round markers, with what came between rounds (world
+    turns, memories condensed, the referee's session), and endings. A turn takes the entries of its round that are
+    its person's or no one's, from its brief until the next turn or the round's end; anything else goes to the
+    latest round marker."""
+    items, turn, bucket = [], None, None
+
+    def new_turn(e):
+        pid = e.get("player")
+        t = {"kind": "turn", "key": "%s:%s" % (e.get("round"), pid), "round": e.get("round"), "player": pid,
+             "name": names.get(pid, pid), "model": None, "exact_model": None, "do": "", "journal": "", "options": None,
+             "story": None, "brief_at": None, "brief_chars": None, "heard_by": [], "trades": [], "spend": 0.0,
+             "seconds": None, "t": e.get("t")}
+        items.append(t)
+        return t
+
+    for i, e in enumerate(entries):
+        kind = e["kind"]
+        fresh = turn is not None and turn["player"] == e.get("player") and turn["round"] == e.get("round") and not turn["do"]
+        if kind == "brief" and e.get("player"):
+            turn = turn if fresh else new_turn(e)
+            turn.update(brief_at=i, brief_chars=len(e.get("text", "")))
+            continue
+        if kind == "action":
+            turn = turn if fresh else new_turn(e)
+            turn.update(model=e.get("model"), exact_model=e.get("exact_model"), do=e.get("do", ""),
+                        journal=e.get("journal", ""), options=e.get("options"))
+            turn["spend"] += e.get("spend") or 0
+            continue
+        if kind == "round" and e.get("phase") in ("start", "end"):
+            turn = None
+            bucket = ({"kind": "round", "key": "r%s" % e.get("round"), "round": e.get("round"),
+                       "order": [names.get(p, p) for p in e.get("order", [])]} if e["phase"] == "start" else
+                      {"kind": "round_end", "key": "e%s" % e.get("round"), "round": e.get("round"),
+                       "world_turn": bool(e.get("world_turn_due"))})
+            items.append(bucket)
+            continue
+        mine = turn is not None and e.get("round") == turn["round"] and e.get("player") in (None, turn["player"])
+        theirs = mine and e.get("player") == turn["player"]  # a trade or grab is the person's own, never no one's
+        here = turn if mine else bucket
+        if kind == "narration" and mine:
+            turn["story"] = e.get("text", "")
+            turn["seconds"] = seconds_between(turn, e)
+        elif kind == "speech" and mine:
+            turn["heard_by"] = [names.get(p, p) for p in e.get("heard_by", [])]
+        elif kind == "trade":
+            text = trade_text(e, names, name, currency)
+            if theirs:
+                turn["trades"].append(text)
             else:  # an offer lapsing when a round ends is no one's turn
                 items.append({"kind": "trade", "key": "t%d" % len(items), "round": e.get("round"), "text": text})
-        elif e["kind"] == "contest" and key in turns:
-            turns[key]["trades"].append(contest_text(e, names, item_name))
-        elif e["kind"] == "round" and e.get("phase") == "start":
-            items.append({"kind": "round", "key": "r%s" % e.get("round"), "round": e.get("round"),
-                          "order": [names.get(p, p) for p in e.get("order", [])]})
-        elif e["kind"] == "round" and e.get("phase") == "end":
-            items.append({"kind": "round_end", "key": "e%s" % e.get("round"), "round": e.get("round"),
-                          "world_turn": bool(e.get("world_turn_due"))})
-        elif e["kind"] == "run" and e.get("action") in ("pause", "resume", "end", "ended"):
+        elif kind == "contest" and theirs:
+            turn["trades"].append(contest_text(e, names, name))
+        elif kind == "ending":
+            items.append({"kind": "ending", "key": "end%d" % i, "round": e.get("round"), "by": names.get(e.get("player")),
+                          "text": e.get("text", ""), "heard_by": [names.get(p, p) for p in e.get("heard_by", [])]})
+        elif kind == "run" and e.get("action") in ("pause", "resume", "end", "ended"):
             items.append({"kind": "run", "key": "run%d" % len(items), "action": e["action"], "round": e.get("round")})
-    return items[::-1][:FEED_LIMIT]
+        elif here is None:
+            continue  # before the first round: the new game's own commands
+        elif kind == "witnessed":
+            add(here, "notes", {"text": e.get("text", ""), "seen_by": [names.get(p, p) for p in e.get("seen_by", [])]})
+        elif kind == "voice":
+            npc = e.get("agent") == "npc"
+            about = name(e.get("about")) if npc else e.get("about")
+            add(here, "voices", {"agent": e.get("agent"), "about": about, "said": said_of(e.get("reply", "")) if npc else None,
+                                 "reply": e.get("reply", ""), "spend": e.get("spend")})
+            add(here, "commands", {"text": "asked the %s agent, for %s" % (e.get("agent"), about), "said": "", "refused": False})
+            if here is turn:
+                turn["spend"] += e.get("spend") or 0
+        elif kind == "coins":
+            add(here, "money", "%+d %s (%s); now %s." % (e.get("delta", 0), currency, e.get("reason"), e.get("balance")))
+        elif kind == "order":
+            add(here, "money", order_text(e, name, currency))
+        elif kind == "memory":
+            rounds = e.get("rounds") or []
+            add(here, "memories", {"who": names.get(e.get("player"), e.get("player")), "rounds": rounds,
+                                   "text": e.get("text", ""), "replaced": e.get("replaced"), "spend": e.get("spend")})
+        elif kind == "referee":
+            here["referee"] = {"spend": e.get("spend"), "seconds": e.get("seconds"), "context": e.get("context")}
+        elif kind == "command":
+            if not e.get("refused"):
+                if e.get("command") == "chronicle" and e.get("args"):
+                    add(here, "chronicle", e["args"][0])
+                elif e.get("command") == "world-turn":
+                    for line in world_lines(e.get("output", ""), name):
+                        add(here, "world", line)
+                elif e.get("command") == "generate":
+                    add(here, "made", clip(e.get("output", "")).replace("GENERATED: ", ""))
+            if e.get("command") not in QUIET:
+                add(here, "commands", {"text": clip(" ".join([e.get("command", "")] + [str(a) for a in e.get("args", [])]), 100),
+                                       "said": clip(e.get("output"), 160), "refused": bool(e.get("refused"))})
+    return items
+
+
+def meter_of(entries, current):
+    """What the run has spent, by whom it was for, and each round's cost, time, the referee's context and refusals.
+    A round's time is its referee session's when one is logged (tools/rounds.py), or from its start to its end."""
+    spend = dict.fromkeys(("referee", "people", "voices", "memory"), 0.0)
+    rounds = {}
+    for e in entries:
+        r = e.get("round")
+        if r is None:
+            continue
+        row = rounds.setdefault(r, {"round": r, "spend": 0.0, "seconds": None, "context": None, "refused": 0, "start": None, "end": None})
+        part = SPEND_PARTS.get(e["kind"])
+        if part and e.get("spend"):
+            spend[part] += e["spend"]
+            row["spend"] += e["spend"]
+        if e["kind"] == "round" and e.get("phase") in ("start", "end"):
+            row[e["phase"]] = e
+        elif e["kind"] == "referee":
+            row["seconds"], row["context"] = e.get("seconds"), e.get("context")
+        elif e["kind"] == "command" and e.get("refused"):
+            row["refused"] += 1
+    rows = []
+    for r in sorted(rounds, reverse=True):
+        row = rounds.pop(r)
+        if not row["start"]:
+            continue
+        start, end = row.pop("start"), row.pop("end")
+        row["open"] = end is None
+        if row["seconds"] is None:
+            row["seconds"] = seconds_between(start, end) if end else seconds_between(start, {"t": now_text()})
+        rows.append(row)
+    last = when(entries[-1]) if entries else None
+    return {"spend": dict(spend, total=sum(spend.values())), "rounds": rows,
+            "quiet": int((datetime.datetime.now() - last).total_seconds()) if last else None, "still": STILL,
+            "this_round": next((row for row in rows if row["round"] == current), None)}
+
+
+def now_text():
+    return datetime.datetime.now().isoformat(timespec="seconds")
+
+
+def happening(items, run, next_name):
+    """What's going on right now, from the feed's last turn or marker: who is deciding or being played, for how long,
+    and the referee's latest commands; or the round closing; or the run paused or ended."""
+    if run.get("ended"):
+        return {"stage": "ended", "text": "The run has ended."}
+    last = next((x for x in reversed(items) if x["kind"] in ("turn", "round", "round_end")), None)
+    if last is None:
+        return {"stage": "waiting", "text": "Nothing has happened yet."}
+    since = lambda t: seconds_between({"t": t}, {"t": now_text()})
+    steps = (last.get("commands") or [])[-5:]
+    if last["kind"] == "turn" and last["story"] is None:
+        if not last["do"]:
+            return {"stage": "deciding", "who": last["name"], "since": since(last["t"]), "told": last["brief_chars"], "steps": []}
+        return {"stage": "playing", "who": last["name"], "since": since(last["t"]), "steps": steps}
+    if last["kind"] == "round_end":
+        stage = "paused" if run.get("stop") == "pause" else "closing"
+        return {"stage": stage, "round": last["round"], "steps": steps}
+    return {"stage": "between", "next": next_name, "round": last["round"], "steps": steps}
 
 
 def live():
@@ -144,19 +332,43 @@ def live():
     if not save or "players" not in save:
         return {"game": None}
     rpg.choose_game(save["game"])
+    rpg._RUN = save["run"]  # what this run generated, so its names resolve (as load_state does)
     run, view = save["run"], save.get("view", {})
     look = view.get("look", {})
     rs = run.get("round_state")
     players = save["players"]
     names = {pid: pl["name"] for pid, pl in players.items()}
+
+    def name(ident):
+        """Any id the log names, as the owner reads it: a person, a character, an item or a place."""
+        if ident in names:
+            return names[ident]
+        for kind in ("characters", "items", "rooms"):
+            if ident and rpg.ent_exists(kind, ident):
+                return rpg.ent(kind, ident).get("name", ident)
+        return ident
+
     nxt = next((p for p in rs["order"] if p not in rs.get("done", []) and players[p]["status"] == "playing"), None) if rs else None
     entries = log_entries(run["id"])
+    briefs, spent, exact, asked_on = {}, {}, {}, {}
+    for e in entries:
+        pid = e.get("player")
+        if e["kind"] == "brief" and pid:
+            briefs.setdefault(pid, []).append(len(e.get("text", "")))
+        if e["kind"] == "action" and pid and e.get("model"):
+            asked_on[pid] = e["model"]
+        if e["kind"] in ("action", "memory") and pid:
+            spent[pid] = spent.get(pid, 0.0) + (e.get("spend") or 0)
+            if e.get("exact_model") and e["exact_model"] not in exact.setdefault(pid, []):
+                exact[pid].append(e["exact_model"])
     people = []
     for pid, pl in players.items():
         v = view.get("players", {}).get(pid, {})
         turn = pl.get("turn") or {}
         people.append({
-            "id": pid, "name": pl["name"], "model": rpg.model_for(save, pid), "status": pl["status"],
+            "id": pid, "name": pl["name"], "model": asked_on.get(pid) or rpg.model_for(save, pid), "status": pl["status"],
+            "exact_models": exact.get(pid, []), "spend": spent.get(pid, 0.0),
+            "told": (briefs.get(pid) or [None])[-1], "first_told": (briefs.get(pid) or [None])[0],
             "place": v.get("location_name", pl["location"]),
             "hp": pl["stats"]["hp"], "max_hp": pl["stats"]["max_hp"], "coins": pl["stats"]["coins"],
             "carrying": [i["name"] + (" (in hand)" if i.get("equipped") else "") for i in v.get("items", [])],
@@ -164,18 +376,30 @@ def live():
             "now": pid == nxt, "replied": pid == nxt and turn.get("round") == run.get("round"),
         })
     cap = int(rpg.SETTINGS["rounds"]["max_per_run"])
+    currency = look.get("currency", "coins")
+    items = build_feed(entries, names, name, currency)
     return {
         "game": {"id": save["game"], "title": save.get("adventure", save["game"])},
-        "seed": run.get("seed"), "currency": look.get("currency", "coins"),
+        "seed": run.get("seed"), "currency": currency,
         "time": ", ".join(x for x in (view.get("time"), view.get("weather")) if x),
         "run": {"round": run.get("round", 0), "open": bool(rs), "played": run.get("round", 0) - (1 if rs else 0),
                 "cap": cap, "stop": run.get("stop"), "ended": bool(run.get("ended")),
                 "order": [names.get(p, p) for p in rs["order"]] if rs else [],
                 "done": [names.get(p, p) for p in rs.get("done", [])] if rs else []},
         "people": people,
-        "feed": feed_of(entries, names, lambda i: rpg.item(i).get("name", i) if rpg.ent_exists("items", i) else i,
-                        look.get("currency", "coins")),
+        "meter": meter_of(entries, run.get("round")),
+        "happening": happening(items, run, names.get(nxt)),
+        "feed": items[::-1][:FEED_LIMIT],
     }
+
+
+def brief_at(n):
+    """The brief at line n of the current run's log, for the feed's "What they were told" (sent only when asked:
+    a late brief runs to tens of thousands of characters)."""
+    save = read_save()
+    entries = log_entries(save["run"]["id"]) if save and "run" in save else []
+    e = entries[n] if 0 <= n < len(entries) else None
+    return {"text": e.get("text", "")} if e and e["kind"] == "brief" else None
 
 
 def ask_run(what):
@@ -203,10 +427,14 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         if not self.local():
             return self.send(403, "forbidden", "text/plain")
-        if self.path == "/":
+        if self.path.split("?", 1)[0] == "/":  # ?view=all opens the fuller view
             return self.send(200, PAGE, "text/html; charset=utf-8")
         if self.path == "/api/live":
             return self.send(200, json.dumps(live(), ensure_ascii=False), "application/json")
+        if self.path.startswith("/api/brief/") and self.path[11:].isdigit():
+            brief = brief_at(int(self.path[11:]))
+            return self.send(200, json.dumps(brief, ensure_ascii=False), "application/json") if brief else \
+                self.send(404, "no brief there", "text/plain")
         if self.path == "/export.csv":
             save = read_save()
             if not save or "run" not in save:
@@ -245,6 +473,7 @@ PAGE = r"""<!doctype html>
   --brass: #8C6D1F; --brick: #A63D2B;
   --serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
   --sans: system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
 }
 @media (prefers-color-scheme: dark) {
   :root { --paper: #151C27; --sheet: #1C2532; --ink: #DCE3EA; --slate: #94A3B5; --rule: #2E3A4B;
@@ -265,37 +494,80 @@ button { font: 500 14px var(--sans); padding: 8px 14px; border-radius: 6px; curs
 button.end { border-color: var(--brick); color: var(--brick); }
 button:hover:not(:disabled) { background: var(--sheet); }
 button:disabled { opacity: 0.45; cursor: default; }
-button:focus-visible, summary:focus-visible { outline: 2px solid var(--brass); outline-offset: 2px; }
+button:focus-visible, summary:focus-visible, a:focus-visible { outline: 2px solid var(--brass); outline-offset: 2px; }
 .said { color: var(--slate); font-size: 13px; width: 100%; text-align: right; min-height: 1.2em; margin: 0; }
 .people { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 0 28px; margin: 24px 0 8px; }
 .person { border-top: 3px solid var(--who); padding: 12px 0 20px; }
 .person.now { border-top-color: var(--brass); }
-.person h2 { font: 600 19px/1.2 var(--serif); margin: 0; color: var(--who); }
+.person h2 { margin: 0; }
+.person h2 button { font: 600 19px/1.2 var(--serif); color: var(--who); border: 0; padding: 0; background: none; text-align: left; }
+.person h2 button:hover { background: none; text-decoration: underline; text-underline-offset: 3px; }
+.person h2 button[aria-pressed="true"] { text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 3px; }
 .meta b { color: var(--brass); font-weight: 600; }
 .meta { color: var(--slate); font-size: 13px; margin: 2px 0 10px; }
+.warn { color: var(--brick); }
 .stat { margin: 2px 0; }
 .bar { height: 4px; background: var(--rule); border-radius: 2px; margin: 4px 0 8px; max-width: 180px; }
 .bar i { display: block; height: 100%; border-radius: 2px; background: var(--who); }
-.carry { color: var(--slate); font-size: 13.5px; margin: 6px 0 0; }
+.carry, .told { color: var(--slate); font-size: 13.5px; margin: 6px 0 0; }
 .journal { font: italic 17px/1.45 var(--serif); margin: 14px 0 0; }
 .journal small { display: block; font: 13px var(--sans); font-style: normal; color: var(--slate); margin-top: 4px; }
-.feed { max-width: 74ch; margin-top: 28px; }
+.below { display: grid; grid-template-columns: minmax(0, 74ch) minmax(260px, 1fr); gap: 0 40px; margin-top: 28px; align-items: start; }
+aside { position: sticky; top: 16px; display: grid; gap: 16px; }
+@media (max-width: 900px) { .below { grid-template-columns: minmax(0, 1fr); } aside { position: static; order: -1; margin-bottom: 24px; } }
+.box { background: var(--sheet); border-radius: 6px; padding: 14px 16px; }
+.box h3 { font: 600 13px var(--sans); text-transform: uppercase; letter-spacing: 0.06em; color: var(--slate); margin: 0 0 8px; }
+.nowtext { font: 16px/1.45 var(--serif); margin: 0 0 6px; }
+.nowtext b { color: var(--brass); font-weight: 600; }
+.steps { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 6px; }
+.steps li, .cmds li { font: 12.5px/1.4 var(--mono); overflow-wrap: anywhere; }
+.steps li span, .cmds li span { display: block; color: var(--slate); }
+.refused, .refused span { color: var(--brick) !important; }
+.total { font: 600 26px/1.1 var(--serif); margin: 0 0 6px; font-variant-numeric: tabular-nums; }
+.parts { font-size: 13.5px; color: var(--slate); margin: 0 0 10px; }
+.parts b { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
+table { border-collapse: collapse; width: 100%; font-size: 13px; font-variant-numeric: tabular-nums; }
+th { text-align: right; font-weight: 500; color: var(--slate); padding: 2px 0 4px 8px; border-bottom: 1px solid var(--rule); }
+td { text-align: right; padding: 3px 0 3px 8px; }
+th:first-child, td:first-child { text-align: left; padding-left: 0; }
+td.so-far { color: var(--slate); font-style: italic; }
+.note { font-size: 12.5px; color: var(--slate); margin: 8px 0 0; }
+.quiet { font-size: 13px; margin: 8px 0 0; color: var(--slate); }
+.quiet.still { color: var(--brick); }
 .feed h3 { font: 600 15px var(--sans); color: var(--slate); margin: 0 0 8px; display: flex; flex-wrap: wrap;
-           justify-content: space-between; gap: 4px 16px; }
+           justify-content: space-between; align-items: center; gap: 6px 16px; }
 .feed h3 a { font-weight: 400; color: var(--ink); }
-.feed h3 a:focus-visible { outline: 2px solid var(--brass); outline-offset: 2px; }
-.turn { padding: 14px 0 16px 16px; border-left: 3px solid var(--who); margin: 0 0 14px; background: var(--sheet); border-radius: 0 6px 6px 0; padding-right: 16px; }
+.views { display: inline-flex; border: 1px solid var(--rule); border-radius: 6px; overflow: hidden; }
+.views button { border: 0; border-radius: 0; padding: 4px 12px; font-size: 13px; color: var(--slate); }
+.views button[aria-pressed="true"] { background: var(--ink); color: var(--paper); }
+.filter { font-size: 13.5px; color: var(--slate); margin: 0 0 12px; }
+.filter button { font-size: 13px; padding: 2px 10px; margin-left: 8px; }
+.turn { padding: 14px 16px 16px; border-left: 3px solid var(--who); margin: 0 0 14px; background: var(--sheet); border-radius: 0 6px 6px 0; }
 .turn .who { font: 600 14px var(--sans); color: var(--who); margin: 0 0 6px; }
 .turn .who span { color: var(--slate); font-weight: 400; }
 .do { font: 17px/1.5 var(--serif); margin: 0 0 8px; }
 .why { font: italic 15.5px/1.5 var(--serif); color: var(--slate); margin: 0 0 8px; }
+.waiting { font: italic 16px/1.5 var(--serif); color: var(--slate); margin: 0 0 8px; }
+.options { margin: 0 0 8px; padding-left: 20px; font-size: 14px; }
 .heard { font-size: 13px; color: var(--slate); margin: 0 0 6px; }
+.voice { font: 15.5px/1.5 var(--serif); margin: 0 0 8px; padding-left: 10px; border-left: 2px solid var(--rule); }
+.voice b { font: 600 13px var(--sans); color: var(--slate); display: block; }
 .trade { font-size: 14px; margin: 0 0 6px; padding-left: 10px; border-left: 2px solid var(--brass); }
+.chron { font-size: 13.5px; color: var(--slate); margin: 0 0 6px; }
+.chron b { font-weight: 600; }
+details { margin: 4px 0 0; }
 details summary { cursor: pointer; color: var(--slate); font-size: 13.5px; }
 details .story { font: 16px/1.6 var(--serif); margin-top: 8px; }
 details .story p { margin: 0 0 10px; }
+details pre { white-space: pre-wrap; overflow-wrap: anywhere; font: 12.5px/1.5 var(--mono); margin: 8px 0 0; max-height: 32em; overflow: auto; }
+.cmds { list-style: none; margin: 10px 0 0; padding: 10px 0 0; border-top: 1px dashed var(--rule); display: grid; gap: 6px; }
+.cost { font-size: 12.5px; color: var(--slate); margin: 8px 0 0; font-variant-numeric: tabular-nums; }
 .marker { color: var(--slate); font-size: 13.5px; margin: 18px 0 14px; display: flex; gap: 10px; align-items: center; }
 .marker::before, .marker::after { content: ""; flex: 1; height: 1px; background: var(--rule); }
+.between { margin: -6px 0 18px; padding: 10px 16px; border-radius: 6px; background: var(--sheet); }
+.between:empty { display: none; }
+.ending { border: 1px solid var(--brass); border-radius: 6px; padding: 14px 16px; margin: 0 0 14px; }
+.ending .who { font: 600 14px var(--sans); color: var(--brass); margin: 0 0 6px; }
 .empty { font: 17px/1.5 var(--serif); color: var(--slate); margin: 40px 0; }
 .stale { color: var(--brick); }
 </style>
@@ -315,17 +587,31 @@ details .story p { margin: 0 0 10px; }
     </div>
   </header>
   <section class="people" id="people" aria-label="The people"></section>
-  <section class="feed" aria-label="What happened">
-    <h3>What happened, newest first <a href="/export.csv" id="csv">Download the whole log as CSV</a></h3>
-    <div id="feed"></div>
-  </section>
+  <div class="below">
+    <section class="feed" aria-label="What happened">
+      <h3><span>What happened, newest first</span>
+        <span class="views" role="group" aria-label="How much to show">
+          <button type="button" id="view-people" aria-pressed="true">People</button>
+          <button type="button" id="view-all" aria-pressed="false">Everything</button>
+        </span>
+        <a href="/export.csv" id="csv">Download the whole log as CSV</a></h3>
+      <p class="filter" id="filter" hidden></p>
+      <div id="feed"></div>
+    </section>
+    <aside aria-label="The run as it goes">
+      <section class="box" aria-label="Now"><h3>Now</h3><div id="happening"></div></section>
+      <section class="box" aria-label="The run so far"><h3>The run so far</h3><div id="meter"></div></section>
+    </aside>
+  </div>
 </main>
 <script>
 const INKS = ["#1F6F78", "#6E3B6E", "#4E6B2F", "#9A4A1C", "#3A4FA0", "#9C3D5A"];
 const INKS_DARK = ["#5FB7BF", "#C98BC9", "#9DBB72", "#E09A66", "#8EA0EA", "#E58AA6"];
 const dark = matchMedia("(prefers-color-scheme: dark)");
-const opened = new Set();
-let inkOf = {}, last = null;
+const opened = new Set(), briefs = new Map();
+let inkOf = {}, last = null, only = null, everything = false;
+try { everything = localStorage.getItem("dashboard-view") === "all"; } catch (e) {}
+if (/[?&]view=(all|people)\b/.test(location.search)) everything = /view=all/.test(location.search);  // a view that can be bookmarked
 
 function el(tag, attrs = {}, ...kids) {
   const n = document.createElement(tag);
@@ -337,6 +623,48 @@ function el(tag, attrs = {}, ...kids) {
 }
 const plural = (n, word) => n + " " + word;
 const modelName = m => m ? m[0].toUpperCase() + m.slice(1) : "";
+const count = n => n == null ? "" : n.toLocaleString("en");
+const money = x => x == null ? "" : "$" + (x > 0 && x < 0.01 ? x.toFixed(3) : x.toFixed(2));
+function took(s) {
+  if (s == null) return "";
+  if (s < 60) return s + "s";
+  if (s < 3600) return Math.floor(s / 60) + "m " + String(s % 60).padStart(2, "0") + "s";
+  return Math.floor(s / 3600) + "h " + Math.floor(s % 3600 / 60) + "m";
+}
+const quote = t => "“" + t + "”";
+
+// a folded part of the feed that stays open across refreshes
+function fold(key, label, body) {
+  const d = el("details", {"data-key": key}, el("summary", {text: label}), body);
+  if (opened.has(key)) d.open = true;
+  d.addEventListener("toggle", () => d.open ? opened.add(key) : opened.delete(key));
+  return d;
+}
+const paragraphs = text => el("div", {class: "story"}, ...text.split(/\n\s*\n/).map(t => el("p", {text: t})));
+
+// what a person was told before deciding: fetched only when opened, since a late brief is tens of thousands of characters
+function briefFold(item) {
+  if (item.brief_at == null) return null;
+  const key = "brief:" + item.key, pre = el("pre", {text: briefs.get(item.brief_at) || "Loading…"});
+  const d = fold(key, "What they were told (" + count(item.brief_chars) + " characters)", pre);
+  const load = async () => {
+    if (!d.open || briefs.has(item.brief_at)) return;
+    try {
+      const r = await fetch("/api/brief/" + item.brief_at, {cache: "no-store"});
+      briefs.set(item.brief_at, r.ok ? (await r.json()).text : "Not found in the log.");
+    } catch (e) { return; }
+    pre.textContent = briefs.get(item.brief_at);
+  };
+  d.addEventListener("toggle", load);
+  load();
+  return d;
+}
+
+function commandList(cmds) {
+  if (!everything || !cmds || !cmds.length) return null;
+  return el("ul", {class: "cmds", "aria-label": "The referee's commands"}, ...cmds.map(c =>
+    el("li", {class: c.refused ? "refused" : ""}, c.text, c.said ? el("span", {text: c.said}) : null)));
+}
 
 function runLine(d) {
   const r = d.run, cap = r.cap ? " of at most " + r.cap : "";
@@ -346,14 +674,127 @@ function runLine(d) {
   return "Seed " + d.seed + ". " + played + cap + ". " + state + (d.time ? " " + d.time[0].toUpperCase() + d.time.slice(1) + "." : "");
 }
 
+function renderHappening(h, d) {
+  const box = document.getElementById("happening");
+  let line;
+  if (h.stage === "deciding") line = [el("b", {text: h.who}), " is deciding, " + took(h.since) + " so far",
+    h.told != null ? " (told " + count(h.told) + " characters)." : "."];
+  else if (h.stage === "playing") line = ["The referee is playing ", el("b", {text: h.who}), "'s turn, " + took(h.since) + " so far."];
+  else if (h.stage === "closing") line = ["Round " + h.round + " is closing: memories, the chronicle, the world's turn."];
+  else if (h.stage === "paused") line = ["Paused after round " + h.round + ". /rounds or tools/rounds.py goes on from here."];
+  else if (h.stage === "between") line = [h.next ? "Between turns; " : "Round " + h.round + ": everyone has had their turn.",
+    h.next ? el("b", {text: h.next}) : "", h.next ? " is next." : ""];
+  else line = [h.text];
+  const steps = (h.steps || []).map(c => el("li", {class: c.refused ? "refused" : ""}, c.text, c.said ? el("span", {text: c.said}) : null));
+  box.replaceChildren(...[el("p", {class: "nowtext"}, ...line),
+    steps.length ? el("ul", {class: "steps", "aria-label": "The referee's latest commands"}, ...steps) : null].filter(Boolean));
+}
+
+function renderMeter(m, d) {
+  const s = m.spend, box = document.getElementById("meter");
+  const rows = m.rounds.slice(0, 10).map(r => el("tr", {},
+    el("td", {text: r.round}), el("td", {class: r.open ? "so-far" : "", text: took(r.seconds)}),
+    el("td", {class: r.open ? "so-far" : "", text: money(r.spend)}), el("td", {text: r.context ? Math.round(r.context / 1000) + "k" : ""}),
+    el("td", {class: r.refused ? "warn" : "", text: r.refused || ""})));
+  const going = !d.run.ended && d.run.stop !== "pause";
+  const still = going && m.quiet != null && m.quiet > m.still;
+  box.replaceChildren(...[
+    el("p", {class: "total", text: money(s.total) + " spent"}),
+    el("p", {class: "parts"}, "Referee ", el("b", {text: money(s.referee)}), " · People ", el("b", {text: money(s.people)}),
+       " · Their memories ", el("b", {text: money(s.memory)}), " · Townspeople and the world ", el("b", {text: money(s.voices)})),
+    rows.length ? el("table", {},
+      el("thead", {}, el("tr", {}, ...["Round", "Time", "Cost", "Context", "Refused"].map(t => el("th", {scope: "col", text: t})))),
+      el("tbody", {}, ...rows)) : null,
+    d.run.open ? el("p", {class: "note", text: "A round's cost includes its referee once its session ends (tools/rounds.py); until then, the people's and agents' only."}) : null,
+    m.quiet != null ? el("p", {class: "quiet" + (still ? " still" : ""), text: still ?
+      "Nothing logged for " + took(m.quiet) + ": a long call, or nothing is running the rounds now." :
+      "Last logged " + took(m.quiet) + " ago."}) : null].filter(Boolean));
+}
+
+function renderTurn(item) {
+  const options = Array.isArray(item.options) && item.options.length ?  // step 52's options considered, once replies carry them
+    el("ol", {class: "options", "aria-label": "The options they weighed"}, ...item.options.map(o => el("li", {text: typeof o === "string" ? o : JSON.stringify(o)}))) : null;
+  const voices = (item.voices || []).map(v => v.agent === "npc" ?
+    el("p", {class: "voice"}, el("b", {text: v.about}), quote(v.said)) :
+    everything ? fold("v:" + item.key + v.about, "The world agent, for " + v.about, el("pre", {text: v.reply})) : null);
+  const notes = (item.notes || []).map((n, i) => fold("n:" + item.key + i, "What " + (n.seen_by.join(" and ") || "no one") + " saw", paragraphs(n.text)));
+  const story = item.story != null ? fold(item.key, "The story they were told", paragraphs(item.story)) : null;
+  const cost = everything && (item.spend || item.seconds != null) ?
+    el("p", {class: "cost", text: [item.seconds != null ? took(item.seconds) + " from brief to story" : "",
+      item.spend ? money(item.spend) + " for their reply and the agents asked" : "",
+      item.exact_model || ""].filter(Boolean).join(" · ")}) : null;
+  return el("article", {class: "turn", style: "--who:" + (inkOf[item.name] || "var(--slate)")},
+    el("p", {class: "who"}, item.name, el("span", {text: ", round " + item.round})),
+    item.do ? null : el("p", {class: "waiting", text: "Deciding…"}),
+    options,
+    item.do ? el("p", {class: "do", text: item.do}) : null,
+    item.journal ? el("p", {class: "why", text: item.journal}) : null,
+    item.heard_by.length ? el("p", {class: "heard", text: "Heard by " + item.heard_by.join(" and ")}) : null,
+    ...voices,
+    ...(item.trades || []).map(t => el("p", {class: "trade", text: t})),
+    ...(item.money || []).map(t => el("p", {class: "trade", text: t})),
+    ...(item.made || []).map(t => el("p", {class: "trade", text: "New in the world: " + t})),
+    ...(item.chronicle || []).map(t => el("p", {class: "chron"}, el("b", {text: "Chronicle: "}), t)),
+    ...notes,
+    story || (item.do ? el("p", {class: "heard", text: "Their turn is still being played."}) : null),
+    briefFold(item),
+    cost,
+    commandList(item.commands));
+}
+
+// what came between turns or after a round ended: the chronicle, the world's turn, memories condensed, and the referee's session
+function renderBetween(item) {
+  const ref = item.referee;
+  return el("div", {class: "between"},
+    ...(item.chronicle || []).map(t => el("p", {class: "chron"}, el("b", {text: "Chronicle: "}), t)),
+    ...(item.world || []).map(t => el("p", {class: "chron"}, el("b", {text: "The world: "}), t)),
+    ...(item.made || []).map(t => el("p", {class: "trade", text: "New in the world: " + t})),
+    ...(item.money || []).map(t => el("p", {class: "trade", text: t})),
+    ...(item.notes || []).map((n, i) => fold("n:" + item.key + i, "What " + (n.seen_by.join(" and ") || "no one") + " saw", paragraphs(n.text))),
+    ...(item.memories || []).filter(m => !only || m.who === only).map((m, i) => fold("m:" + item.key + i,
+      m.who + "'s memory of rounds " + m.rounds.join("–") + ", condensed (" + count(m.text.length) + " characters, from " + m.replaced + " entries)",
+      paragraphs(m.text))),
+    ...(item.voices || []).filter(v => everything && v.agent !== "npc").map((v, i) =>
+      fold("v:" + item.key + i, "The world agent, for " + v.about + (v.spend ? " (" + money(v.spend) + ")" : ""), el("pre", {text: v.reply}))),
+    everything && ref ? el("p", {class: "cost", text: "The referee's session: " + [took(ref.seconds), money(ref.spend),
+      ref.context ? Math.round(ref.context / 1000) + "k context" : ""].filter(Boolean).join(" · ")}) : null,
+    commandList(item.commands));
+}
+
+function renderFeed(d) {
+  const feed = document.getElementById("feed"), filter = document.getElementById("filter");
+  if (only) {
+    filter.hidden = false;
+    filter.replaceChildren("Showing only " + only + "'s turns.", el("button", {type: "button", id: "all-people"}, "Show everyone"));
+    document.getElementById("all-people").addEventListener("click", () => { only = null; render(last); });
+  } else filter.hidden = true;
+  if (!d.feed.length) {
+    feed.replaceChildren(el("p", {class: "empty", text: "Nothing has happened yet. The first round starts with /rounds."}));
+    return;
+  }
+  const items = d.feed.filter(item => !only || item.kind !== "turn" || item.name === only);
+  feed.replaceChildren(...items.flatMap(item => {
+    if (item.kind === "round") return [el("p", {class: "marker", text: "Round " + item.round + " begins: " + item.order.join(", then ")}), renderBetween(item)];
+    if (item.kind === "round_end") return [el("p", {class: "marker", text: "Round " + item.round + " ends" + (item.world_turn ? ", and the world turns" : "")}), renderBetween(item)];
+    if (item.kind === "trade") return [el("p", {class: "marker", text: item.text})];
+    if (item.kind === "run") return [el("p", {class: "marker", text: {pause: "Pause asked", resume: "Resumed", end: "End asked", ended: "The run ended"}[item.action]})];
+    if (item.kind === "ending") return [el("article", {class: "ending"},
+      el("p", {class: "who", text: "An ending, round " + item.round + (item.by ? ", by " + item.by + "'s turn" : "")}),
+      fold(item.key, "What everyone was told" + (item.heard_by.length ? " (" + item.heard_by.join(", ") + " by a note)" : ""), paragraphs(item.text)))];
+    return [renderTurn(item)];
+  }));
+}
+
 function render(d) {
-  const people = document.getElementById("people"), feed = document.getElementById("feed");
+  const people = document.getElementById("people");
   if (!d.game) {
     document.getElementById("title").textContent = "Run dashboard";
     document.getElementById("facts").textContent = "";
     document.getElementById("now").textContent = "";
     people.replaceChildren(el("p", {class: "empty", text: "No run yet. Start one with /newgame, then /rounds."}));
-    feed.replaceChildren();
+    document.getElementById("feed").replaceChildren();
+    document.getElementById("happening").replaceChildren();
+    document.getElementById("meter").replaceChildren();
     setButtons(null);
     return;
   }
@@ -373,42 +814,29 @@ function render(d) {
   }
   people.replaceChildren(...d.people.map(p => {
     const pct = p.max_hp ? Math.max(0, Math.min(100, 100 * p.hp / p.max_hp)) : 0;
+    const name = el("button", {type: "button", "aria-pressed": String(only === p.name),
+      title: only === p.name ? "Show everyone's turns" : "Show only " + p.name + "'s turns"}, p.name);
+    name.addEventListener("click", () => { only = only === p.name ? null : p.name; render(last); });
+    const versions = p.exact_models.length > 1 ?
+      el("span", {class: "warn", text: ", answered as " + p.exact_models.join(", then ")}) :
+      p.exact_models.length ? ", " + p.exact_models[0] : "";
     return el("article", {class: "person" + (p.now ? " now" : ""), style: "--who:" + inkOf[p.name]},
-      el("h2", {text: p.name}),
-      el("p", {class: "meta"}, modelName(p.model) + (p.status !== "playing" ? ", " + p.status : ""),
+      el("h2", {}, name),
+      el("p", {class: "meta"}, modelName(p.model), versions, p.status !== "playing" ? ", " + p.status : "",
          p.now ? el("b", {text: p.replied ? ", acting now" : ", deciding now"}) : null),
       el("p", {class: "stat", text: p.place}),
       el("p", {class: "stat", text: "Health " + p.hp + " of " + p.max_hp}),
       el("div", {class: "bar", role: "presentation"}, el("i", {style: "width:" + pct + "%"})),
       el("p", {class: "stat", text: plural(p.coins, d.currency)}),
       el("p", {class: "carry", text: p.carrying.length ? "Carrying " + p.carrying.join(", ") : "Carrying nothing"}),
-      p.journal ? el("p", {class: "journal"}, "“" + p.journal + "”",
+      p.told != null ? el("p", {class: "told", text: "Last told " + count(p.told) + " characters" +
+        (p.first_told !== p.told ? " (first " + count(p.first_told) + ")" : "") + (p.spend ? "; " + money(p.spend) + " on their replies and memory" : "")}) : null,
+      p.journal ? el("p", {class: "journal"}, quote(p.journal),
                      el("small", {text: "Journal, round " + p.journal_round})) : null);
   }));
-  if (!d.feed.length) {
-    feed.replaceChildren(el("p", {class: "empty", text: "Nothing has happened yet. The first round starts with /rounds."}));
-  } else {
-    feed.replaceChildren(...d.feed.map(item => {
-      if (item.kind === "round") return el("p", {class: "marker", text: "Round " + item.round + " begins: " + item.order.join(", then ")});
-      if (item.kind === "round_end") return el("p", {class: "marker", text: "Round " + item.round + " ends" + (item.world_turn ? ", and the world turns" : "")});
-      if (item.kind === "trade") return el("p", {class: "marker", text: item.text});
-      if (item.kind === "run") return el("p", {class: "marker", text: {pause: "Pause asked", resume: "Resumed", end: "End asked", ended: "The run ended"}[item.action]});
-      const story = item.story ? el("details", {"data-key": item.key},
-        el("summary", {text: "The story they were told"}),
-        el("div", {class: "story"}, ...item.story.split(/\n\s*\n/).map(t => el("p", {text: t})))) : null;
-      if (story) {
-        if (opened.has(item.key)) story.open = true;
-        story.addEventListener("toggle", () => story.open ? opened.add(item.key) : opened.delete(item.key));
-      }
-      return el("article", {class: "turn", style: "--who:" + (inkOf[item.name] || "var(--slate)")},
-        el("p", {class: "who"}, item.name, el("span", {text: ", round " + item.round})),
-        el("p", {class: "do", text: item.do}),
-        item.journal ? el("p", {class: "why", text: item.journal}) : null,
-        item.heard_by.length ? el("p", {class: "heard", text: "Heard by " + item.heard_by.join(" and ")}) : null,
-        ...(item.trades || []).map(t => el("p", {class: "trade", text: t})),
-        story || el("p", {class: "heard", text: "Their turn is still being played."}));
-    }));
-  }
+  renderHappening(d.happening, d);
+  renderMeter(d.meter, d);
+  renderFeed(d);
   setButtons(d.run);
 }
 
@@ -418,6 +846,14 @@ function setButtons(r) {
   end.disabled = !r || r.ended || r.stop === "end";
   pause.textContent = r && r.stop === "pause" ? "Pause asked" : "Pause after this round";
   end.textContent = r && (r.ended || r.stop === "end") ? (r.ended ? "Run ended" : "End asked") : "End the run";
+}
+
+function setView(all) {
+  everything = all;
+  document.getElementById("view-people").setAttribute("aria-pressed", String(!all));
+  document.getElementById("view-all").setAttribute("aria-pressed", String(all));
+  try { localStorage.setItem("dashboard-view", all ? "all" : "people"); } catch (e) {}
+  if (last) render(last);
 }
 
 async function refresh() {
@@ -451,6 +887,9 @@ document.getElementById("pause").addEventListener("click", () => ask("pause"));
 document.getElementById("end").addEventListener("click", () => {
   if (confirm("End the run? The round in progress finishes, then the run closes for good.")) ask("end");
 });
+document.getElementById("view-people").addEventListener("click", () => setView(false));
+document.getElementById("view-all").addEventListener("click", () => setView(true));
+setView(everything);
 dark.addEventListener("change", () => last && render(last));
 refresh();
 setInterval(refresh, 3000);

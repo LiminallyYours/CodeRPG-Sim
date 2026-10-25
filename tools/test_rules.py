@@ -1434,7 +1434,10 @@ class Engine(unittest.TestCase):
             turns = [f for f in live["feed"] if f["kind"] == "turn"]
             self.assertEqual(len(turns), 2)
             self.assertTrue(all(t["story"].startswith("Moment 1 for") and t["do"] == "I look around." for t in turns))
-            self.assertEqual(live["feed"][0], {"kind": "round", "key": "r2", "round": 2, "order": live["run"]["order"]})
+            self.assertEqual(live["feed"][0], {"kind": "round", "key": "r2", "round": 2, "order": live["run"]["order"],
+                                               "commands": [{"text": "round start", "said": "ROUND 2: Corin (corin), Wren (wren)", "refused": False}]})
+            self.assertEqual(live["happening"], {"stage": "between", "next": "Corin", "round": 2, "steps": live["feed"][0]["commands"]})
+            self.assertIn("/api/brief/", get("/"))
             with self.assertRaises(urllib.error.HTTPError):
                 get("/api/live", Host="elsewhere.example")
             self.assertEqual(post("/api/run/pause")[0], 403, "no ask without the page's own header")
@@ -1449,6 +1452,82 @@ class Engine(unittest.TestCase):
             server.terminate()
             server.wait(timeout=10)
             server.stdout.close()
+
+    def test_the_dashboard_files_every_kind_of_entry_under_its_turn_or_round_and_counts_the_spend(self):
+        self.rpg("game", "switch", "dark_lighthouse")
+        self.rpg("newgame", seed=43)
+        self.play_round()
+        log = self.dir / "state" / "log" / ("%s.jsonl" % self.save()["run"]["id"])
+
+        def e(kind, round_, player=None, **fields):
+            return dict({"kind": kind, "t": "2026-10-25T12:00:00", "round": round_, "order_position": 1 if player else None,
+                         "player": player, "move": 1}, **fields)
+
+        def cmd(round_, command, args, output, player=None, refused=False):
+            return e("command", round_, player, command=command, args=args, output=output, refused=refused)
+        brief_text = "## Who I am (a note to myself)\nA brief."
+        entries = [
+            e("round", 2, phase="start", order=["wren", "corin"], draw={}),
+            e("brief", 2, "wren", text=brief_text, versions={}),
+            e("action", 2, "wren", do="I ask Morwen about the lamp.", journal="To know.", model="sonnet",
+              exact_model="claude-sonnet-5-5", spend=0.01, options=["Ask Morwen (for: knowing)"]),
+            cmd(2, "look", [], "LOCATION: The Gull", "wren"),
+            e("voice", 2, "wren", agent="npc", about="morwen", model="sonnet", reply="SAY: The lamp burns blue.\nREMEMBER: none", spend=0.02),
+            e("speech", 2, "wren", text="About the lamp?", heard_by=["corin"]),
+            e("witnessed", 2, "wren", text="Wren asked Morwen about the lamp.", seen_by=["corin"], learned=[]),
+            e("coins", 2, "wren", delta=-2, reason="order", balance=1),
+            e("order", 2, "wren", order="o1", step="asked", what="craft", maker="morwen"),
+            cmd(2, "say", ["proposals/words.txt"], "REFUSED: no one is here to hear it", "wren", refused=True),
+            cmd(2, "chronicle", ["Wren asked about the lamp."], "CHRONICLED: Wren asked about the lamp."),
+            e("narration", 2, "wren", text="Morwen tells you the lamp burns blue."),
+            cmd(2, "narrate", ["wren", "proposals/story.txt"], "NARRATED"),
+            e("round", 2, phase="end", order=["wren", "corin"], world_turn_due=True),
+            e("memory", 2, "wren", rounds=[1, 2], text="I asked about the lamp.", replaced=3, model="sonnet", spend=0.005),
+            e("voice", 2, agent="world", about="turn", model="sonnet", reply='{"rumors": []}', spend=0.03),
+            cmd(2, "world-turn", ["proposals/world-turn.json"],
+                "WORLD TURN: 1 rumors, 1 moves\n  rumor: The lamp burns blue.\n  morwen is now at gull_tavern\nSIGNAL for Wren: a gull cries"),
+            e("referee", 2, round_run=2, session="s", spend=0.4, seconds=120.0, context=60000),
+            cmd(2, "run", ["status"], "RUN: going"),
+            e("round", 3, phase="start", order=["corin", "wren"], draw={}),
+            e("brief", 3, "corin", text="A second brief.", versions={}),
+        ]
+        with log.open("a", encoding="utf-8") as f:
+            f.writelines(json.dumps(x) + "\n" for x in entries)
+        live = json.loads(self.run_py("-c", "import json, sys; sys.path.insert(0, 'tools'); import dashboard; print(json.dumps(dashboard.live()))").stdout)
+        by_key = {i["key"]: i for i in live["feed"]}
+        turn = by_key["2:wren"]
+        self.assertEqual((turn["do"], turn["exact_model"], turn["options"], turn["brief_chars"]),
+                         ("I ask Morwen about the lamp.", "claude-sonnet-5-5", ["Ask Morwen (for: knowing)"], len(brief_text)))
+        self.assertEqual([(v["about"], v["said"]) for v in turn["voices"]], [("Morwen", "The lamp burns blue.")], "a townsperson's SAY: line")
+        self.assertEqual(turn["notes"], [{"text": "Wren asked Morwen about the lamp.", "seen_by": ["Corin"]}])
+        self.assertEqual(turn["money"], ["-2 coins (order); now 1.", "Order o1: asked Morwen to make something."])
+        self.assertEqual(turn["chronicle"], ["Wren asked about the lamp."], "the chronicle is no one's, but it falls in the turn")
+        self.assertEqual(turn["heard_by"], ["Corin"])
+        self.assertEqual(turn["story"], "Morwen tells you the lamp burns blue.")
+        self.assertAlmostEqual(turn["spend"], 0.03, msg="their reply and the townsperson asked")
+        self.assertEqual([c["text"] for c in turn["commands"] if c["refused"]], ["say proposals/words.txt"])
+        self.assertNotIn("run status", [c["text"] for c in by_key["e2"]["commands"]], "the referee's lookups are left out")
+        end = by_key["e2"]
+        self.assertEqual([(m["who"], m["rounds"], m["replaced"]) for m in end["memories"]], [("Wren", [1, 2], 3)])
+        self.assertEqual(end["world"], ["Rumor: The lamp burns blue.", "Morwen is now at The Gull."], "no SIGNAL: that's the referee's")
+        self.assertEqual(end["referee"], {"spend": 0.4, "seconds": 120.0, "context": 60000})
+        self.assertEqual([v["agent"] for v in end["voices"]], ["world"])
+        meter = live["meter"]
+        spend = sum(x.get("spend") or 0 for x in self.log_of())
+        self.assertAlmostEqual(meter["spend"]["total"], spend)
+        self.assertEqual({k: round(v, 3) for k, v in meter["spend"].items() if k != "total"},
+                         {"referee": 0.4, "people": 0.01, "voices": 0.05, "memory": 0.005})
+        self.assertEqual([r["round"] for r in meter["rounds"]], [3, 2, 1])
+        self.assertEqual((meter["rounds"][1]["seconds"], meter["rounds"][1]["context"], meter["rounds"][1]["refused"]), (120.0, 60000, 1))
+        self.assertTrue(meter["rounds"][0]["open"])
+        self.assertEqual(live["happening"]["stage"], "deciding")
+        self.assertEqual((live["happening"]["who"], live["happening"]["told"]), ("Corin", len("A second brief.")))
+        wren = next(p for p in live["people"] if p["id"] == "wren")
+        self.assertEqual((wren["exact_models"], round(wren["spend"], 3), wren["told"]), (["claude-sonnet-5-5"], 0.015, len(brief_text)))
+        self.assertEqual(by_key["3:corin"]["do"], "", "a turn shows from its brief, while they decide")
+        at = turn["brief_at"]
+        got = json.loads(self.run_py("-c", "import json, sys; sys.path.insert(0, 'tools'); import dashboard; print(json.dumps([dashboard.brief_at(%d), dashboard.brief_at(0)]))" % at).stdout)
+        self.assertEqual(got, [{"text": brief_text}, None], "a brief by its line in the log, and nothing else")
 
     def test_the_log_exports_as_csv_one_row_per_entry(self):
         self.rpg("game", "switch", "dark_lighthouse")

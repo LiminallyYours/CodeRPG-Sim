@@ -2,6 +2,10 @@
 
 Where the build stands, for whoever picks it up next, human or Claude. Read `PLAN.md` (the agreed steps) and `DEVELOPING.md` (invariants, checks) with it. Update this file at the end of each stage.
 
+## The tenth session (2026-10-25), as it goes
+- **Step 65, the dashboard for watching (JW asked for it before any more long runs; built first):** the run meter (spend by whom, each round's time, cost, context and refusals, a warning after 5 minutes with nothing logged), what's happening now (who is deciding or being played, the referee's latest commands), and in the feed the townspeople's words, onlookers' notes, coins and orders, the chronicle, world turns, memories, endings and each brief (folded, fetched when opened); a People/Everything switch; click a name for their turns only. Step 52's options go in the slot left for them (`options` on the `action` entry). `PLAN.md` step 65 has the details. No spend.
+- **Next: steps 52 and 53, drafted together for JW** (as below).
+
 ## Where things are (end of the ninth session, 2026-10-25)
 - **The ninth session built steps 45–51 and 55, in the decided order,** a commit each (step 50 in two), with checks before and after; each step's *As built* note in `PLAN.md` (under steps 49, 50, 51 and 55) has the details and JW's answers to its draft.
   - **45–49, the referee:** another person's belongings are mentioned only as last shown (`PEOPLE HERE` already marked `(in hand)`); `tools/voice.py` asks the townspeople's and the world agent outside the referee's context, as `ask.py` asks people (each call a `voice` log entry with its cost; `VOICE FAILED` stops the round; `--again` re-asks the world agent on the same brief); `chronicle` runs for no one, at any time, and its 200-character limit is named (a test keeps it the setting's); an ending tells only what happens now. Tried in a staged round (Hobb stopped the clock): both rules held.
