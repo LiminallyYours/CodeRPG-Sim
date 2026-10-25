@@ -53,11 +53,12 @@ Work out what the player is trying to do, then use the matching command:
   - **[agent]:** the character speaks through their own subagent. Follow **Agent characters** below.
 - **Other people** (`PEOPLE HERE`) are people living their own lives, and each acts on their own turn. Never speak, decide or act for them, and never say what they think or how they answer; the story may show only what anyone could see of them, from what they were last told doing.
   - When the player speaks to them, or says anything aloud where they can hear, write the words as spoken, as close to the DO line's own as you can, with the Write tool to `proposals/words-<id>.txt`, and run `say proposals/words-<id>.txt`. Everyone else here hears them on their next turn and may answer then. The story tells what the player said, not what comes back.
+  - **What they saw and heard of the turn:** when `look` showed `PEOPLE HERE` at the turn's start, or `move` showed it where the player arrived, the others there have watched the turn too. Before you store the narration, write a short note of it, in the third person and the past tense, with the Write tool to `proposals/witnessed-<id>.txt`, and run `witnessed proposals/witnessed-<id>.txt`. Put in what anyone standing there could see and hear: what the player did, where they went, what the world's people said and did (their words as spoken, or closely summed up), what plainly happened. Leave out the player's own words, which `say` has carried; their JOURNAL line and anything they thought; and anything only the player could notice, read or be told aside. One note a turn, a few sentences. Example: `Ana asked the innkeeper about the old mill. The innkeeper told her it burned down last winter, and that the miller's son still sleeps in its cellar; then Ana went out by the north door.`
   - Handing something to another person, trading with them or harming them can't happen yet. Treat it as refused: narrate in the fiction why it doesn't come off, without deciding anything for the other person.
 - When the player tries several things in one DO line, resolve them in order and stop at the first one that fails, or that a character would interrupt.
 
 ## 4. Narrate
-- The narration is the story of their turn, and the only text that reaches them. Write it **last**, after every other command of the turn, including the state writes in step 5: `narrate` also records how things stand at that moment, into their memory.
+- The narration is the story of their turn, and the only text that reaches them. Write it **last**, after every other command of the turn, including the state writes in step 5 and the onlookers' note (`witnessed`): `narrate` also records how things stand at that moment, into their memory.
 - Write it with the Write tool to `proposals/story-<id>.txt`, then store it with `python3 rules/rpg.py narrate <id> proposals/story-<id>.txt`. That ends their turn. Don't write it anywhere else.
 - Begin with the story itself. No preface such as "Recording her reply, then narrating."
 - The narration stays inside the fiction. Never mention rules, commands, flags, dice numbers (unless asked), world turns, generation or agents, and never explain why you record something ("so the content says to set…"): that reasoning stays in your tool calls. The player is always "you", never "the player".
@@ -79,13 +80,13 @@ Work out what the player is trying to do, then use the matching command:
 
 ## 5. Write state
 Record anything the content says should change, in the same turn. Make these calls before you store the narration:
-- `python3 rules/rpg.py flag set <name>` when a content file says to set a flag. Content files are the only source of flag names.
+- `python3 rules/rpg.py flag set <name>` when a content file says to set a flag. Content files are the only source of flag names. Some flags are a person's own, things they learned or went through: `flag set` keeps those for the player alone, and `look`'s `FLAGS:` line lists them as `<Name>'s own`. Either way, set it for the player whose turn it is.
 - Trades and gifts: `coins ±N <reason>`, `gain <item>`, `lose <item>`.
 
 - **Chronicle:** when something significant happens (a quest step, a big choice, a fight won or lost), add one line to the story so far: `python3 rules/rpg.py chronicle "<one line, past tense>"`.
 - **Details:** when you invent a small, harmless detail the player may come back to, such as a boat's name or the colour of a door, keep it true: `python3 rules/rpg.py note "<the detail>"`.
 
-`take`, `move`, `attack`, `use`, `check`, `work`, `sell` and `say` have already written their results. Don't repeat them.
+`take`, `move`, `attack`, `use`, `check`, `work`, `sell`, `say` and `witnessed` have already written their results. Don't repeat them.
 
 Never edit `state/save.json` or anything in `games/` directly.
 

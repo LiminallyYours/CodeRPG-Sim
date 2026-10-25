@@ -1598,7 +1598,7 @@ def cmd_look(args):
     others = players_here(state)[1:]
     if others:
         print("PEOPLE HERE: %s. Each acts on their own turn: never speak or decide for them. What the player says "
-              "aloud, they hear: `say <file>`." % ", ".join(
+              "aloud, they hear: `say <file>`; what they see and hear of the turn: `witnessed <file>`." % ", ".join(
             "%s (%s)" % (state["players"][p]["name"], p) for p in others))
     makers = [c for c in here if makes(c)]
     if makers and not why_no_order(state):
