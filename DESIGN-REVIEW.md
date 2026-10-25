@@ -1,6 +1,6 @@
 # Design review: how the simulation plays out
 
-Written 2026-10-25 by Claude at the end of the seventh session, for the eighth: a **discussion session**, not a build session. JW wants to step back and talk, at a higher level, about how the player agents are structured, what they know, how the game's architecture (quests above all) shapes what they do, and how the simulation plays out. The open decisions from the 14-round run (`PLAN.md`, *The long run*) start it off and give it context: answer them in that wider light, and keep tracking the fixes. Nothing here is decided; it is the evidence and the questions.
+Written 2026-10-25 by Claude at the end of the seventh session, for the eighth: a **discussion session**, not a build session. JW wants to step back and talk, at a higher level, about how the player agents are structured, what they know, how the game's architecture (quests above all) shapes what they do, and how the simulation plays out. The open decisions from the 14-round run (`PLAN.md`, *The long run*) start it off and give it context: answer them in that wider light, and keep tracking the fixes. Nothing here is decided; it is the evidence and the questions. **The eighth session answered section 1 and part of section 5:** see `PLAN.md` (*The eighth session*), `PERSON-STRUCTURE-PROPOSAL.md` section 6 and `SIM-WORLD-SPEC.md`.
 
 ## 1. What is waiting for JW (from `PLAN.md`, *The long run*)
 **Four referee fixes** (Claude's recommendation: all four, a commit each):

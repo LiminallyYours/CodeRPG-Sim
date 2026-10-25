@@ -191,6 +191,70 @@ In JW's two runs nobody tried it. The first was the seventh session's test run, 
 2. **What money is for:** **(a)** make what exists wanted and findable after the ending: Ambrose, with the clock safe, offers to build again; Nell's shop reopens with things for sale; more paid work in the daytime town (recommended); **(b)** as (a), plus new people: a seller of fine things and a lodging house that charges rent; **(c)** leave it, and study the economy as it stands.
 3. **Tibbersnatch after the shadows are freed:** **(a)** gone from the meadow by the next round, as the ending's own note said ("by morning the meadow was empty") (recommended); **(b)** he stays, but wants nothing and offers no bargain.
 
+**JW's answers (eighth session, 2026-10-25), below:** all four referee fixes, plus a fifth; The Thirteenth Stroke left as it is (questions 1–3 are answered by a new test world instead, `SIM-WORLD-SPEC.md`); money matters through both needs and wants.
+
+# The eighth session: a design discussion (2026-10-25)
+
+A discussion, not a build (JW). Read for it: the 14-round run's stories in order and its audit, Hobb's 14 briefs, and the world's content where the stories raised a question; `PERSON-STRUCTURE-PROPOSAL.md` (JW's position on how a person is built and what they know) committed first. Its decisions on the person's structure are in that file's section 6 (the source for that part); the world's side is in `SIM-WORLD-SPEC.md`.
+
+## What the stories showed, beyond the summaries
+1. **The ending told everyone of a morning the world never reached.** The quest's ending text, written to close a one-player game ("At midnight the clock strikes twelve… when the town wakes the meadow is empty"), went into everyone's ending note; the world's clock stops before midnight, and Tibbersnatch's "If craves_whistle" section has no "and not shadows_freed", so his agent kept offering the empty jar for the whistle. People were told two contradictory things and did what careful people do: checked that a child had woken, wanted witnesses, asked for his promise again. Rounds 8–14 came from that.
+2. **Hobb didn't take in the ending.** In his round-8 brief it is the last line of Moment 7, after a full status copy; he set off to trade the whistle for the jar, and learned of it in round 9 from a rumor.
+3. **Building appears in one of Hobb's 14 briefs: the first.** After his opening, "build", "shed" and "porch" never appear again (his brief grew from 2,457 to 33,904 characters); Ambrose never raised it, though the referee saw the build spots each time Hobb was in the tower; Mags's file says Ambrose builds, but Hobb asked her about whistles; his round-10 memory doesn't hold it. He didn't know a shed's price (5; he had 6) and wrote "saving toward my four walls". **Forgetting against a one-night world:** for Hobb about half each (his round-10 journal: "Four walls of my own can wait one more night"); for the cast as a whole the world is most of it (nothing on sale serves Marigold's, Dilly's or Hester's wants, and every townsperson refused money).
+
+## Decided (JW, 2026-10-25)
+1. **The world's contradictions come first:** fix 5 below (a referee rule for every world). The Thirteenth Stroke itself stays as it is; the new soundness check (`SIM-WORLD-SPEC.md` 2.1) only warns.
+2. **The four referee fixes** proposed after the long run, a commit each (steps 45–48).
+3. **Money matters through both needs and wants.**
+4. **People know the world's problem; how much they care is their own.** The problem goes into the world's public knowledge; its quest into "What you're working on" only once that person has taken it on (person proposal, section 6 item 13).
+5. **The person proposal's open choices:** A (one line of what changed per older moment), B (a "What I've learned" list), D (the think-back sees the whole note), all yes; C, one model for everyone, Sonnet, as a run setting; plus a standing place under "What I know" for endings and finished buildings, which never fade; makers and builders may be named in starting facts and public knowledge (section 6, items 7–12).
+6. **Options considered (level 1 of how a person decides):** an `OPTIONS:` list before `DO:` and `JOURNAL:`, each option with what it is for; kept in the log, shown in the dashboard's feed and counted by the audit; never shown to anyone else, not kept in the brief (section 6, item 14).
+7. **A separate evaluator is acceptable** for a later level of how a person decides (section 6, F).
+8. **A new, purpose-built test world:** a plain market town, an ongoing problem and a small mystery, needs for a bed and food (`SIM-WORLD-SPEC.md` section 4).
+9. **The lessons about worlds go into a document of their own,** `SIM-WORLD-SPEC.md` (JW, with Claude's agreement).
+
+## The Hobb test (approved by JW, $0.32)
+Hobb's round-8 brief from the 14-round run (in the tower, just given the whistle for nothing; hates owing, wants four walls, 6 buttons), re-asked four ways through `claude -p` exactly as `ask.py` does, Sonnet, three replies each. "Knows" adds a `## What I know` section with his opening's two facts (Ambrose builds; Nell makes to order); "options" changes `player.md` to ask for two to four options, each for something they want, need or care about, before choosing. **Asked Ambrose to build him a shed:** as in the run 0 of 3; knows 0 of 3 (one misread it and offered to build Ambrose a shed); options 0 of 3 (the want came up as an option once, unchosen; one left 2 buttons on Ambrose's bench, the first money spent by choice in any run); **both 3 of 3**, each still repaying Ambrose first (coal all winter). Knowing and weighing belong together. One situation, chosen as the best case. Files: `state/test-runs/hobb8-options/` (local; `run.py` reproduces it).
+
+## The steps
+Each a commit with checks before and after; each drafted for JW before code, as before. **Steps 45–49 are decided; the order of 50–61 is proposed, not yet confirmed.**
+
+**The referee:**
+45. **Belongings as last seen:** `gm-turn`: another person's belonging is mentioned only as it was last shown (their DO line, a story or a note); one put away stays unmentioned until brought out.
+46. **`tools/voice.py`:** agents asked outside the referee's context, as people are: it runs `npc-brief` or `world-brief`, adds the referee's scene file, asks the agent through `claude -p` with its own instructions and model, prints the reply; `audit.py` SPAWNS checks the calls.
+47. **`chronicle` is the referee's own record:** it runs for no one, at any time.
+48. **`/rounds` names the chronicle's 200-character limit.**
+49. **An ending note tells only the present:** `gm-turn` (and the `ending` note's instructions): what people see and hear now, never what happens later ("by morning…"); later things happen through the world.
+(The missed onlookers' note, 1 in 44: watch.)
+
+**The person** (`PERSON-STRUCTURE-PROPOSAL.md`; order proposed):
+50. **R1 and R2:** every word a person reads into `rules/people/`; the version record on every `brief`, `action` and `memory` entry. Briefs before and after must be identical.
+51. **R3, the bench** (`tools/bench.py`), with Hobb's round-8 moment and its four variants as the first situation, and ordinary moments beside it.
+52. **Options considered** (section 6, item 14): `player.md`, `reply` reads `OPTIONS:`, the `action` entry's `options`, the dashboard's feed, `audit.py`; tried on the bench first.
+53. **R6, what a person knows:** starting facts (`knows`), the world's public knowledge, the generic account of how life works, pronouns, `look`, `people`; the world's problem in public knowledge and its quest in "What you're working on" once taken on; the standing place for the run's events. Built right after 52, and tried with it on the bench.
+54. **R7, memory:** A, B, D and endings that never fade.
+55. **R8:** the model as a run setting, one model (Sonnet) by default.
+
+**The world** (`SIM-WORLD-SPEC.md`; order proposed):
+56. **Time that goes on:** times of day that cycle, days counted, daytime text.
+57. **Needs:** a world's `needs:`, tracked per person, more pressing with time, told in words; "What you're working on" shows needs, wants and things taken on side by side.
+58. **Checks:** the ending-consistency warning, no content naming the original player, `--sim-complete` extended.
+59. **R5 and R4:** the definitions file, the cast generator (`tools/cast.py`) and the round-trip check.
+60. **The test world** from the outline agreed with JW, written by hand, and its cast of four made by the generator.
+61. **A test run** of the test world (approved separately).
+
+## Open
+- **The order of steps 50–61** (person proposal E).
+- **The test world's outline** (`SIM-WORLD-SPEC.md` section 6): places, the ongoing problem and the small mystery, an opening per want, the scarce prize, prices of a bed and food, paid work. JW will start this next.
+- **Whether R6 (step 53) is tried first on The Thirteenth Stroke's cast** with hand-written starting facts, or waits for the test world's generated cast. The Thirteenth Stroke stays as it is in content, but its cast entries would need `knows`.
+- **The rest of `SIM-WORLD-SPEC.md` section 6:** what an unmet need does, needs as a feature for every simulation world or a setting, the time scale, how the forge is pointed at the spec.
+- **The rest of phase 2** (the trainer and abilities, room uses beyond `stash`, the dashboard's history views, the memory hooks, forging simulation worlds): not discussed; the steps above come first.
+
+## Future discussions (may lead to requirements)
+- **How a person decides, beyond level 1** (person proposal section 6, F): options proposed by the person, scored by the person or a separate evaluator, chosen by code with the hidden ratings; a different experiment from "each decides for themselves", so a switch compared on the same seed.
+- **How needs, wants and things taken on are weighed** (section 6, G): which personality fields filter, cost, order or weight an option; how a quest weighs against "I'm hungry".
+- **The instrument:** what a good run is. Proposed by Claude, not discussed: deeds that serve a want other than the quest; coins moved, by reason; rounds after the quest spent on goals people set themselves; runs compared on the same seed and world with one thing changed.
+
 ## Left alone in phase 1
 
 The interface mod (its code and tests stay and keep passing, but nothing loads it; its type file will lag the new save); `/newworld` and the forge; side scenes, curses and the deadline clock (switched off, not removed); the library; trades between players, contests, the trainer and abilities, room uses beyond `stash`, the dashboard's history views, forging simulation worlds (all phase 2).
