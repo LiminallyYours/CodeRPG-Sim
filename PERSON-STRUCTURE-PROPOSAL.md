@@ -1,6 +1,6 @@
 # Proposal: a sturdier structure for the people in the cast
 
-Written 2026-10-25 by Claude with JW, from a review of the code at commit `6b6edd2` and a design conversation. **Status: agreed in outline by JW. Section 6 lists what is decided and what is still open. Nothing is built.** The spreadsheet `character-structure.xlsx` holds the same structure as tables; where the two differ, this file is the source.
+Written 2026-10-25 by Claude with JW, from a review of the code at commit `6b6edd2` and a design conversation. **Status: agreed in outline by JW; its open choices were decided in the eighth session (2026-10-25). Section 6 lists what is decided and what is still open, and is the source for this part. Nothing is built.** The spreadsheet `character-structure.xlsx` holds the same structure as tables; where the two differ, this file is the source.
 
 ## 1. What this is for
 
@@ -445,30 +445,37 @@ Nothing here runs during a round. The generator is an authoring tool, like the f
 5. **Find, and the "how I get things" ranking, are set aside** (section 5.11).
 6. **What a person knows unprompted against what the model knows** is left as an experiment uncertainty (section 1), stated once, watched in the log, not designed around.
 
+### Decided in the eighth session (JW, 2026-10-25)
+
+The open choices A–D and three additions the runs asked for. The evidence is in `PLAN.md`, *The eighth session*.
+
+7. **A: yes.** Each older moment in memory keeps one line of what changed (money, place, belongings, health), worked out by the code, instead of a full copy of the status block. The current status block at the end of the brief is unchanged. In the 14-round run Hobb's brief reached 34,000 characters, and the quest's ending, the last line of a moment after a full status copy, was the one thing he didn't act on.
+8. **B: yes.** People keep a "What I've learned" list, updated at each think-back (`LEARNED:` lines, capped by `memory.learned_max`), shown under "What I know". It is second to item 2: Hobb's fact about who builds was never in the rounds he condensed, so only his starting facts would have kept it.
+9. **C: one model for everyone, Sonnet,** as a run setting (R8). Rotating models by run stays possible later, as a study of its own. The cast entry's `model` is used only when the setting asks for each person's own.
+10. **D: yes.** The think-back sees the whole "Who I am" note; `memory.thinkback_sees: voice | who_i_am` keeps today's behavior for comparison.
+11. **What this run has done has a standing place.** Endings and finished buildings never fade (the `keeps` mark, 5.8 item 4), and they are shown under "What I know", not only as a line in "Lately". (In the 14-round run Hobb set off to trade for a jar his own brief had just told him was empty.)
+12. **Makers and builders may be named** in a cast entry's `knows` and in a world's public knowledge; the limit on decision 2 is only on naming which places pay for work, and who buys.
+13. **The world's problem is known; caring is the person's own.** Everyone knows the world's shared problem (it goes into the world's public knowledge), but its quest appears in "What you're working on" only once that person has taken it on (a personal flag). How much they care, and what they do about it, comes from who they are: Kindness and priorities, above all.
+14. **Options considered (level 1 of how a person decides).** The reply gains an `OPTIONS:` list before `DO:` and `JOURNAL:`: two to four things they could do, each with what it is for (`(for: <which want, need or concern it serves>)`); the journal says why this one over the others. Options are private, like the journal: kept in the log (the `action` entry), shown in the dashboard's feed and counted by the audit, never shown to anyone else and not kept in the brief. `player.md` changes, so the version record (R2) comes first. **Evidence:** Hobb's round-8 moment from the 14-round run, re-asked four ways, three replies each ($0.32; `state/test-runs/hobb8-options/`): he asked Ambrose to build him a shed in 0 of 3 replies as in the run, 0 of 3 with only a "What I know" section naming Ambrose as a builder, 0 of 3 with only the options list, and **3 of 3 with both**, still putting repaying Ambrose first. Knowing and weighing belong together, so item 2's knowledge layers (R6) and this are built as a pair and tested with the bench (R3). One situation, chosen as the best case: the bench should also try ordinary moments, to see that the list doesn't make people restless or drop what they've promised.
+15. **A separate evaluator is acceptable** for a later level of how a person decides (below).
+
 ### Open
 
-Each is stated on its own.
+**E. Order of work.** Proposed in the eighth session, not yet confirmed by JW, as part of the whole plan in `PLAN.md` (*The eighth session*, steps 45–61): R1 and R2 first (words into files, version record: the briefs before and after must be identical); then the bench (R3), with Hobb's round-8 moment as its first situation; then options considered (item 14) and R6 (knowledge layers) back to back; then R7 (memory: items 7, 8, 10, 11) and R8 (item 9); the definitions file and the generator (R5, R4) with the round-trip check come once the new test world (`SIM-WORLD-SPEC.md`) exists, since its cast is the generator's first real use. This differs from the order first proposed (generator before knowledge layers) because the runs and the Hobb test point at knowledge and options first, and the generator pays off when there is a second simulation world.
 
-**A. Should each older moment in memory keep one line of what changed, instead of a full copy of the status block?**
-- *Yes:* briefs stop growing from about 2,400 to about 21,000 characters over ten rounds, and the think-back has less to wade through. It amends the fork proposal's section 6.3 and a HANDOFF decision. The dashboard reads the new line.
-- *No:* today's behavior; the size cap on memory comes due sooner, so condensing happens more often.
+### For a future discussion (may lead to requirements)
 
-**B. Should people keep a "What I've learned" list they update themselves at each think-back?**
-- *Yes:* names, prices and promises survive a poor summary, and what they choose to keep becomes something to watch. Each think-back gets a little longer and costs a little more.
-- *No:* facts survive only inside their recollections, as today.
+**F. How a person decides, beyond level 1.** JW's question (eighth session): should a person's choice be a defined procedure that code enforces (first work out what they could do, then weigh each option against who they are, then choose), so that personality demonstrably causes behavior instead of colouring it? The levels discussed:
+- **0 (today):** one call; the person decides; personality is implicit in the note.
+- **1 (decided, item 14):** one call, options listed before the choice; visible, not enforced.
+- **2:** two calls, options first, then the choice with the note and the options in view.
+- **3:** the person lists options in their own words; each is scored on fixed dimensions (serves a want or need? costs money? helps others? risky? involves others?) by the person or by a separate evaluator; code combines the scores with the person's hidden ratings and priorities and draws a seeded choice, which the person then acts out. The ratings stay unseen and become causal; the log holds every option, score and draw.
 
-**C. How should the model be chosen for a run?**
-- *One model for everyone:* differences come from personality alone. People's replies are a small share of a round's cost today (about $0.08 of $0.53), so the change in cost is small either way.
-- *Rotate each run:* models dealt out from the run's seed; model becomes something you can study, over several runs.
-- *Keep each person's own (today):* runs stay comparable with past ones; personality and model stay tangled.
+What is at stake: at level 3 the model proposes and code chooses, which is a different experiment from "a person decides only for themselves"; if built, it should be a switch (`decide: free | weighed`) compared on the same seed. Whatever the level, options can come only from what a person knows (item 2, R6).
 
-**D. Should the think-back see the whole "Who I am" note?** Proposed yes, with a setting to keep today's voice-only behavior for comparison. Cheap either way.
-
-**E. Order of work.** Proposed:
-1. R1 and R2: words into files, version record. Nothing a person sees changes; checked by comparing briefs before and after, which must be identical.
-2. R5 and the generator (R4, section 5.9) with the round-trip check, which is the test bench's first test; then R3's situations.
-3. R6: knowledge layers, pronouns, `look`, `people` seeding; the three casts remade through the generator and read.
-4. R7: memory, as A, B and D decide.
-5. R8, as C decides.
+**G. How needs, wants and goals taken on are weighed against each other.** JW: a person should consider what they want to do next from who they are; how does a quest, even a small one, weigh against "I'm hungry and want to eat"? The shape discussed:
+- "What you're working on" shows three kinds of goal side by side: **needs** (from the world's state, worked out by code, growing more pressing until met, told in words, never numbers: "You haven't eaten since morning"), **wants** (from `wants_and_needs`) and **things taken on** (quests accepted; later perhaps promises).
+- The personality fields play different parts: **won't do** a hard filter (never chosen; at level 3 code can refuse it), **avoids and dislikes** a cost, **priorities** the order between wants, and ratings as weights: Kindness (how much others' trouble counts), Follow-through (how sticky a goal taken on is), Impulsiveness (what's in front of them against a plan), With money (hold on or spend), Risk-taking.
+- Needs need a world with time that goes on and things that meet them, so this meets `SIM-WORLD-SPEC.md` (the test world has needs for a bed and food).
 
 The build session should draft each step for JW before writing code, as `PLAN.md` does.
