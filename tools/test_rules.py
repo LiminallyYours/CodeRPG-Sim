@@ -1621,6 +1621,13 @@ print(json.dumps({"type": "result", "is_error": False, "result": answers[min(n, 
         lines = [e for e in self.log_entries() if e["kind"] == "command" and e["command"] == "chronicle"]
         self.assertEqual([(e["refused"], e["player"]) for e in lines], [(False, None), (False, None)], "no one's, each time")
 
+    def test_the_procedures_name_the_story_lines_limit_as_the_rules_set_it(self):
+        limit = json.loads((ROOT / "rules" / "balance.json").read_text())["world"]["text_line_chars"]
+        for skill in ("rounds", "gm-turn"):
+            text = (ROOT / ".claude" / "skills" / skill / "SKILL.md").read_text()
+            said = re.findall(r"chronicle \"<one line, past tense>\"`, with no `--as`[^.]*?at most (\d+) characters", text)
+            self.assertEqual(said, [str(limit)], "%s names the chronicle's limit, and it's the one the rules enforce" % skill)
+
     def log_entries(self):
         return [json.loads(line) for line in (self.dir / "state" / "log" / ("%s.jsonl" % self.save()["run"]["id"])).read_text().splitlines()]
 
