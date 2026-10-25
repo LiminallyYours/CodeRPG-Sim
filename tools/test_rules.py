@@ -1024,6 +1024,118 @@ class Engine(unittest.TestCase):
         self.write("proposals/note.txt", "Wren walks east.")
         self.assertIn("no one else was there to see it", self.rpg("witnessed", "proposals/note.txt", as_="wren", ok=False))
 
+    # ---------------------------------------------------------------- trades between people
+
+    def round_with(self, **turns):
+        """A round in its drawn order: each player named takes the turn given (a function of their id), the rest look
+        around. Returns what `round end` printed."""
+        order = [p.split("(")[1].rstrip(")") for p in self.rpg("round", "start").split(": ", 1)[1].strip().split(", ")]
+        for pid in order:
+            (turns.get(pid) or self.take_turn)(pid)
+        return self.rpg("round", "end")
+
+    def turn(self, pid, do, *commands):
+        """`pid`'s turn: their reply, then each rules command (a tuple, run as them), then the story. Returns what
+        the commands printed."""
+        self.write("proposals/reply.txt", "DO: %s\nJOURNAL: To see what comes of it.\n" % do)
+        self.rpg("reply", pid, "proposals/reply.txt")
+        out = [self.rpg(*c, as_=pid, ok=None) for c in commands]
+        self.write("proposals/story.txt", "You do it.")
+        self.rpg("narrate", pid, "proposals/story.txt")
+        return out
+
+    def offer(self, terms):
+        """The command for an offer of `terms`, its file written now (each its own, since a file is used up once read)."""
+        self.offers = getattr(self, "offers", 0) + 1
+        path = "proposals/offer-%d.json" % self.offers
+        self.write(path, json.dumps(terms))
+        return ("trade", "offer", path)
+
+    def trade_entries(self):
+        return [(e["trade"], e["step"], e.get("why")) for e in self.log_entries() if e["kind"] == "trade"]
+
+    def test_an_offer_is_made_face_to_face_and_only_the_two_of_them_see_it(self):
+        self.three_players()  # Wren and Tam in Harbor Square; Corin in the Gull
+        self.rpg("newgame", seed=44)
+        out = []
+
+        def wren(pid):
+            for terms in ({"to": "wren", "give": {"coins": 1}}, {"to": "nobody", "give": {"coins": 1}},
+                          {"to": "corin", "give": {"coins": 1}}, {"to": "tam", "give": {"items": ["healing_tonic", "healing_tonic"]}},
+                          {"to": "tam", "give": {"coins": 4}}, {"to": "tam", "give": {"items": ["harbor_square"]}},
+                          {"to": "tam", "give": {"items": ["no_such_thing"]}}, {"to": "tam", "give": {"coins": -1}},
+                          {"to": "tam"}, {"to": "tam", "give": {"coins": 1}, "price": 3},
+                          {"to": "tam", "give": {"items": ["worn_dagger"], "coins": 1}, "want": {"items": ["healing_tonic"]}}):
+                self.write("proposals/offer.json", json.dumps(terms))
+                out.append(self.rpg("trade", "offer", "proposals/offer.json", as_=pid, ok=None))
+            out.append(self.rpg("look", as_=pid))
+            self.write("proposals/story.txt", "You hold out the dagger.")
+            self.rpg("narrate", pid, "proposals/story.txt")
+
+        def reply_wren(pid):
+            self.write("proposals/reply.txt", "DO: I hold out my dagger and a coin to Tam for the tonic.\nJOURNAL: Tam needs it more.\n")
+            self.rpg("reply", pid, "proposals/reply.txt")
+            wren(pid)
+        self.round_with(wren=reply_wren)
+        refusals = ["an offer is made to someone else", "no one called 'nobody' is playing", "Corin isn't here: an offer is made face to face",
+                    "doesn't have healing_tonic to give", "doesn't have 4 coins to give", "harbor_square is a place, and places can't change hands",
+                    "no item called 'no_such_thing'", "give coins must be a whole number", "the offer gives nothing and asks for nothing",
+                    "an offer holds only to, give and want"]
+        for said, got in zip(refusals, out):
+            self.assertIn("REFUSED: ", got)
+            self.assertIn(said, got)
+        self.assertIn("OFFERED t1 to Tam (tam): gives Worn Dagger and 1 coins; asks for Healing Tonic.", out[10])
+        self.assertIn("OFFERS HERE: t1 to Tam (tam): gives worn_dagger, 1 coins; asks for healing_tonic. Theirs to answer", out[11])
+        self.assertFalse((self.dir / "proposals" / "offer.json").exists(), "the file is used up")
+        tam, wren_pane = self.rpg("pane", "tam"), self.rpg("pane", "wren")
+        self.assertIn("## Offered to you\n- Wren offers you Worn Dagger and 1 coins, and asks for Healing Tonic in return.", tam)
+        self.assertIn("## You offered\n- To Tam: Worn Dagger and 1 coins, asking for Healing Tonic in return.", wren_pane)
+        self.assertNotIn("You offered", tam)
+        self.assertNotIn("Offered", self.rpg("pane", "corin"))
+        for pane in (tam, wren_pane):
+            self.assertIsNone(self.FORBIDDEN.search(pane), pane)
+        self.assertIn("Offered to you", self.rpg("brief", "tam"), "the brief carries the pane")
+        looked = []
+        self.round_with(tam=lambda pid: looked.append(self.turn(pid, "I think about it.", ("look",))[0]))
+        self.assertIn("OFFERS HERE: t1 from Wren (wren): gives worn_dagger, 1 coins; asks for healing_tonic. If the player takes it: "
+                      "`trade accept t1`", looked[0])
+        offered = next(e for e in self.log_entries() if e["kind"] == "trade")
+        self.assertEqual((offered["trade"], offered["step"], offered["offered_by"], offered["to"], offered["give"], offered["want"],
+                          offered["words"], offered["journal"]),
+                         ("t1", "offered", "wren", "tam", {"items": ["worn_dagger"], "coins": 1}, {"items": ["healing_tonic"], "coins": 0},
+                          "I hold out my dagger and a coin to Tam for the tonic.", "Tam needs it more."))
+
+    def test_an_offer_ends_when_turned_down_replaced_parted_from_or_left_too_long(self):
+        self.three_players()
+        self.rpg("newgame", seed=44)
+        gift, ask = self.offer({"to": "tam", "give": {"coins": 1}}), {"to": "tam", "want": {"items": ["healing_tonic"]}}
+        out = []
+        self.round_with(wren=lambda pid: out.extend(self.turn(pid, "I offer Tam a coin, then ask for the tonic instead.",
+                                                              gift, self.offer(ask), ("trade", "decline", "t2"))))
+        self.assertIn("OFFER LAPSED: t1, replaced by this one.", out[1])
+        self.assertIn("REFUSED: only Tam can turn down t2", out[2])
+        self.assertIn("## Offered to you\n- Wren asks you for Healing Tonic, offering nothing in return.", self.rpg("pane", "tam"))
+        self.assertIn("- You asked Tam for Healing Tonic, offering nothing in return.", self.rpg("pane", "wren"))
+        ended = self.round_with(tam=lambda pid: out.extend(self.turn(pid, "I say no.", ("trade", "decline", "t2"), ("trade", "decline", "t2"))))
+        self.assertIn("DECLINED t2: Tam turns down Wren's offer.", out[3])
+        self.assertIn("REFUSED: t2 is over (declined)", out[4])
+        self.assertNotIn("Offered", self.rpg("pane", "tam"))
+        self.assertNotIn("OFFER LAPSED", ended)
+        # left unanswered: made in round 3, it stands through rounds 4 and 5
+        self.round_with(wren=lambda pid: self.turn(pid, "I offer Tam a coin.", self.offer({"to": "tam", "give": {"coins": 1}})))
+        self.assertNotIn("OFFER LAPSED", self.round_with())
+        self.assertIn("OFFER LAPSED: t3, Wren to Tam (no answer in time).", self.round_with())
+        # parted: Tam walks off
+        self.round_with(wren=lambda pid: self.turn(pid, "I offer Tam a coin.", self.offer({"to": "tam", "give": {"coins": 1}})))
+        way = next(iter(self.save()["players"]["tam"]["map"]["harbor_square"]["exits"]))
+        moved = []
+        self.round_with(tam=lambda pid: moved.extend(self.turn(pid, "I walk off.", ("move", way))))
+        self.assertIn("OFFER LAPSED: t4, Wren to Tam (they're no longer together).", moved[0])
+        self.assertEqual(self.trade_entries(), [("t1", "offered", None), ("t1", "lapsed", "replaced"), ("t2", "offered", None),
+                                                ("t2", "declined", None), ("t3", "offered", None), ("t3", "lapsed", "time"),
+                                                ("t4", "offered", None), ("t4", "lapsed", "parted")])
+        self.assertEqual(self.save()["players"]["tam"]["stats"]["coins"], 4, "nothing changed hands")
+
     def test_what_one_person_learns_stays_their_own(self):
         self.rpg("game", "switch", "thirteenth_stroke")
         self.rpg("newgame", seed=43)  # Marigold and Dilly both start in the square, with Pip
