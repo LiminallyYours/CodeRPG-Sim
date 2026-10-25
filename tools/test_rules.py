@@ -7,6 +7,7 @@ rules/rpg.py as the game master would, through its command line. The real save i
 import csv
 import datetime
 import getpass
+import hashlib
 import io
 import json
 import os
@@ -1726,6 +1727,47 @@ print(json.dumps({"type": "result", "is_error": False, "result": answer, "total_
         self.assertEqual((action["do"], action["spend"]), ("I look out to sea.", 0.0012))
         self.assertIn("already replied", self.rpg("reply", first, "proposals/reply-%s.txt" % first, ok=False))
 
+    def test_the_log_records_which_version_of_each_text_a_person_was_given(self):
+        self.rpg("game", "switch", "dark_lighthouse")
+        self.settings_tool("preset", "simulation")
+        self.rpg("newgame", seed=43)
+
+        def round_through_ask():
+            order = [p.split("(")[1].rstrip(")") for p in self.rpg("round", "start").split(": ", 1)[1].strip().split(", ")]
+            sent = []
+            for pid in order:
+                _, _, argv = self.ask(pid, answers=["DO: I wait.\nJOURNAL: To see."])
+                sent.append(argv[0][argv[0].index("--system-prompt") + 1])
+                self.rpg("look", as_=pid)
+                self.write("proposals/story.txt", "You wait.")
+                self.rpg("narrate", pid, "proposals/story.txt")
+            self.rpg("round", "end")
+            return order, sent
+
+        order, sent = round_through_ask()
+        entries = self.log_entries()
+        tag = lambda text: hashlib.sha256(text.encode()).hexdigest()[:8]  # noqa: E731
+        first = [e for e in entries if e["kind"] == "action" and e["player"] == order[0]][0]
+        self.assertEqual(sorted(first["versions"]), sorted(["brief", "thinkback", "cast:" + order[0], "instructions:player"]))
+        self.assertEqual(first["versions"]["instructions:player"], tag(sent[0]), "the instructions as sent to them")
+        self.assertEqual([e["versions"] for e in entries if e["kind"] == "brief" and e["player"] == order[0]], [first["versions"]])
+        texts = [e for e in entries if e["kind"] == "text"]
+        self.assertEqual(sorted(e["name"] for e in texts), sorted(["brief", "thinkback", "instructions:player"] + ["cast:" + p for p in order]),
+                         "each text logged whole once, however often it's used")
+        whole = {e["name"]: e for e in texts}
+        self.assertEqual(whole["instructions:player"]["text"], sent[0])
+        self.assertEqual(whole["brief"]["text"], (self.dir / "rules" / "people" / "brief.md").read_text())
+        self.assertEqual(tag(whole["brief"]["text"]), first["versions"]["brief"])
+        brief = self.dir / "rules" / "people" / "brief.md"
+        brief.write_text(brief.read_text() + "# edited partway\n")  # a new version, though no one reads a comment
+        round_through_ask()
+        texts = [e for e in self.log_entries() if e["kind"] == "text"]
+        self.assertEqual([e["round"] for e in texts if e["name"] == "brief"], [1, 2], "the new version logged whole when first used")
+        out = self.run_py("tools/audit.py", "state/log/%s.jsonl" % self.save()["run"]["id"]).stdout
+        line = next(l for l in out.split("== VERSIONS\n")[1].splitlines() if l.startswith("  brief:"))
+        self.assertTrue(line.endswith("(r2-2)  <<< changed partway"), line)
+        self.assertIn("  instructions:player: %s (r1-2)\n" % tag(sent[0]), out)
+
     def voice(self, *args, answers, ok=True):
         return self.ask(*args, answers=answers, ok=ok, tool="tools/voice.py")
 
@@ -1758,6 +1800,8 @@ print(json.dumps({"type": "result", "is_error": False, "result": answer, "total_
         voiced = [e for e in self.log_entries() if e["kind"] == "voice"]
         self.assertEqual([(e["agent"], e["about"], e["player"], e["model"], e["effort"], e["added"], e["reply"], e["spend"]) for e in voiced],
                          [("npc", "pip", first, "sonnet", "low", scene, reply, 0.0012)])
+        self.assertEqual(voiced[0]["versions"], {"instructions:npc": hashlib.sha256(system.encode()).hexdigest()[:8]},
+                         "the version of the instructions it was asked with")
         self.assertFalse((self.dir / "proposals" / "voiced.json").exists(), "the record is used up once logged")
         out, asked, _ = self.voice("npc", "mags", "proposals/scene-pip.txt", "--as", first, answers=["SAY: Hi."], ok=False)
         self.assertIn("minor character", out)

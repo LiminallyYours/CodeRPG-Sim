@@ -15,6 +15,7 @@ are swapped in by `game switch`, so switching loses nothing.
 """
 import contextlib
 import datetime
+import hashlib
 import io
 import itertools
 import json
@@ -3728,6 +3729,7 @@ def spent(usd):
 def cmd_reply(args):
     """reply <player> <file> [--spend <usd>]: the player's reply this turn: what they do (DO:) and why (JOURNAL:)."""
     args, usd = take_spend(args)
+    args, instructions = take_instructions(args)
     state = load_state()
     pl = player_arg(state, args[0])
     if open_turn(state, args[0]):
@@ -3744,7 +3746,8 @@ def cmd_reply(args):
     remember(pl, "did", reply["do"], number)
     if reply["journal"]:
         remember(pl, "reasoned", reply["journal"], number)
-    log(state, "action", do=reply["do"], journal=reply["journal"], model=pl.get("model"), **spent(usd))
+    log(state, "action", do=reply["do"], journal=reply["journal"], model=pl.get("model"),
+        versions=versions(state, args[0], instructions), **spent(usd))
     save_state(state)
     print("REPLY from %s (%s): DO: %s" % (pl["name"], pronouns(args[0]), reply["do"]))
     if reply["journal"]:
@@ -4233,7 +4236,9 @@ def cmd_voiced(args):
     if not isinstance(rec, dict) or rec.get("agent") not in ("npc", "world") or not all(
             isinstance(rec.get(k), str) for k in ("about", "model", "added", "reply")):
         raise Refused("a call's record names its agent (npc or world), what it was about, the model, what was added and the reply")
-    log(state, "voice", agent=rec["agent"], about=rec["about"], model=rec["model"], effort=rec.get("effort"),
+    tags = record_texts(state, {"instructions:" + Path(rec["instructions"]).stem: agent_instructions(rec["instructions"])}
+                        ) if isinstance(rec.get("instructions"), str) else {}
+    log(state, "voice", agent=rec["agent"], about=rec["about"], model=rec["model"], effort=rec.get("effort"), versions=tags,
         added=rec["added"], again=bool(rec.get("again")), reply=rec["reply"], **spent(usd))
     print("VOICED: the %s agent, for %s (%s)" % (rec["agent"], rec["about"], rec["model"]))
 
@@ -4259,6 +4264,7 @@ def cmd_memory(args):
     """memory condense <player> | memory store <player> <file> [--spend <usd>]: fold older rounds into the player's
     own words."""
     args, usd = take_spend(args)
+    args, instructions = take_instructions(args)
     state = load_state()
     if len(args) < 2 or args[0] not in ("condense", "store"):
         raise Refused("use: memory condense <player> | memory store <player> <file>")
@@ -4291,7 +4297,8 @@ def cmd_memory(args):
     mem["condensed"].append({"rounds": [rounds[0], rounds[-1]], "kind": "condensed", "text": text,
                              "round": state["run"]["round"], "uses": 0})
     mem.pop("condensing")
-    log(state, "memory", rounds=[rounds[0], rounds[-1]], text=text, replaced=len(before), **spent(usd))
+    log(state, "memory", rounds=[rounds[0], rounds[-1]], text=text, replaced=len(before),
+        versions=versions(state, args[1], instructions), **spent(usd))
     save_state(state)
     print("REMEMBERED by %s, rounds %d-%d, in their own words (%d entries folded in)." % (pl["name"], rounds[0], rounds[-1], len(before)))
 
@@ -4385,6 +4392,58 @@ def phrase(key, /, **fill):
         return phrases[key].format(**fill)
     except (KeyError, IndexError, ValueError):
         raise Refused("rules/people/brief.md: %s has a gap the code doesn't fill (`rpg.py validate`)" % key)
+
+
+# ---------------------------------------------------------------- which version of each text a person was given
+# Every brief, action, memory and voice entry in the log carries `versions`: a short tag (8 hex characters of a
+# sha256) for each text that shaped what was read or answered: brief.md, thinkback.md, the person's cast entry
+# (`cast:<id>`), and the instructions the agent was asked with (`instructions:<agent>`, named by tools/ask.py or
+# tools/voice.py, which sent them). The first time a version appears in a run its whole text goes in the log once
+# (a `text` entry), so a run says exactly what it was made with, an edit partway through included.
+
+def text_tag(text):
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()[:8]
+
+
+def agent_instructions(path):
+    """An agent's instructions as tools/ask.py sends them: the file without its front matter, stripped."""
+    try:
+        text = (ROOT / path).read_text(encoding="utf-8")
+    except OSError:
+        raise Refused("no instructions file at %s" % path)
+    m = re.match(r"^---\n.*?\n---\n", text, re.S)
+    return (text[m.end():] if m else text).strip()
+
+
+def take_instructions(args):
+    """The arguments without `--instructions <file>`, and that file (what tools/ask.py or voice.py asked with), or None."""
+    if "--instructions" not in args:
+        return args, None
+    i = args.index("--instructions")
+    if i + 1 >= len(args):
+        raise Refused("--instructions takes the file the agent was asked with")
+    return args[:i] + args[i + 2:], args[i + 1]
+
+
+def record_texts(state, texts):
+    """Tags for {name: text}; each version not yet in this run's log is logged whole, once."""
+    seen = state["run"].setdefault("texts", {})
+    tags = {}
+    for name, text in texts.items():
+        tags[name] = text_tag(text)
+        if tags[name] not in seen.get(name, []):
+            seen.setdefault(name, []).append(tags[name])
+            log(state, "text", name=name, tag=tags[name], text=text)
+    return tags
+
+
+def versions(state, pid, instructions=None):
+    """The tags of what shaped what `pid` read or answered, for their log entry."""
+    texts = {"brief": people_file("brief.md"), "thinkback": people_file("thinkback.md"),
+             "cast:" + pid: json.dumps(cast_entry(pid), sort_keys=True, ensure_ascii=False)}
+    if instructions:
+        texts["instructions:" + Path(instructions).stem] = agent_instructions(instructions)
+    return record_texts(state, texts)
 
 
 def memory_text(entries):
@@ -4498,6 +4557,7 @@ def dice_lines(state, pid):
 
 def cmd_brief(args):
     """brief <player>: everything the player agent is handed on its turn."""
+    args, instructions = take_instructions(args)
     state = load_state()
     pl = player_arg(state, args[0])
     mem = pl.setdefault("memory", {"recent": [], "condensed": []})
@@ -4522,7 +4582,7 @@ def cmd_brief(args):
     text = "\n".join(out)
     for e in mem["condensed"] + mem["recent"]:
         e["uses"] += 1
-    log(state, "brief", text=text)
+    log(state, "brief", text=text, versions=versions(state, args[0], instructions))
     save_state(state)
     print(text)
 
@@ -4945,11 +5005,11 @@ COMMANDS = {
     "chronicle": (cmd_chronicle, 1, "chronicle <text>   add a line to the story so far"),
     "round": (cmd_round, 1, "round start | round end   open the next round (draws its order) or close it (the world's clock moves)"),
     "run": (cmd_run, 1, "run status | pause | resume | end   the owner's say over a run: a pause or end waits for the round in progress"),
-    "brief": (cmd_brief, 1, "brief <player>   everything the player agent is handed on its turn (logged)"),
+    "brief": (cmd_brief, 1, "brief <player> [--instructions <file>]   everything the player agent is handed on its turn (logged)"),
     "pane": (cmd_pane, 1, "pane <player>   the player's margin as plain text"),
-    "reply": (cmd_reply, 2, "reply <player> <file> [--spend <usd>]   the player's reply this turn (DO: and JOURNAL: lines), from a file in proposals/"),
+    "reply": (cmd_reply, 2, "reply <player> <file> [--spend <usd>] [--instructions <file>]   the player's reply this turn (DO: and JOURNAL: lines), from a file in proposals/"),
     "narrate": (cmd_narrate, 2, "narrate <player> <file>   the story told to the player this turn, from a file; ends their turn"),
-    "memory": (cmd_memory, 2, "memory condense <player> | memory store <player> <file> [--spend <usd>]   fold older rounds into the player's own words"),
+    "memory": (cmd_memory, 2, "memory condense <player> | memory store <player> <file> [--spend <usd>] [--instructions <file>]   fold older rounds into the player's own words"),
     "log": (cmd_log, 0, "log [n]   the run's last n log entries (default 10), one line each, for checking"),
     "validate": (cmd_validate, 0, "validate [--game <id> | --dir <folder>] [--kit-complete] [--sim-complete]   check games' content, soundness and settings"),
     "game": (cmd_game, 0, "game [list | show | switch <id>]   the installed games; switching keeps each one's save"),

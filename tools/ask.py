@@ -7,7 +7,8 @@
 
 It prints only what `reply` (or `memory store`) prints, so the referee never holds a brief: a brief is handed on
 exactly as printed because nobody retypes it. The person is `claude -p` under the owner's Claude Code login, with
-the model the cast gives them, the player agent's instructions as the whole system prompt, no tools, and
+the model the cast gives them, the player agent's instructions as the whole system prompt (named to `rpg.py`, for the
+version record its log entries carry), no tools, and
 `--safe-mode`, which keeps out CLAUDE.md, skills, plugins, hooks (the meter's SessionStart would refill it) and
 MCP servers, asked from a plain folder outside this one (NEUTRAL), since Claude Code tells them the folder it runs in.
 Claude Code still adds its own lines (a billing line, "a Claude agent", the owner's email, an environment note with
@@ -108,7 +109,8 @@ def main(argv):
         sys.exit(__doc__)
     pid, memory = argv[0], "--memory" in argv[1:]
     model = model_of(pid)
-    code, out = rpg("memory", "condense", pid) if memory else rpg("brief", pid)
+    told = ["--instructions", str(AGENT.relative_to(ROOT))]  # what they're asked with, for the version record
+    code, out = rpg("memory", "condense", pid) if memory else rpg("brief", pid, *told)
     if code != 0 or out.startswith("NOTHING TO CONDENSE"):
         print(out, end="")
         return code
@@ -118,7 +120,7 @@ def main(argv):
         answer, spend = ask(model, prompt)
         (ROOT / path).write_text(answer, encoding="utf-8")
         store = ("memory", "store", pid) if memory else ("reply", pid)
-        code, out = rpg(*store, path, "--spend", "%.6f" % spend)
+        code, out = rpg(*store, path, "--spend", "%.6f" % spend, *told)
         if code == 0:
             print(out, end="")
             return 0

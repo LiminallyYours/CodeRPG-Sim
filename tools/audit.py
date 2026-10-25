@@ -23,6 +23,9 @@ From the run's log (state/log/<run>.jsonl; the active run's by default):
     ENDINGS      each quest decided, and who heard of it
     VOICES       each call tools/voice.py made to a townsperson's agent or the world agent: the round, whose turn
                  (or no one's), the agent and what for, its model and effort, and whether it was asked again
+    VERSIONS     each text that shaped what people read and answered (brief.md, thinkback.md, each cast entry, each
+                 agent's instructions), by its version tag and the rounds it was used in; a text that changed partway
+                 through the run is flagged, and so is a version whose whole text the log doesn't hold
     SPEND        what the people's replies cost, by model (the `spend` tools/ask.py logs), and the townspeople's
                  and the world agent's calls (tools/voice.py)
 From the referee's session transcript (~/.claude/projects/<folder>/<session>.jsonl), if given, or with --referee
@@ -199,6 +202,24 @@ def voices(log):
     return out or ["  none"]
 
 
+def versions(log):
+    logged = {(e["name"], e["tag"]) for e in log if e["kind"] == "text"}
+    used = collections.OrderedDict()
+    for e in log:
+        for name, tag in (e.get("versions") or {}).items():
+            used.setdefault(name, collections.OrderedDict()).setdefault(tag, []).append(e.get("round") or 0)
+    out = []
+    for name, tags in used.items():
+        line = "  %s: %s" % (name, ", then ".join("%s (r%d-%d)" % (t, min(r), max(r)) for t, r in tags.items()))
+        if len(tags) > 1:
+            line += "  <<< changed partway"
+        missing = [t for t in tags if (name, t) not in logged]
+        if missing:
+            line += "  <<< no text logged for %s" % ", ".join(missing)
+        out.append(line)
+    return out or ["  none recorded (a run from before the version record)"]
+
+
 def spend(log):
     models = {e["player"]: e.get("model") for e in log if e["kind"] == "action"}
     total, n = collections.Counter(), collections.Counter()
@@ -306,7 +327,7 @@ def main(argv):
     sections = [("LEAKS", leaks(log) or ["  none"]), ("SIGNS OF CLAUDE CODE'S LINES", traces(log)), ("WITNESSED", witnessed(log)), ("FLAGS", flags(path.stem)),
                 ("CONTINUITY", continuity(log)),
                 ("MEMORY", memory(log)), ("COINS", coins(log)), ("TRADES", trades(log)), ("CONTESTS", contests(log)), ("ENDINGS", endings(log)),
-                ("VOICES", voices(log)), ("SPEND", spend(log))]
+                ("VOICES", voices(log)), ("VERSIONS", versions(log)), ("SPEND", spend(log))]
     if path_t:
         cut, spawns, referee = transcript(path_t, log)
         sections += [("CUT READS", cut), ("SPAWNS", spawns), ("REFEREE", referee)]

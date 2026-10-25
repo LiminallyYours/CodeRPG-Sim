@@ -20,7 +20,7 @@ matter) as the whole system prompt, the model and effort its front matter names,
 /tmp/here. A call that fails is made once more with the same prompt; a second failure prints VOICE FAILED. A brief
 that's refused (a minor character, someone not here, a kind of thing switched off) is printed as it came, and no
 one is asked. Each call goes in the log (`rpg.py voiced`): the agent, who or what for, the model and effort, what
-the referee added, the reply and what it cost. CODERPG_CLAUDE names another program in place of `claude`.
+the referee added, the reply, what it cost, and the instructions' version. CODERPG_CLAUDE names another program in place of `claude`.
 """
 import json
 import re
@@ -126,7 +126,8 @@ def main(argv):
     if agent == "world":
         saved = "proposals/world-%s.json" % kind
         (ROOT / saved).write_text(reply, encoding="utf-8")
-    record = {"agent": agent, "about": about, "model": model, "effort": effort, "added": added, "again": again, "reply": reply}
+    record = {"agent": agent, "about": about, "model": model, "effort": effort, "added": added, "again": again, "reply": reply,
+              "instructions": str(file.relative_to(ROOT))}
     (ROOT / "proposals" / "voiced.json").write_text(json.dumps(record, ensure_ascii=False), encoding="utf-8")
     code, out = ask.rpg("voiced", "proposals/voiced.json", "--spend", "%.6f" % spend, *as_args)
     if code != 0:
