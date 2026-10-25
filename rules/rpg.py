@@ -1443,9 +1443,9 @@ def finish_building(state, ident, com):
     name, where = record["meta"]["name"], ent("rooms", com["room"]).get("name", com["room"])
     maker = ent("characters", com["maker"]).get("name", com["maker"])
     if owner in state["players"]:  # they hear of it, whether or not the story tells them (as signals go to memory)
-        remember(state["players"][owner], "seen", "%s is finished, %s of %s: %s built it for you."
-                 % (name, com["direction"], where, maker), run.get("round") or 0)
-    run["rumors"].append("%s is finished, %s of %s, and folk are curious to see it." % (name, com["direction"], where))
+        remember(state["players"][owner], "seen", phrase("finished", place=name, direction=com["direction"], where=where, builder=maker),
+                 run.get("round") or 0)
+    run["rumors"].append(phrase("finished_rumor", place=name, direction=com["direction"], where=where))
     del run["rumors"][:-BALANCE["world"]["rumors_kept"]]
     data = lib()
     library.add(data, lib_limit(), ident, "rooms", "player", record, where=com["room"],
@@ -3786,7 +3786,7 @@ def cmd_say(args):
         raise Refused("no one else is here to hear it")
     speaker = me(state)["name"]
     for pid in listeners:
-        remember(state["players"][pid], "told", '%s says: "%s"' % (speaker, words), state["run"].get("round", 0))
+        remember(state["players"][pid], "told", phrase("says", name=speaker, words=words), state["run"].get("round", 0))
     log(state, "speech", text=words, heard_by=listeners)
     save_state(state)
     print("SAID by %s, heard by %s: they'll read it on their next turn, and may answer then." % (
@@ -3914,7 +3914,12 @@ def things_text(terms):
     parts = ["%s%s" % (item(i).get("name", i), " (%d)" % n if n > 1 else "") for i, n in counts.items()]
     if terms["coins"]:
         parts.append("%d %s" % (terms["coins"], currency()))
-    return parts[0] if len(parts) == 1 else ", ".join(parts[:-1]) + " and " + parts[-1]
+    return parts[0] if len(parts) == 1 else ", ".join(parts[:-1]) + " %s " % phrase("and") + parts[-1]
+
+
+def wanted_text(terms):
+    """What an offer asks in return, as the pane says it: 'nothing', or 'for <things>'."""
+    return phrase("nothing_back") if is_empty(terms) else phrase("for_things", things=things_text(terms))
 
 
 def is_empty(terms):
@@ -3968,17 +3973,15 @@ def trade_lines(state, pid):
         if t["to"] == pid:
             who = state["players"][t["from"]]["name"]
             if is_empty(t["give"]):
-                to_me.append("%s asks you for %s, offering nothing in return." % (who, things_text(t["want"])))
+                to_me.append(phrase("asks_you", who=who, things=things_text(t["want"])))
             else:
-                to_me.append("%s offers you %s, and asks %s in return." % (
-                    who, things_text(t["give"]), "nothing" if is_empty(t["want"]) else "for " + things_text(t["want"])))
+                to_me.append(phrase("offers_you", who=who, give=things_text(t["give"]), want=wanted_text(t["want"])))
         else:
             who = state["players"][t["to"]]["name"]
             if is_empty(t["give"]):
-                by_me.append("You asked %s for %s, offering nothing in return." % (who, things_text(t["want"])))
+                by_me.append(phrase("you_asked", who=who, things=things_text(t["want"])))
             else:
-                by_me.append("To %s: %s, asking %s in return." % (
-                    who, things_text(t["give"]), "nothing" if is_empty(t["want"]) else "for " + things_text(t["want"])))
+                by_me.append(phrase("you_offered_to", who=who, give=things_text(t["give"]), want=wanted_text(t["want"])))
     return to_me, by_me
 
 
@@ -4293,16 +4296,107 @@ def cmd_memory(args):
     print("REMEMBERED by %s, rounds %d-%d, in their own words (%d entries folded in)." % (pl["name"], rounds[0], rounds[-1], len(before)))
 
 
+# ---------------------------------------------------------------- the words a person reads
+# Every fixed word a person in the cast reads lives in rules/people/, not here: brief.md, one phrase per line (its
+# name, a colon, the words, with {gaps} the code fills), and thinkback.md, the think-back prompt whole. The code
+# decides which sections appear and in what order; the files say them. PHRASES lists each phrase and the gaps it
+# may use, which `validate` holds the file to.
+
+PEOPLE = ROOT / "rules" / "people"
+PHRASES = {
+    "who_i_am": (), "i_am": ("name", "personality"), "how_i_talk": ("voice",), "drives": ("motivations",),
+    "begins": (), "remember": (), "lately": (), "moment": ("n",), "did": (), "why": (), "happened": (), "told": (),
+    "stood": (), "where_you_are": (), "place": ("place",), "ways_on": ("ways",), "way": ("direction", "place"),
+    "with_you": ("people",), "no_one": (), "you": (), "health": ("hp", "max_hp", "stats"), "money": ("n", "currency"),
+    "carrying": ("things", "load", "limit"), "nothing": (), "in_hand": (), "made_for_you": (),
+    "own_places": ("places",), "being_built": ("name",),
+    "waiting": ("thing", "maker", "price", "currency", "in_trade"), "in_trade": ("things",), "or": (),
+    "offered_to_you": (), "you_offered": (), "asks_you": ("who", "things"), "offers_you": ("who", "give", "want"),
+    "you_asked": ("who", "things"), "you_offered_to": ("who", "give", "want"), "nothing_back": (),
+    "for_things": ("things",), "and": (), "working_on": (), "quest_done": (), "quest_failed": (), "step_done": (),
+    "people_met": (), "places_been": (), "talk": (), "attempts": (), "closing": (), "says": ("name", "words"),
+    "finished": ("place", "direction", "where", "builder"), "finished_rumor": ("place", "direction", "where"),
+}
+THINKBACK_GAPS = ("name", "voice", "stretch")
+_WORDS = {}
+
+
+def people_file(name):
+    """The text of rules/people/<name>, as it was when this command started reading it."""
+    if name not in _WORDS:
+        path = PEOPLE / name
+        if not path.is_file():
+            raise Refused("rules/people/%s is missing" % name)
+        _WORDS[name] = path.read_text(encoding="utf-8")
+    return _WORDS[name]
+
+
+def read_phrases(text):
+    """brief.md's phrases: {name: words}, and the lines it couldn't read."""
+    phrases, bad = {}, []
+    for n, line in enumerate(text.splitlines(), 1):
+        if not line.strip() or line.startswith("#"):
+            continue
+        m = re.match(r"^([a-z_]+):[ \t]*(.*?)[ \t]*$", line)
+        if not m:
+            bad.append("line %d isn't `name: words`" % n)
+        elif m.group(1) in phrases:
+            bad.append("line %d: %s is given twice" % (n, m.group(1)))
+        else:
+            phrases[m.group(1)] = m.group(2)
+    return phrases, bad
+
+
+def gaps(text):
+    return set(re.findall(r"\{([^{}]*)\}", text))
+
+
+def thinkback_text():
+    """thinkback.md without its opening <!-- comment -->, and without the newline that ends the file."""
+    text = re.sub(r"\A\s*<!--.*?-->[ \t]*\n", "", people_file("thinkback.md"), flags=re.S)
+    return text[:-1] if text.endswith("\n") else text
+
+
+def people_problems():
+    """What's wrong with the words in rules/people/: a phrase missing, unknown or with a gap the code doesn't fill."""
+    try:
+        phrases, out = read_phrases(people_file("brief.md"))
+        think = thinkback_text()
+    except Refused as e:
+        return [str(e)]
+    out = ["brief.md: " + x for x in out]
+    out += ["brief.md: %s is missing" % k for k in PHRASES if k not in phrases]
+    out += ["brief.md: %s isn't a phrase the code uses" % k for k in phrases if k not in PHRASES]
+    out += ["brief.md: %s has a gap the code doesn't fill: %s" % (k, ", ".join(sorted(gaps(v) - set(PHRASES[k]))))
+            for k, v in phrases.items() if k in PHRASES and gaps(v) - set(PHRASES[k])]
+    if gaps(think) - set(THINKBACK_GAPS):
+        out.append("thinkback.md has a gap the code doesn't fill: %s" % ", ".join(sorted(gaps(think) - set(THINKBACK_GAPS))))
+    return out
+
+
+def phrase(key, /, **fill):
+    """One phrase from brief.md, its gaps filled (a gap may be called `name`, so the phrase's own is `key`)."""
+    if "phrases" not in _WORDS:
+        _WORDS["phrases"] = read_phrases(people_file("brief.md"))[0]
+    phrases = _WORDS["phrases"]
+    if key not in phrases:
+        raise Refused("rules/people/brief.md has no %s phrase (`rpg.py validate` says what's wrong)" % key)
+    try:
+        return phrases[key].format(**fill)
+    except (KeyError, IndexError, ValueError):
+        raise Refused("rules/people/brief.md: %s has a gap the code doesn't fill (`rpg.py validate`)" % key)
+
+
 def memory_text(entries):
     """Memory entries as the player reads them: round by round, in the second person."""
     lines, current = [], None
-    label = {"did": "What you did", "reasoned": "Why", "seen": "What happened", "told": "What you were told",
-             "status": "How things stood after"}
+    label = {"did": phrase("did"), "reasoned": phrase("why"), "seen": phrase("happened"), "told": phrase("told"),
+             "status": phrase("stood")}
     for e in entries:
         if e["round"] != current:
             current = e["round"]
             lines.append("")
-            lines.append("### Moment %d" % current)
+            lines.append(phrase("moment", n=current))
         if e["kind"] == "status":  # a pane: its headings become labels, indented under this moment
             lines.append("%s:" % label["status"])
             lines += ["  %s:" % l[3:] if l.startswith("## ") else "    " + l for l in e["text"].splitlines() if l.strip()]
@@ -4316,12 +4410,10 @@ def condensing_brief(pl, rounds):
     mem = pl["memory"]
     entries = [e for e in mem["recent"] if e["round"] in rounds]
     entry = cast_entry(ACTOR)  # memory condense made them the acting player
-    return "\n".join([
-        "You are %s. How you speak, in your own words: %s" % (pl["name"], entry.get("voice", "")), "",
-        "Some time has passed. Think back over this stretch of your days and say what you remember of it now: in the "
-        "first person, in your own way of speaking, in a few sentences. Keep what mattered to you; you needn't keep the rest.",
-        "", "## That stretch", memory_text(entries), "",
-        "Reply with one line, exactly in this form:", "MEMORY: <what you remember of that time>"])
+    try:  # rules/people/thinkback.md, its gaps filled
+        return thinkback_text().format(name=pl["name"], voice=entry.get("voice", ""), stretch=memory_text(entries))
+    except (KeyError, IndexError, ValueError):
+        raise Refused("rules/people/thinkback.md has a gap the code doesn't fill (`rpg.py validate`)")
 
 
 # ---------------------------------------------------------------- what a player is shown: pane and brief
@@ -4337,49 +4429,53 @@ def pane_text(state):
     v = state["view"]["players"][pid]
     look_cfg, stats = content.look(), pl["stats"]
     labels = look_cfg["stat_labels"]
-    lines = ["## Where you are", v["location_name"] + "".join(", " + x for x in (state["view"]["time"], state["view"]["weather"]) if x) + "."]
+    lines = [phrase("where_you_are"), phrase("place", place=v["location_name"] + "".join(
+        ", " + x for x in (state["view"]["time"], state["view"]["weather"]) if x))]
     exits = me(state)["map"].get(pl["location"], {}).get("exits", {})
     if exits:
-        lines.append("Ways on: %s." % "; ".join("%s to %s" % (d, ent("rooms", r).get("name", r) if ent_exists("rooms", r) else r)
-                                               for d, r in exits.items()))
+        lines.append(phrase("ways_on", ways="; ".join(phrase("way", direction=d, place=ent("rooms", r).get("name", r) if ent_exists("rooms", r) else r)
+                                                    for d, r in exits.items())))
     company = [c["name"] for c in v["characters_here"]] + [state["players"][o]["name"] for o in players_here(state)[1:]]
-    lines.append("With you: %s." % (", ".join(company) if company else "no one"))
-    lines += ["", "## You",
-              "Health %d of %d. %s." % (stats["hp"], stats["max_hp"], ", ".join("%s %+d" % (labels.get(k, k.capitalize()), stats[k]) for k in STATS)),
-              "Money: %d %s." % (stats["coins"], currency())]
-    carried = ["%s%s%s" % (i["name"], " (in hand)" if i["equipped"] else "", " (made for you)" if i["own"] else "") for i in v["items"]]
-    lines.append("Carrying: %s (load %d of %d)." % (", ".join(carried) if carried else "nothing", v["weight"], v["carry_limit"]))
+    lines.append(phrase("with_you", people=", ".join(company) if company else phrase("no_one")))
+    lines += ["", phrase("you"),
+              phrase("health", hp=stats["hp"], max_hp=stats["max_hp"],
+                     stats=", ".join("%s %+d" % (labels.get(k, k.capitalize()), stats[k]) for k in STATS)),
+              phrase("money", n=stats["coins"], currency=currency())]
+    carried = ["%s%s%s" % (i["name"], " " + phrase("in_hand") if i["equipped"] else "", " " + phrase("made_for_you") if i["own"] else "")
+               for i in v["items"]]
+    lines.append(phrase("carrying", things=", ".join(carried) if carried else phrase("nothing"), load=v["weight"], limit=v["carry_limit"]))
     mine = [r for r, rec in state["run"]["rooms"].items() if rec["meta"].get("owner") == pid]
     if mine:
-        lines.append("Your own places: %s (what you leave there stays yours)." % ", ".join(ent("rooms", r).get("name", r) for r in mine))
+        lines.append(phrase("own_places", places=", ".join(ent("rooms", r).get("name", r) for r in mine)))
     going = [c for c in state["run"]["commissions"].values() if c.get("by") == pid and c["status"] == "building"]
     for c in going:
-        lines.append("Being built for you: %s." % c["record"]["meta"]["name"])
+        lines.append(phrase("being_built", name=c["record"]["meta"]["name"]))
     waiting = [(i, c) for i, c in state["run"]["commissions"].items() if c.get("ordered_by") == pid and c["status"] == "ordered"]
     for i, c in waiting:
         meta = (state["run"]["items"].get(i) or c.get("record") or {}).get("meta", {})
         trade = accepts(c["maker"]) if c["kind"] == "item" else []
-        lines.append("Waiting for you to pay: %s, from %s, for %d %s%s." % (
-            meta.get("name", i), ent("characters", c["maker"]).get("name", c["maker"]), c["price"], currency(),
-            " or %s in trade" % " or ".join(item(t).get("name", t) for t in trade) if trade else ""))
+        lines.append(phrase("waiting", thing=meta.get("name", i), maker=ent("characters", c["maker"]).get("name", c["maker"]),
+                            price=c["price"], currency=currency(), in_trade=" " + phrase("in_trade", things=(" %s " % phrase("or")).join(
+                                item(t).get("name", t) for t in trade)) if trade else ""))
     to_me, by_me = trade_lines(state, pid)
     if to_me:
-        lines += ["", "## Offered to you"] + ["- " + x for x in to_me]
+        lines += ["", phrase("offered_to_you")] + ["- " + x for x in to_me]
     if by_me:
-        lines += ["", "## You offered"] + ["- " + x for x in by_me]
+        lines += ["", phrase("you_offered")] + ["- " + x for x in by_me]
     quests =[q for q in v["quests"] if not q["side"] or ent("quests", q["id"]).get("giver") in pl.get("met", [])]
     if quests:
-        lines += ["", "## What you're working on"]
+        lines += ["", phrase("working_on")]
         for q in quests:
-            state_word = " (done)" if q["complete"] else " (it's too late)" if q["failed"] else ""
-            lines.append("%s%s: %s" % (q["name"], state_word, " ".join(("[done] " if o["done"] else "") + o["text"] for o in q["objectives"])))
+            state_word = " " + phrase("quest_done") if q["complete"] else " " + phrase("quest_failed") if q["failed"] else ""
+            lines.append("%s%s: %s" % (q["name"], state_word, " ".join((phrase("step_done") + " " if o["done"] else "") + o["text"]
+                                                                      for o in q["objectives"])))
     if v["people"]:
-        lines += ["", "## People you've met", ", ".join("%s%s" % (c["name"], " (%s)" % c["role"] if c["role"] else "") for c in v["people"])]
+        lines += ["", phrase("people_met"), ", ".join("%s%s" % (c["name"], " (%s)" % c["role"] if c["role"] else "") for c in v["people"])]
     places = [e["name"] for r, e in me(state)["map"].items() if r != pl["location"]]
     if places:
-        lines += ["", "## Places you've been", ", ".join(places)]
+        lines += ["", phrase("places_been"), ", ".join(places)]
     if pl.get("heard"):  # only what they've heard, among people (overhear)
-        lines += ["", "## Talk going around"] + ["- " + r for r in pl["heard"]]
+        lines += ["", phrase("talk")] + ["- " + r for r in pl["heard"]]
     return "\n".join(lines)
 
 
@@ -4407,22 +4503,22 @@ def cmd_brief(args):
     mem = pl.setdefault("memory", {"recent": [], "condensed": []})
     entry = cast_entry(args[0])
     # the cast writes who they are in their own first person: a note to themselves, like their journal and memories
-    out = ["## Who I am (a note to myself)", "I'm %s. %s" % (pl["name"], entry.get("personality", "")),
-           "How I talk: %s" % entry.get("voice", ""),
-           "What drives me: %s." % "; ".join(entry.get("motivations") or []), ""]
+    out = [phrase("who_i_am"), phrase("i_am", name=pl["name"], personality=entry.get("personality", "")),
+           phrase("how_i_talk", voice=entry.get("voice", "")),
+           phrase("drives", motivations="; ".join(entry.get("motivations") or [])), ""]
     if not mem["condensed"] and not any(e["kind"] == "did" for e in mem["recent"]):  # words heard before a first turn
-        out += ["## How it begins", entry.get("opening", ""), ""]
+        out += [phrase("begins"), entry.get("opening", ""), ""]
     if mem["condensed"]:
-        out += ["## What you remember from before", "\n\n".join(c["text"] for c in mem["condensed"]), ""]  # a paragraph a stretch
+        out += [phrase("remember"), "\n\n".join(c["text"] for c in mem["condensed"]), ""]  # a paragraph a stretch
     if mem["recent"]:
-        out += ["## Lately", memory_text(mem["recent"]), ""]
+        out += [phrase("lately"), memory_text(mem["recent"]), ""]
     overhear(state)  # waking into the turn among people, they hear what's being said
     out.append(pane_text(state))
     if SETTINGS["brief"]["dice_lines"]:
         lines = dice_lines(state, args[0])
         if lines:
-            out += ["", "## How your last attempts went"] + lines
-    out += ["", "What do you do now?"]
+            out += ["", phrase("attempts")] + lines
+    out += ["", phrase("closing")]
     text = "\n".join(out)
     for e in mem["condensed"] + mem["recent"]:
         e["uses"] += 1
@@ -4480,6 +4576,10 @@ def cmd_validate(args):
     if kit_art:
         bad = True
         print("\n".join("kit: rules/art/terrain/%s" % x for x in kit_art))
+    words = people_problems()
+    if words:
+        bad = True
+        print("\n".join("kit: rules/people/%s" % x for x in words))
     for g, folder in targets:
         try:
             choose_game(g, folder)

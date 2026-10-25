@@ -61,6 +61,9 @@ rules/                        THE KIT: knows nothing about any particular game
   balance.json                every tunable number (the defaults)
   look.default.json           the default look, which each game's look.json changes
   presets.json                the owner's presets: thrifty, normal, rich, simulation
+  people/brief.md             every fixed word a person in the cast reads (the brief's headings and labels, the
+                              status block, offers, lines put into memory), one phrase per line
+  people/thinkback.md         the think-back prompt, when a stretch of memory is folded into their own words
   dice.py  content.py  rpg.py the code that rolls dice and does the arithmetic
   generate.py                 checks world-agent proposals and turns them into run content
   png.py                      reads, checks and writes room pictures (standard library only)

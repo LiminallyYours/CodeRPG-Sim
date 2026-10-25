@@ -2088,6 +2088,46 @@ print(json.dumps({"type": "result", "is_error": False, "result": "Round done.", 
     FORBIDDEN = re.compile(r"\b(games?|rules?|dice|flags?|agents?|models?|players?|logs?|d20|dc|rolls?|checks?|"
                            r"rpg|refused|generated|meter)\b|\[(agent|minor)|--as|\b[a-z]+_[a-z_]+\b", re.I)
 
+    def test_the_words_people_read_come_from_rules_people(self):
+        self.rpg("game", "switch", "dark_lighthouse")
+        self.settings_tool("preset", "simulation")
+        self.settings_tool("set", "memory.recent_rounds", "1")
+        self.settings_tool("set", "memory.condense_every", "1")
+        self.rpg("newgame", seed=43)
+        brief = self.dir / "rules" / "people" / "brief.md"
+        text = brief.read_text()
+        brief.write_text(text.replace("closing:         What do you do now?", "closing:  And now, {name}?")
+                             .replace("money:           Money: {n} {currency}.", "money: You have {n} {currency} to your name."))
+        self.assertIn("closing has a gap the code doesn't fill: name", self.rpg("validate", ok=False))
+        brief.write_text(text.replace("closing:         What do you do now?", "closing:  And now?")
+                             .replace("money:           Money: {n} {currency}.", "money: You have {n} {currency} to your name."))
+        order = [p.split("(")[1].rstrip(")") for p in self.rpg("round", "start").split(": ", 1)[1].strip().split(", ")]
+        first = order[0]
+        out = self.rpg("brief", first)
+        self.assertTrue(out.endswith("\nAnd now?\n"), out[-60:])
+        self.assertIn("\nYou have ", out)
+        self.assertNotIn("Money:", out)
+        for pid in order:
+            self.take_turn(pid)
+        self.rpg("round", "end")
+        self.play_round()
+        think = self.dir / "rules" / "people" / "thinkback.md"
+        think.write_text(think.read_text().replace("Some time has passed.", "Days have gone by."))
+        self.assertIn("Days have gone by. Think back", self.rpg("memory", "condense", first))
+        brief.write_text(text.replace("closing:         What do you do now?\n", "").replace("\nand:", "\nan_d:"))
+        out = self.rpg("validate", ok=False)
+        self.assertIn("kit: rules/people/brief.md: closing is missing", out)
+        self.assertIn("kit: rules/people/brief.md: an_d isn't a phrase the code uses", out)
+        think.write_text("Remember, {who}: {stretch}")
+        self.assertIn("kit: rules/people/thinkback.md has a gap the code doesn't fill: who", self.rpg("validate", ok=False))
+
+    def test_the_words_in_rules_people_name_none_of_the_machinery(self):
+        phrases = re.findall(r"^[a-z_]+:[ \t]*(.*)$", (ROOT / "rules" / "people" / "brief.md").read_text(), re.M)
+        self.assertGreater(len(phrases), 50)
+        think = re.sub(r"\A\s*<!--.*?-->", "", (ROOT / "rules" / "people" / "thinkback.md").read_text(), flags=re.S)
+        for text in phrases + [think]:
+            self.assertIsNone(self.FORBIDDEN.search(re.sub(r"\{[a-z_]+\}", "", text)), text)
+
     def test_a_brief_holds_the_players_own_life_and_nothing_of_the_machinery(self):
         for game in GAMES:
             self.rpg("game", "switch", game)
