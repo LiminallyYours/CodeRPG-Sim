@@ -217,7 +217,7 @@ A discussion, not a build (JW). Read for it: the 14-round run's stories in order
 Hobb's round-8 brief from the 14-round run (in the tower, just given the whistle for nothing; hates owing, wants four walls, 6 buttons), re-asked four ways through `claude -p` exactly as `ask.py` does, Sonnet, three replies each. "Knows" adds a `## What I know` section with his opening's two facts (Ambrose builds; Nell makes to order); "options" changes `player.md` to ask for two to four options, each for something they want, need or care about, before choosing. **Asked Ambrose to build him a shed:** as in the run 0 of 3; knows 0 of 3 (one misread it and offered to build Ambrose a shed); options 0 of 3 (the want came up as an option once, unchosen; one left 2 buttons on Ambrose's bench, the first money spent by choice in any run); **both 3 of 3**, each still repaying Ambrose first (coal all winter). Knowing and weighing belong together. One situation, chosen as the best case. Files: `state/test-runs/hobb8-options/` (local; `run.py` reproduces it).
 
 ## The steps
-Each a commit with checks before and after; each drafted for JW before code, as before. **Steps 45–49 are decided; the order of 50–63 is proposed, not yet confirmed.**
+Each a commit with checks before and after; each drafted for JW before code, as before. **The order is decided (JW, 2026-10-25): 45–49 → 50 → 55 → 51 → 52 and 53 → 54 → 56–60 → 61 → 62 → 63.** Step 55 (one model) moved up, so every bench comparison after it is on the same model. No starting facts are added to The Thirteenth Stroke's cast (JW): until Wendleford's cast is generated, the bench tests options considered for side effects (restlessness, dropped promises) and step 53's public knowledge and pronouns, but not starting facts, so the real test of the pair is Wendleford's run (63); step 53's `validate` accepts cast entries without the new fields until the generator writes them. No paid run before Wendleford's (JW).
 
 **The referee:**
 45. **Belongings as last seen:** `gm-turn`: another person's belonging is mentioned only as it was last shown (their DO line, a story or a note); one put away stays unmentioned until brought out.
@@ -246,9 +246,9 @@ Each a commit with checks before and after; each drafted for JW before code, as 
 63. **A test run** of Wendleford (approved separately).
 
 ## Open
-- **The order of steps 50–63** (person proposal E).
+- **The order of steps 50–63: decided** (above).
 - **The test world's outline: agreed** (JW, 2026-10-25, after the first pause): Wendleford, `SIM-WORLD-SPEC.md` section 4: both scarce prizes (the cottage, the harvest honour); effort on shared work counted by code; bread dearer if the harvest fails; money tight; unmet needs a small lasting setback; night a turn like any other (sleep chosen); each person in their own situation. Its numbers are still to tune (spec section 6).
-- **Whether R6 (step 53) is tried first on The Thirteenth Stroke's cast** with hand-written starting facts, or waits for the test world's generated cast. The Thirteenth Stroke stays as it is in content, but its cast entries would need `knows`.
+- **Whether R6 (step 53) is tried first on The Thirteenth Stroke's cast: no** (JW): its cast gets no starting facts; the pair is tested for real in Wendleford's run.
 - **The rest of `SIM-WORLD-SPEC.md` section 6:** the numbers, a finery tier, needs for every simulation world or a setting, whether the carpenter's time is truly scarce, how the forge is pointed at the spec.
 - **The rest of phase 2** (the trainer and abilities, room uses beyond `stash`, the dashboard's history views, the memory hooks, forging simulation worlds): not discussed; the steps above come first.
 
