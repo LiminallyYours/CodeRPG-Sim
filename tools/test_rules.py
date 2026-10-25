@@ -1532,6 +1532,48 @@ print(json.dumps({"type": "result", "is_error": False, "result": answers[min(n, 
         self.assertEqual((action["do"], action["spend"]), ("I look out to sea.", 0.0012))
         self.assertIn("already replied", self.rpg("reply", first, "proposals/reply-%s.txt" % first, ok=False))
 
+    SENDER = """#!/usr/bin/env python3
+import json, os, sys, urllib.request
+if sys.argv[1:] == ["--version"]:
+    print("9.9.9 (Claude Code)"); sys.exit(0)
+system = sys.argv[sys.argv.index("--system-prompt") + 1]
+body = {"system": [{"type": "text", "text": "x-billing-line"}, {"type": "text", "text": system}],
+        "messages": [{"role": "user", "content": [{"type": "text", "text": "a reminder with an email"},
+                                                  {"type": "text", "text": sys.stdin.read()}]},
+                     {"role": "system", "content": [{"type": "text", "text": "# Environment\\nWorking directory: " + os.getcwd()}]}],
+        "tools": []}
+req = urllib.request.Request(os.environ["ANTHROPIC_BASE_URL"] + "/v1/messages?beta=true", data=json.dumps(body).encode(),
+                             headers={"Authorization": "Bearer SECRET-TOKEN-123", "content-type": "application/json"})
+try:
+    urllib.request.urlopen(req)
+except Exception:
+    pass
+print(json.dumps({"type": "result", "is_error": True, "result": "API Error: 400"})); sys.exit(1)
+"""
+
+    def test_probe_shows_what_a_person_is_sent_and_keeps_no_token(self):
+        self.rpg("game", "switch", "dark_lighthouse")
+        self.settings_tool("preset", "simulation")
+        self.rpg("newgame", seed=43)
+        self.rpg("round", "start")
+        sender = self.write("stand_in/claude", self.SENDER)
+        sender.chmod(0o755)
+        save, logged = self.save(), len(self.log_entries())
+        r = subprocess.run([sys.executable, "tools/probe.py", "corin"], cwd=self.dir, env=dict(os.environ, CODERPG_CLAUDE=str(sender)),
+                           capture_output=True, text=True, timeout=60)
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        out = r.stdout
+        self.assertIn("PROBE: corin (", out)
+        self.assertIn("9.9.9 (Claude Code), asked from %s. 1 request(s) reached the stand-in, none went on" % Path("/tmp/here").resolve(), out)
+        self.assertIn("== system[0]\nx-billing-line\n== system[1] (the player's instructions, exactly)\nYou are a person living your own life.", out)
+        self.assertIn("== messages[0] user, part 1\na reminder with an email\n== messages[0] user, part 2 (the brief, exactly)\n", out)
+        self.assertIn("== messages[1] system, part 1\n# Environment\nWorking directory: %s" % Path("/tmp/here").resolve(), out)
+        self.assertIn("== tools: none", out)
+        self.assertNotIn("SECRET-TOKEN", out + r.stderr)
+        self.assertNotIn("Authorization", out + r.stderr)
+        self.assertEqual(self.save(), save, "the brief was made from a copy")
+        self.assertEqual(len(self.log_entries()), logged)
+
     def test_ask_asks_once_more_when_a_reply_is_refused_and_then_gives_up(self):
         self.rpg("game", "switch", "dark_lighthouse")
         self.settings_tool("preset", "simulation")

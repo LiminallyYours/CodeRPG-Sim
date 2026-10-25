@@ -40,13 +40,18 @@ def instructions():
     return (text[m.end():] if m else text).strip()
 
 
+def model_in(status, pid):
+    """Their model, from the CAST: line of `run status`'s output, or None."""
+    m = re.search(r"\(%s, ([a-z0-9.-]+)" % re.escape(pid), status)
+    return m.group(1) if m else None
+
+
 def model_of(pid):
-    """Their model, from the CAST: line of `run status`."""
     _, out = rpg("run", "status")
-    m = re.search(r"\(%s, ([a-z0-9.-]+)" % re.escape(pid), out)
-    if not m:
+    model = model_in(out, pid)
+    if not model:
         sys.exit("ASK FAILED: %s isn't in the cast\n%s" % (pid, out.strip()))
-    return m.group(1)
+    return model
 
 
 def neutral_folder():
