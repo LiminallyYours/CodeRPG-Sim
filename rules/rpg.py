@@ -1421,7 +1421,7 @@ def tick_move(state):
     turns = SETTINGS["world_turns"]
     if turns["on"] and run["moves"] % max(1, int(turns["every_moves"])) == 0 and can_pay("world_turn"):
         run["world_turn_due"] = True
-        out.append("WORLD TURN DUE: run `rpg.py world-brief turn` and spawn the world agent (see gm-turn)")
+        out.append("WORLD TURN DUE: run `tools/voice.py world turn`, then `world-turn` on what it saved (see gm-turn)")
     return out
 
 
@@ -1676,7 +1676,7 @@ def cmd_look(args):
     if gen_q:
         print("SIDE QUESTS: %s (read with `rpg.py show quests <id>`)" % ", ".join(gen_q))
     if run["world_turn_due"]:
-        print("WORLD TURN DUE: run `rpg.py world-brief turn` and spawn the world agent (see gm-turn)")
+        print("WORLD TURN DUE: run `tools/voice.py world turn`, then `world-turn` on what it saved (see gm-turn)")
     for d in drafts():
         if draft_status(d) == "ready":
             print("NEW WORLD READY: %s: run `rpg.py forge install %s`, then tell the player in one line (see gm-turn)." % (d, d))
@@ -2436,9 +2436,9 @@ def cmd_talk(args):
     save_state(state)
     if promoted:
         print("PROMOTED: %s now speaks through their own agent, with their own memory of the player. From this exchange on "
-              "they're [agent]: run `npc-brief %s` and spawn an npc agent (see gm-turn)." % (name, ident))
+              "they're [agent]: ask them with `tools/voice.py npc %s <scene file>` (see gm-turn)." % (name, ident))
     elif not is_minor(ident):
-        print("TALK: %s speaks through their own agent: run `npc-brief %s` and spawn an npc agent (see gm-turn)." % (name, ident))
+        print("TALK: %s speaks through their own agent: ask them with `tools/voice.py npc %s <scene file>` (see gm-turn)." % (name, ident))
     else:
         print("TALK: voice %s yourself, from this (conversation %d):" % (name, t["count"]))
         cmd_show(["characters", ident])
@@ -4214,6 +4214,27 @@ def cmd_ending(args):
         "%s (%s)" % (state["players"][p]["name"], p) for p in hearers) or "no one else is playing, so no one"))
 
 
+def cmd_voiced(args):
+    """voiced <file> [--spend <usd>]: one call tools/voice.py made to the npc or world agent, for the log: the
+    agent, who or what it was for, the model and effort, what the referee added to the brief, and the reply as given.
+    The brief itself is in the log already, as the npc-brief or world-brief command's output."""
+    args, usd = take_spend(args)
+    state = load_state()
+    path = Path(args[0])
+    if not path.is_file():
+        raise Refused("no record of the call at %s" % path)
+    try:
+        rec = json.loads(path.read_text(encoding="utf-8"))
+    finally:
+        done_with([str(path)])
+    if not isinstance(rec, dict) or rec.get("agent") not in ("npc", "world") or not all(
+            isinstance(rec.get(k), str) for k in ("about", "model", "added", "reply")):
+        raise Refused("a call's record names its agent (npc or world), what it was about, the model, what was added and the reply")
+    log(state, "voice", agent=rec["agent"], about=rec["about"], model=rec["model"], effort=rec.get("effort"),
+        added=rec["added"], again=bool(rec.get("again")), reply=rec["reply"], **spent(usd))
+    print("VOICED: the %s agent, for %s (%s)" % (rec["agent"], rec["about"], rec["model"]))
+
+
 def memory_rounds(pl):
     return sorted({e["round"] for e in pl.get("memory", {}).get("recent", [])})
 
@@ -4813,6 +4834,7 @@ COMMANDS = {
     "trade": (cmd_trade, 1, "trade offer <file> | accept <offer> | decline <offer>   the terms of an offer to another player here (a JSON file); the one it's for takes it or turns it down"),
     "contest": (cmd_contest, 3, "contest <your stat> <their id> <their stat> --take <item>   grab at what another player here holds: both roll, the higher takes it, a tie stays with them"),
     "ending": (cmd_ending, 1, "ending <file>   what everyone else comes to hear of a quest's ending, once one is decided (for no one between rounds)"),
+    "voiced": (cmd_voiced, 1, "voiced <file> [--spend <usd>]   log a call tools/voice.py made to the npc or world agent"),
     "witnessed": (cmd_witnessed, 1, "witnessed <file> [<flag> ...]   what the other players there saw and heard of this turn, for their next; the personal flags they learned by it"),
     "scene": (cmd_scene, 2, "scene start <id> | scene end <id> [reward]   play a side scene between two characters"),
     "forge": (cmd_forge, 1, "forge quote | start [sentence] | resume <draft> | status | install <draft> | discard <draft>   new worlds"),

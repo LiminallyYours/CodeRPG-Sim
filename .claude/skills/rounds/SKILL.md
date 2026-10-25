@@ -11,7 +11,7 @@ You are the referee. The owner watches; nobody plays by typing. Run rounds as be
 
 **Read every output whole,** here as in `gm-turn`: never pass a command through `sed`, `head`, `tail` or `grep`, or send it to `/dev/null`.
 
-**Never stop early.** Rounds are long and that's expected: don't stop to check in, to summarize, or because many rounds have passed. Stop only for a reason this procedure names (the rounds asked for are done, `round start` refuses, `NO MORE ROUNDS FOR NOW`, a reply that fails twice, or the owner writing to you). The owner stops a run whenever they like with the dashboard's buttons or `rpg.py run pause | end`, which make `round start` refuse.
+**Never stop early.** Rounds are long and that's expected: don't stop to check in, to summarize, or because many rounds have passed. Stop only for a reason this procedure names (the rounds asked for are done, `round start` refuses, `NO MORE ROUNDS FOR NOW`, a reply that fails twice, an agent's call that fails twice (`VOICE FAILED`), or the owner writing to you). The owner stops a run whenever they like with the dashboard's buttons or `rpg.py run pause | end`, which make `round start` refuse.
 
 ## Before the first round
 Run `python3 rules/rpg.py run status`:
@@ -25,9 +25,9 @@ Run `python3 rules/rpg.py run status`:
 1. Run `python3 rules/rpg.py run status` (after the first round too) and read `STORY SO FAR:`, what has happened in the town so far. Then run `python3 rules/rpg.py round start`. It prints the round's order: `ROUND <n>: <Name> (<id>), …`. If it refuses, tell the owner why in one line and stop.
 2. For each person in that order, one turn:
    1. Run `python3 tools/ask.py <id>`, and wait: it can take a minute. It hands them their brief exactly as `rpg.py brief` prints it, stores their reply with `rpg.py reply` (asking once more if it's refused), and prints what `reply` printed: their `DO:` and `JOURNAL:` lines. You never see their brief, and never need to. If it prints `ASK FAILED`, stop: tell the owner in one line whose turn failed and why. The round stays open, and the next `/rounds` takes it up again.
-   2. Run their turn with the `gm-turn` skill: `--as <id>` on every rules command, ending with `narrate`.
+   2. Run their turn with the `gm-turn` skill: `--as <id>` on every rules command, ending with `narrate`. If a townsperson's or the world's agent can't be asked (`VOICE FAILED`), stop: tell the owner in one line whose turn it was. The round stays open, and the next `/rounds` takes the turn up again.
 3. Run `python3 rules/rpg.py round end`. Then, before anything else:
-   - **`WORLD TURN DUE`:** run the world turn now, as `gm-turn`'s **World turns** says, with no `--as` on `world-brief turn` or `world-turn`: between rounds it is no one's. Keep each `SIGNAL for <name>` and `NOW HERE for <name>` for that person's next narration.
+   - **`WORLD TURN DUE`:** run the world turn now, as `gm-turn`'s **World turns** says, with no `--as` on `voice.py world turn` or `world-turn`: between rounds it is no one's. `VOICE FAILED`: tell the owner in one line and stop; it stays due, and the next round's first `look` says so. Keep each `SIGNAL for <name>` and `NOW HERE for <name>` for that person's next narration.
    - **`ENDING:`** one of the game's own quests was decided between rounds. Write what everyone comes to see and hear of it, in the third person and the past tense, with the Write tool to `proposals/ending.txt`, and run `python3 rules/rpg.py ending proposals/ending.txt` with no `--as`. `round start` refuses until you have. Then the run goes on: everyone's life does.
    - **`BUILT:`** names who the place was built for: mention it in their next narration, as the line says.
    - **`NO MORE ROUNDS FOR NOW:`** this round was the last for now: finish this step and step 4, then stop and tell the owner why.

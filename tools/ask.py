@@ -33,9 +33,13 @@ def rpg(*args):
     return r.returncode, r.stdout + r.stderr
 
 
-def instructions():
-    """The player agent's instructions: player.md without its front matter, the one source for them."""
-    text = AGENT.read_text(encoding="utf-8")
+class Failed(Exception):
+    """The answer didn't come."""
+
+
+def instructions(agent=AGENT):
+    """An agent's instructions: its file (player.md for a person) without its front matter, the one source for them."""
+    text = agent.read_text(encoding="utf-8")
     m = re.match(r"^---\n.*?\n---\n", text, re.S)
     return (text[m.end():] if m else text).strip()
 
@@ -59,30 +63,39 @@ def neutral_folder():
     NEUTRAL.mkdir(parents=True, exist_ok=True)
     here = NEUTRAL.resolve()
     if any((d / ".git").exists() for d in (here, *here.parents)):
-        sys.exit("ASK FAILED: %s is inside a git repository" % here)
+        raise Failed("%s is inside a git repository" % here)
     return here
 
 
-def claude_command(model):
-    """The call a person is asked through: their model, the player's instructions as the whole system prompt, no
-    tools, nothing of the owner's setup (--safe-mode), nothing kept."""
+def claude_command(model, agent=AGENT, effort=None):
+    """The call a person (or, for tools/voice.py, another agent) is asked through: the model, the agent's
+    instructions as the whole system prompt, no tools, nothing of the owner's setup (--safe-mode), nothing kept."""
     return [os.environ.get("CODERPG_CLAUDE", "claude"), "-p", "--safe-mode", "--tools", "", "--no-session-persistence",
-            "--output-format", "json", "--model", model, "--system-prompt", instructions()]
+            "--output-format", "json", "--model", model, "--system-prompt", instructions(agent)] + (
+            ["--effort", effort] if effort else [])
 
 
-def ask(model, prompt):
-    """Their answer to `prompt`, exactly as given, and what it cost."""
+def call(model, prompt, agent=AGENT, effort=None):
+    """The answer to `prompt`, exactly as given, and what it cost; Failed if it didn't come."""
     try:
-        r = subprocess.run(claude_command(model), cwd=neutral_folder(), input=prompt, capture_output=True, text=True, timeout=600)
+        r = subprocess.run(claude_command(model, agent, effort), cwd=neutral_folder(), input=prompt, capture_output=True, text=True, timeout=600)
     except (OSError, subprocess.TimeoutExpired) as e:
-        sys.exit("ASK FAILED: %s" % e)
+        raise Failed(str(e))
     try:
         out = json.loads(r.stdout)
     except ValueError:
         out = {}
     if r.returncode != 0 or out.get("is_error") or not isinstance(out.get("result"), str):
-        sys.exit("ASK FAILED: the answer didn't come (exit %d)\n%s" % (r.returncode, (r.stdout + r.stderr).strip()[-600:]))
+        raise Failed("the answer didn't come (exit %d)\n%s" % (r.returncode, (r.stdout + r.stderr).strip()[-600:]))
     return out["result"], float(out.get("total_cost_usd") or 0)
+
+
+def ask(model, prompt):
+    """Their answer to `prompt`, exactly as given, and what it cost."""
+    try:
+        return call(model, prompt)
+    except Failed as e:
+        sys.exit("ASK FAILED: %s" % e)
 
 
 def printed(out):

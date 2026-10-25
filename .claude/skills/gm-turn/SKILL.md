@@ -104,17 +104,21 @@ Never edit `state/save.json` or anything in `games/` directly.
 # Agent characters
 Use this whenever the player speaks to, gives something to, or otherwise deals with an `[agent]` character.
 
-## Spawning an NPC
-Each time the character needs to respond, spawn a **fresh** `npc` subagent with the Agent tool: `subagent_type: "npc"` and `run_in_background: false`. Wait for its reply. Don't use SendMessage to continue an NPC, because a fresh spawn each time is how it stays in step with state.
+## Asking an NPC
+Each time the character needs to respond, they are asked afresh with `python3 tools/voice.py npc <id> proposals/scene-<id>.txt` (and `--as`, as always), and you wait for it: it can take a minute. It runs their `npc-brief` itself, hands it on unchanged with your scene file after it, asks their own agent, and prints only the reply. You never see their brief, never write it, and never spawn an `npc` with the Agent tool: a fresh call each time is how they stay in step with state.
 
-If `npc-brief` refuses because the character speaks through you right now, voice them yourself as for `[minor]` and spawn nothing.
+If it prints `REFUSED:` because the character speaks through you right now, voice them yourself as for `[minor]`. If it refuses that a character is not in this scene, they say nothing: never voice an `[agent]` yourself. `VOICE FAILED` means their agent didn't answer, twice: stop the turn there, storing no story, and tell the owner in one line; the rounds procedure stops as for a reply that fails, and the turn is taken up again from the log.
 
-When the turn's outcome sets a flag that takes the character out of the scene (cowed, gone, defeated), run their `npc-brief` and spawn them before the `flag set`, so their last line is theirs. If the flag is already set, `npc-brief` still works for someone who was here at the turn's `look` or `move`, and says it's their parting line. If it refuses that a character is not in this scene, they say nothing: never voice an `[agent]` yourself.
+When the turn's outcome sets a flag that takes the character out of the scene (cowed, gone, defeated), ask them before the `flag set`, so their last line is theirs. If the flag is already set, their brief still works for someone who was here at the turn's `look` or `move`, and says it's their parting line.
 
-Its prompt has exactly these three parts:
-1. **Brief:** the verbatim output of `python3 rules/rpg.py npc-brief <id>`. Run it again for every spawn, since flags may have changed. Never add facts of your own to it.
-2. **The scene so far:** the last few lines of this scene, at most about 8, each written as `<Name>: …` for whoever spoke (the player and anyone else here, by their names) or `(action)`. Write "(the scene just began)" if there are none. A scene ends when the player leaves the room.
-3. **What just happened:** the player's words from their DO line, quoted as close to verbatim as you can, and anything they visibly did, such as "holds out a wrapped parcel". Never their JOURNAL line. If a roll has just been made, give its outcome in plain fiction, never as numbers.
+Write the scene file with the Write tool, in exactly these two parts, under these headings (`voice.py` refuses a file without both):
+```
+## The scene so far
+<the last few lines of this scene, at most about 8, each written as `<Name>: …` for whoever spoke (the player and anyone else here, by their names) or `(action)`; "(the scene just began)" if there are none. A scene ends when the player leaves the room.>
+
+## What just happened
+<the player's words from their DO line, quoted as close to verbatim as you can, and anything they visibly did, such as "holds out a wrapped parcel". Never their JOURNAL line. If a roll has just been made, its outcome in plain fiction, never as numbers.>
+```
 
 ## Using the reply (SAY / INTENT / REMEMBER)
 - **SAY:** narrate it in your own prose around the character's words. You may trim it. Drop anything that contradicts state or content, or that names a thing that doesn't exist. **State wins.** If the NPC claims something false, such as having an item it doesn't have, leave it out or have the character correct themselves.
@@ -126,7 +130,7 @@ Its prompt has exactly these three parts:
 
 ## Two agent characters in one scene
 When two `[agent]` characters are present and the moment naturally involves both, they may exchange lines. That happens when the player addresses both, or when one reacts to the other.
-- Relay each line to the other character by spawning their `npc` with "What just happened: `<Name>` says: …".
+- Relay each line to the other character by asking them with `voice.py`, their scene file's "What just happened" being `<Name> says: …`.
 - Each NPC reply counts as one line. Allow at most the number `look` gives as `AGENT LINES PER TURN`, counting the first response to the player. Then stop and hand the scene back to the player.
 - Check every INTENT and REMEMBER from these lines the same way as above.
 
@@ -134,7 +138,7 @@ When two `[agent]` characters are present and the moment naturally involves both
 `look` says `SCENE HERE` when two agent characters here could play a little scene, just for fun: an argument, a contest.
 1. Read it with `rpg.py show scenes <id>`. In the narration, show it beginning, from its `## How it starts`, and let the player choose. Don't start it yourself. In the story it's simply what the two are doing; never call it a scene.
 2. If the player takes it up (watches, joins in, eggs them on, asks what's going on), run `rpg.py scene start <id>`. If it refuses, the moment passes.
-3. While it plays (`SCENE PLAYING` in `look`), each thing the player says or does gets one reply from each of the two: spawn the first one's `npc`, then relay that line to the other as in **Two agent characters in one scene**. Run `npc-brief` afresh for every single reply, as always: the brief carries the scene and counts its replies.
+3. While it plays (`SCENE PLAYING` in `look`), each thing the player says or does gets one reply from each of the two: ask the first one with `voice.py`, then relay that line to the other as in **Two agent characters in one scene**. Every reply is a fresh `voice.py` call, as always: the brief it runs carries the scene and counts its replies.
 4. When a brief says it's the last reply, when the scene reaches its `## How it ends`, or when the player loses interest, run `rpg.py scene end <id>`, adding `reward` only when `## How it ends` says it was earned. Then narrate the ending.
 
 A scene changes no story flags. If the player walks off, it's over (`move` says so) with no reward.
@@ -157,30 +161,27 @@ The game's `generation:` policy (in `rpg.py show world`) says what may be create
 Never generate anything that would solve, shortcut or replace part of the main quest, and never answer a gap that the authored content deliberately leaves closed.
 
 ## How to generate
-1. Run `python3 rules/rpg.py world-brief <extra|room|item|character|quest>`.
-2. Spawn the `world` subagent (`subagent_type: "world"`, `run_in_background: false`). Its prompt is that brief, verbatim, plus one line: "The player: <what they said or did>".
-3. Save its JSON reply, exactly as given, with the Write tool to `proposals/<kind>-<id>.json`. Then run `python3 rules/rpg.py generate <kind> proposals/<kind>-<id>.json`.
-   - Don't put JSON on a shell command line, because Claude Code refuses commands that mix braces and quotes.
-   - The script deletes the file once it's applied.
+1. Write one line with the Write tool to `proposals/asked-<kind>.txt`: "The player: <what they said or did>".
+2. Run `python3 tools/voice.py world <extra|room|item|character|quest> proposals/asked-<kind>.txt` (and `--as`), and wait. It runs `world-brief` itself, asks the world agent with that brief unchanged and your line after it, saves its JSON reply exactly as given to `proposals/world-<kind>.json`, and prints it. If it prints `REFUSED:`, the thing doesn't exist; `VOICE FAILED`, stop as for an NPC above. Never spawn a `world` agent with the Agent tool, and never write its brief, nor its reply (but for a reuse, below).
+3. Run `python3 rules/rpg.py generate <kind> proposals/world-<kind>.json`. The script deletes the file once it's applied.
 4. Then use the result:
-   - **`REFUSED: proposal rejected`:** spawn the agent once more, adding the reason. If it fails again, the thing doesn't exist; narrate accordingly.
+   - **`REFUSED: proposal rejected`:** ask the agent once more on the same brief: add a line to `proposals/asked-<kind>.txt` saying what was refused and why, and run `voice.py world <kind> proposals/asked-<kind>.txt --again`, then `generate` again. If it fails again, the thing doesn't exist; narrate accordingly.
    - **Success:** read the new entity with `rpg.py show`, then play it like authored content. Generated people are `[minor]`: you voice them, from their file only. Their sales and rewards follow their `## GM only` lines. Something `brought back from an earlier run` is new to the player in this one: they haven't met.
 
-The brief may list things from earlier runs; the world agent may bring one back instead of inventing (`{"reuse": "<id>"}`). Save and apply that reply the same way. When one listed is plainly who or what the player means, you may write that reuse reply yourself instead of spawning the agent.
+The brief may list things from earlier runs; the world agent may bring one back instead of inventing (`{"reuse": "<id>"}`). Apply that reply the same way. When one listed is plainly who or what the player means, you may instead write that reuse reply yourself, with the Write tool to `proposals/world-<kind>.json`, and asking no one.
 
 When a generated or player-made person, place or thing has come to matter (the player keeps coming back to it, or it was part of a big moment), you may tell the owner it deserves keeping for good: `python3 rules/rpg.py library suggest <id> "<one short line why>"`. It costs nothing and changes nothing in play; the owner decides.
 
 ## Orders
 A maker makes things to order within their trade; a builder builds a small place at one of the room's build spots.
-1. Run `python3 rules/rpg.py world-brief craft <maker>` (or `world-brief build <builder>`), spawn the `world` agent with it, and run `generate craft` (or `generate build`) on its reply, as in **How to generate**. If `world-brief` refuses, they turn the order away in character.
-2. If `generate` says they turn the order down, narrate that in their voice. Otherwise it reports what will be made and its `PRICE`: they describe it and name that price, never another. When the maker is an `[agent]`, put what will be made and its price in that spawn's "What just happened", so they name it themselves.
+1. Run `python3 tools/voice.py world craft <maker> proposals/asked-craft.txt` (or `world build <builder> proposals/asked-build.txt`), and `generate craft proposals/world-craft.json` (or `generate build proposals/world-build.json`) on what it saved, as in **How to generate**. If it prints `REFUSED:`, they turn the order away in character.
+2. If `generate` says they turn the order down, narrate that in their voice. Otherwise it reports what will be made and its `PRICE`: they describe it and name that price, never another. When the maker is an `[agent]`, put what will be made and its price in their scene file's "What just happened", so they name it themselves.
 3. Only when the player pays, run `pay <id>` (or `pay <id> <item>` for an item `PRICE` lists in trade). Until then it isn't theirs. A made item is handed over at once; a building takes a while (`BEING BUILT` in `look`) and doesn't exist until `BUILT:` says so. An unpaid order waits (`ORDERS WAITING` in `look`).
 
 ## World turns
 When `look`, `move` or `round end` says `WORLD TURN DUE`, run the world turn. During a turn, do it before you store the narration:
-1. Run `python3 rules/rpg.py world-brief turn`, every time: the world has moved on since the last one.
-2. Spawn the `world` agent with exactly what it printed: never an earlier brief, and never one you write or patch yourself.
-3. Write its JSON to `proposals/world-turn.json`, then run `python3 rules/rpg.py world-turn proposals/world-turn.json`.
+1. Run `python3 tools/voice.py world turn` (and `--as` during a turn), every time: the world has moved on since the last one. It runs `world-brief turn` itself, asks the world agent with exactly that, and saves its JSON reply to `proposals/world-turn.json`.
+2. Run `python3 rules/rpg.py world-turn proposals/world-turn.json`.
 
 Don't narrate the world turn. Its rumors surface later, when people talk: minor and generated characters may repeat them, and agent NPCs already see them in their briefs.
 

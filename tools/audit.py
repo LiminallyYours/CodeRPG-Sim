@@ -21,11 +21,15 @@ From the run's log (state/log/<run>.jsonl; the active run's by default):
     CONTESTS     each grab at what another person held: who grabbed at whom, for what, each one's stat and total, and
                  who ended up with it
     ENDINGS      each quest decided, and who heard of it
-    SPEND        what the people's replies cost, by model (the `spend` tools/ask.py logs)
+    VOICES       each call tools/voice.py made to a townsperson's agent or the world agent: the round, whose turn
+                 (or no one's), the agent and what for, its model and effort, and whether it was asked again
+    SPEND        what the people's replies cost, by model (the `spend` tools/ask.py logs), and the townspeople's
+                 and the world agent's calls (tools/voice.py)
 From the referee's session transcript (~/.claude/projects/<folder>/<session>.jsonl), if given, or with --referee
 from every round's session that tools/rounds.py ran (the log's `referee` entries), REFEREE then a line a round:
     CUT READS    rules commands piped through sed, head, tail or grep, or sent to /dev/null, by command
-    SPAWNS       each agent spawned, and whether its prompt holds what rpg.py printed for it
+    SPAWNS       each agent spawned through the Agent tool, and whether its prompt holds what rpg.py printed for
+                 it; an npc or world agent spawned so is a slip, since tools/voice.py asks them
     REFEREE      its calls, largest context and output tokens
 It reads files and writes nothing.
 """
@@ -188,12 +192,19 @@ def endings(log):
     return out or ["  none"]
 
 
+def voices(log):
+    out = ["  r%s %s: %s agent for %s (%s%s)%s" % (e["round"], e["player"] or "no one", e["agent"], e["about"], e["model"],
+                                              ", " + e["effort"] if e.get("effort") else "", ", asked again" if e.get("again") else "")
+           for e in log if e["kind"] == "voice"]
+    return out or ["  none"]
+
+
 def spend(log):
     models = {e["player"]: e.get("model") for e in log if e["kind"] == "action"}
     total, n = collections.Counter(), collections.Counter()
     for e in log:
-        if e["kind"] in ("action", "memory") and "spend" in e:
-            m = e.get("model") or models.get(e["player"]) or "?"
+        if e["kind"] in ("action", "memory", "voice") and "spend" in e:
+            m = "%s agent, %s" % (e["agent"], e["model"]) if e["kind"] == "voice" else e.get("model") or models.get(e["player"]) or "?"
             total[m] += e["spend"]
             n[m] += 1
     if not n:
@@ -212,7 +223,7 @@ def flags(run_id):
         "  %s: %s" % (pid, ", ".join(pl.get("flags", [])) or "none") for pid, pl in state["players"].items()]
 
 
-RULES = re.compile(r"(rules/rpg\.py|tools/ask\.py) ([a-z-]+)")
+RULES = re.compile(r"(rules/rpg\.py|tools/ask\.py|tools/voice\.py) ([a-z-]+)")
 CUT = re.compile(r"\|\s*(sed|head|tail|grep)\b|>\s*/dev/null")
 
 
@@ -243,9 +254,10 @@ def session(path, log):
             elif b["name"] in ("Agent", "Task"):
                 prompt = b["input"].get("prompt", "")
                 holds = any(p.strip() and p.strip() in prompt for p in printed)
-                spawns.append("  %s %s (%s): %s" % (r.get("timestamp", "")[11:19], b["input"].get("subagent_type"),
-                                                    b["input"].get("model") or "its own model",
-                                                    "holds what rpg.py printed" if holds else "<<< NOT what rpg.py printed"))
+                kind = b["input"].get("subagent_type")
+                spawns.append("  %s %s (%s): %s%s" % (r.get("timestamp", "")[11:19], kind, b["input"].get("model") or "its own model",
+                                                      "holds what rpg.py printed" if holds else "<<< NOT what rpg.py printed",
+                                                      "; <<< through the Agent tool, not tools/voice.py" if kind in ("npc", "world") else ""))
     return cut, spawns, calls, biggest, out_tokens
 
 
@@ -293,7 +305,8 @@ def main(argv):
     log = read_jsonl(path)
     sections = [("LEAKS", leaks(log) or ["  none"]), ("SIGNS OF CLAUDE CODE'S LINES", traces(log)), ("WITNESSED", witnessed(log)), ("FLAGS", flags(path.stem)),
                 ("CONTINUITY", continuity(log)),
-                ("MEMORY", memory(log)), ("COINS", coins(log)), ("TRADES", trades(log)), ("CONTESTS", contests(log)), ("ENDINGS", endings(log)), ("SPEND", spend(log))]
+                ("MEMORY", memory(log)), ("COINS", coins(log)), ("TRADES", trades(log)), ("CONTESTS", contests(log)), ("ENDINGS", endings(log)),
+                ("VOICES", voices(log)), ("SPEND", spend(log))]
     if path_t:
         cut, spawns, referee = transcript(path_t, log)
         sections += [("CUT READS", cut), ("SPAWNS", spawns), ("REFEREE", referee)]

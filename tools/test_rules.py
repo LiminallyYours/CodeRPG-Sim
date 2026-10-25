@@ -1589,18 +1589,21 @@ n = len(list(d.glob("asked-*.txt")))
 (d / ("argv-%d.json" % n)).write_text(json.dumps(sys.argv[1:]))
 (d / ("cwd-%d.json" % n)).write_text(json.dumps([str(pathlib.Path.cwd()), sorted(p.name for p in pathlib.Path.cwd().iterdir())]))
 answers = json.loads((d / "answers.json").read_text())
-print(json.dumps({"type": "result", "is_error": False, "result": answers[min(n, len(answers) - 1)], "total_cost_usd": 0.0012}))
+answer = answers[min(n, len(answers) - 1)]
+if answer == "<fail>":
+    print(json.dumps({"type": "result", "is_error": True, "result": "API Error: overloaded"})); sys.exit(1)
+print(json.dumps({"type": "result", "is_error": False, "result": answer, "total_cost_usd": 0.0012}))
 """
 
-    def ask(self, *args, answers, ok=True):
-        """tools/ask.py with a stand-in for claude that keeps what it was handed (asked-<n>.txt, argv-<n>.json) and
-        gives the answers in turn."""
+    def ask(self, *args, answers, ok=True, tool="tools/ask.py"):
+        """tools/ask.py (or another tool that asks through it) with a stand-in for claude that keeps what it was
+        handed (asked-<n>.txt, argv-<n>.json) and gives the answers in turn ("<fail>": no answer comes)."""
         shutil.rmtree(self.dir / "stand_in", ignore_errors=True)
         stand_in = self.write("stand_in/claude", self.STAND_IN)
         stand_in.chmod(0o755)
         self.write("stand_in/answers.json", json.dumps(answers))
         env = dict(os.environ, CODERPG_CLAUDE=str(stand_in))
-        r = subprocess.run([sys.executable, "tools/ask.py", *args], cwd=self.dir, env=env, capture_output=True, text=True, timeout=60)
+        r = subprocess.run([sys.executable, tool, *args], cwd=self.dir, env=env, capture_output=True, text=True, timeout=60)
         self.assertNotIn("Traceback", r.stderr, r.stderr)
         self.assertEqual(r.returncode == 0, ok, r.stdout + r.stderr)
         asked = sorted((self.dir / "stand_in").glob("asked-*.txt"))
@@ -1722,6 +1725,72 @@ print(json.dumps({"type": "result", "is_error": False, "result": answers[min(n, 
         action =[e for e in self.log_entries() if e["kind"] == "action"][-1]
         self.assertEqual((action["do"], action["spend"]), ("I look out to sea.", 0.0012))
         self.assertIn("already replied", self.rpg("reply", first, "proposals/reply-%s.txt" % first, ok=False))
+
+    def voice(self, *args, answers, ok=True):
+        return self.ask(*args, answers=answers, ok=ok, tool="tools/voice.py")
+
+    def test_voice_asks_a_townsperson_with_their_brief_and_the_scene_unchanged(self):
+        self.rpg("game", "switch", "thirteenth_stroke")
+        self.settings_tool("preset", "simulation")
+        self.rpg("newgame", seed=43)  # Marigold and Dilly in the square, with Mags (minor) and Pip (agent)
+        first = self.rpg("round", "start").split(": ", 1)[1].split("(")[1].split(")")[0]
+        self.write("proposals/reply.txt", "DO: I ask Pip where the toys went.\nJOURNAL: To find out.\n")
+        self.rpg("reply", first, "proposals/reply.txt")
+        self.rpg("look", as_=first)
+        self.write("proposals/scene-pip.txt", "## What just happened\nShe asks where the toys went.")
+        out, asked, _ = self.voice("npc", "pip", "proposals/scene-pip.txt", "--as", first, answers=["SAY: Hi."], ok=False)
+        self.assertIn("VOICE REFUSED", out)
+        self.assertEqual(asked, [], "a scene without both parts asks no one")
+        scene = "## The scene so far\n(the scene just began)\n\n## What just happened\nShe asks Pip where the toys went."
+        self.write("proposals/scene-pip.txt", scene + "\n")
+        reply = "SAY: Down the lane! *points*\nINTENT: none\nREMEMBER: Asked about the toys."
+        out, asked, argv = self.voice("npc", "pip", "proposals/scene-pip.txt", "--as", first, answers=[reply])
+        self.assertEqual(out, "REPLY from pip:\n%s\n" % reply, "only the reply: the referee never holds the brief")
+        brief = [e for e in self.log_entries() if e["kind"] == "command" and e["command"] == "npc-brief"][-1]["output"]
+        self.assertTrue(brief.startswith("You are Pip"), brief[:40])
+        self.assertEqual(asked, [brief + "\n\n" + scene], "the brief as printed, then the referee's two parts, byte for byte")
+        self.assertEqual((argv[0][argv[0].index("--model") + 1], argv[0][argv[0].index("--effort") + 1]), ("sonnet", "low"),
+                         "the model and effort npc.md names")
+        self.assertEqual(argv[0][argv[0].index("--tools") + 1], "")
+        system = argv[0][argv[0].index("--system-prompt") + 1]
+        self.assertTrue(system.startswith("You are playing one character"), system[:60])
+        self.assertNotIn("omitClaudeMd", system, "npc.md's instructions without its front matter")
+        voiced = [e for e in self.log_entries() if e["kind"] == "voice"]
+        self.assertEqual([(e["agent"], e["about"], e["player"], e["model"], e["effort"], e["added"], e["reply"], e["spend"]) for e in voiced],
+                         [("npc", "pip", first, "sonnet", "low", scene, reply, 0.0012)])
+        self.assertFalse((self.dir / "proposals" / "voiced.json").exists(), "the record is used up once logged")
+        out, asked, _ = self.voice("npc", "mags", "proposals/scene-pip.txt", "--as", first, answers=["SAY: Hi."], ok=False)
+        self.assertIn("minor character", out)
+        self.assertEqual(asked, [], "a refused brief asks no one")
+
+    def test_voice_asks_the_world_agent_and_keeps_its_proposal_exactly(self):
+        self.rpg("game", "switch", "thirteenth_stroke")
+        self.settings_tool("preset", "simulation")
+        self.rpg("newgame", seed=43)
+        self.play_round()
+        proposal = '{"rumors": ["The fog is thick tonight."], "plans": []}'
+        out, asked, argv = self.voice("world", "turn", answers=[proposal])  # between rounds: no one's
+        self.assertEqual(out, "PROPOSAL from the world agent (turn), saved exactly as given to proposals/world-turn.json:\n%s\n" % proposal)
+        self.assertEqual((self.dir / "proposals" / "world-turn.json").read_text(), proposal)
+        briefs = [e for e in self.log_entries() if e["kind"] == "command" and e["command"] == "world-brief"]
+        self.assertEqual(asked, [briefs[-1]["output"]], "the brief alone, as printed")
+        self.assertTrue(argv[0][argv[0].index("--system-prompt") + 1].startswith("You add small things"))
+        meter = self.meter_file()
+        self.write("proposals/why.txt", "Your last proposal was refused: rumors must be short.")
+        out, asked, _ = self.voice("world", "turn", "proposals/why.txt", "--again", answers=[proposal])
+        self.assertEqual(asked, [briefs[-1]["output"] + "\n\nYour last proposal was refused: rumors must be short."])
+        self.assertEqual(len([e for e in self.log_entries() if e["kind"] == "command" and e["command"] == "world-brief"]), 1,
+                         "asked again on the same brief: world-brief isn't run twice")
+        self.assertEqual(self.meter_file(), meter, "so nothing is charged twice")
+        voiced = [(e["agent"], e["about"], e["player"], e["again"]) for e in self.log_entries() if e["kind"] == "voice"]
+        self.assertEqual(voiced, [("world", "turn", None, False), ("world", "turn", None, True)])
+        out, asked, _ = self.voice("world", "turn", answers=["<fail>"], ok=False)
+        self.assertIn("VOICE FAILED: the world agent for turn didn't answer, twice", out)
+        self.assertEqual(len(asked), 2, "asked once more, then given up")
+        self.assertEqual(len([e for e in self.log_entries() if e["kind"] == "voice"]), 2, "nothing logged for a call that didn't come")
+        audit = self.run_py("tools/audit.py", "state/log/%s.jsonl" % self.save()["run"]["id"]).stdout
+        self.assertIn("== VOICES\n  r1 no one: world agent for turn (sonnet, low)\n  r1 no one: world agent for turn (sonnet, low), asked again\n", audit)
+        self.assertIn("  world agent, sonnet: 2 replies, $0.00", audit)
 
     SENDER = """#!/usr/bin/env python3
 import json, os, sys, urllib.request
