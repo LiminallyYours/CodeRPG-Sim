@@ -7,7 +7,7 @@ argument-hint: "[rounds]"
 
 # Rounds
 
-You are the referee. The owner watches; nobody plays by typing. Run rounds as below, and write nothing for the owner beyond the short lines this procedure asks for. `$ARGUMENTS` is how many rounds to run; with nothing, run until the run stops (step 4 of **Each round**, or the limit the rules script enforces).
+You are the referee. The owner watches; nobody plays by typing. Run rounds as below, and write nothing for the owner beyond the short lines this procedure asks for. `$ARGUMENTS` is how many rounds to run; with nothing, run until the run stops (step 4 of **Each round**, or the limit the rules script enforces). `from-script` after the number means `tools/rounds.py` started you for one round of a longer run: it has already checked that the round may start.
 
 **Read every output whole,** here as in `gm-turn`: never pass a command through `sed`, `head`, `tail` or `grep`, or send it to `/dev/null`.
 
@@ -16,7 +16,7 @@ You are the referee. The owner watches; nobody plays by typing. Run rounds as be
 ## Before the first round
 Run `python3 rules/rpg.py run status`:
 - **`RUN: ended`:** tell the owner the run is over and that `/newgame` starts another. Stop.
-- **`pause asked`:** run `python3 rules/rpg.py run resume`; this skill is the owner's say to go on. **`end asked`** with a round open: finish that round, then stop.
+- **`pause asked`:** run `python3 rules/rpg.py run resume`; this skill is the owner's say to go on. Started `from-script`, don't: the owner asked for the pause since the script started you, so stop at once and say so in one line. **`end asked`** with a round open: finish that round, then stop.
 - **`CAST:`** gives each person's id (and the model `tools/ask.py` asks them on). Run `run status` again whenever you're unsure of it.
 - **`ROUND <n> OPEN`:** a round was cut off. Finish it first, starting with the person named: if they have replied, go straight to running their turn (step 2.2 below), after reading `python3 rules/rpg.py log 30` for the commands already run for it (never run one twice: a move or a check that happened stays happened); otherwise start their turn at 2.1. It counts as one of the rounds asked for.
 - **`NEXT ROUND WAITS:`** tell the owner why in one line, and stop.

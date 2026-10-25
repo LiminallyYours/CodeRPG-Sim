@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Read a run back, as a review after it would:  python3 tools/audit.py [<log>] [--transcript <referee session>]
+"""Read a run back, as a review after it would:  python3 tools/audit.py [<log>] [--transcript <session> | --referee]
 
 From the run's log (state/log/<run>.jsonl; the active run's by default):
     LEAKS        the tests' FORBIDDEN pattern over every brief, story, spoken line, memory, note and ending:
@@ -18,7 +18,8 @@ From the run's log (state/log/<run>.jsonl; the active run's by default):
     COINS        every coin that moved, with its reason
     ENDINGS      each quest decided, and who heard of it
     SPEND        what the people's replies cost, by model (the `spend` tools/ask.py logs)
-From the referee's session transcript (~/.claude/projects/<folder>/<session>.jsonl), if given:
+From the referee's session transcript (~/.claude/projects/<folder>/<session>.jsonl), if given, or with --referee
+from every round's session that tools/rounds.py ran (the log's `referee` entries), REFEREE then a line a round:
     CUT READS    rules commands piped through sed, head, tail or grep, or sent to /dev/null, by command
     SPAWNS       each agent spawned, and whether its prompt holds what rpg.py printed for it
     REFEREE      its calls, largest context and output tokens
@@ -26,6 +27,7 @@ It reads files and writes nothing.
 """
 import collections
 import json
+import os
 import re
 import sys
 from pathlib import Path
@@ -181,7 +183,8 @@ RULES = re.compile(r"(rules/rpg\.py|tools/ask\.py) ([a-z-]+)")
 CUT = re.compile(r"\|\s*(sed|head|tail|grep)\b|>\s*/dev/null")
 
 
-def transcript(path, log):
+def session(path, log):
+    """What one referee session did: (cut reads by command, spawn lines, calls, largest context, output tokens)."""
     rows = [r for r in read_jsonl(path) if not r.get("isSidechain")]
     cut, spawns, seen, calls, biggest, out_tokens = collections.Counter(), [], set(), 0, 0, 0
     printed = [e["output"] for e in log if e["kind"] == "command" and e["command"] in ("npc-brief", "world-brief", "brief", "memory")]
@@ -210,12 +213,39 @@ def transcript(path, log):
                 spawns.append("  %s %s (%s): %s" % (r.get("timestamp", "")[11:19], b["input"].get("subagent_type"),
                                                     b["input"].get("model") or "its own model",
                                                     "holds what rpg.py printed" if holds else "<<< NOT what rpg.py printed"))
-    return (["  none"] if not cut else ["  %s: %d" % kv for kv in sorted(cut.items())]), (spawns or ["  none"]), [
-        "  %d calls; largest context %d tokens; %d output tokens" % (calls, biggest, out_tokens)]
+    return cut, spawns, calls, biggest, out_tokens
+
+
+def cut_lines(cut):
+    return ["  none"] if not cut else ["  %s: %d" % kv for kv in sorted(cut.items())]
+
+
+def transcript(path, log):
+    cut, spawns, calls, biggest, out_tokens = session(path, log)
+    return cut_lines(cut), (spawns or ["  none"]), ["  %d calls; largest context %d tokens; %d output tokens" % (calls, biggest, out_tokens)]
+
+
+def referee_sessions(log):
+    """Every round's referee session from tools/rounds.py (the log's `referee` entries), read as one: cut reads and
+    spawns over all of them, and a line a round, so whether the cost stays flat shows at a glance."""
+    projects = Path(os.environ.get("CODERPG_PROJECTS") or Path.home() / ".claude" / "projects")  # the tests' stand-in
+    cut, spawns, rounds = collections.Counter(), [], []
+    for e in (e for e in log if e["kind"] == "referee"):
+        found = sorted(projects.glob("*/%s.jsonl" % e["session"]))
+        if not found:
+            rounds.append("  r%s: $%.2f, %ds, context up to %d tokens; session %s not found" % (e["round_run"], e["spend"], e["seconds"], e["context"], e["session"]))
+            continue
+        c, s, calls, biggest, out_tokens = session(found[0], log)
+        cut.update(c)
+        spawns += ["  r%s%s" % (e["round_run"], line[1:]) for line in s]
+        rounds.append("  r%s: $%.2f, %ds, %d calls, largest context %d tokens, %d output tokens" % (
+            e["round_run"], e["spend"], e["seconds"], calls, biggest, out_tokens))
+    return cut_lines(cut), (spawns or ["  none"]), (rounds or ["  no referee entries (rounds weren't run by tools/rounds.py)"])
 
 
 def main(argv):
-    path_t = None
+    path_t, by_round = None, "--referee" in argv
+    argv = [a for a in argv if a != "--referee"]
     if "--transcript" in argv:
         i = argv.index("--transcript")
         path_t = argv[i + 1] if i + 1 < len(argv) else sys.exit("--transcript needs a file")
@@ -234,6 +264,9 @@ def main(argv):
     if path_t:
         cut, spawns, referee = transcript(path_t, log)
         sections += [("CUT READS", cut), ("SPAWNS", spawns), ("REFEREE", referee)]
+    elif by_round:
+        cut, spawns, referee = referee_sessions(log)
+        sections += [("CUT READS", cut), ("SPAWNS", spawns), ("REFEREE, A ROUND A LINE", referee)]
     rounds = max([e["round"] for e in log if isinstance(e.get("round"), int)] or [0])
     print("RUN %s: %d entries, %d rounds" % (path.stem, len(log), rounds))
     for title, lines in sections:

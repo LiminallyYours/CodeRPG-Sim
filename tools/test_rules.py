@@ -440,6 +440,10 @@ class Engine(unittest.TestCase):
         self.assertEqual(self.run_py(".claude/hooks/session_start.py", stdin="{}").stdout, "")
         self.assertEqual(self.meter_file(), 30)
         self.assertEqual(self.meter(), 30)  # and the save's view shows it
+        self.set_meter(9)
+        r = subprocess.run([sys.executable, ".claude/hooks/session_start.py"], cwd=self.dir, input="{}", capture_output=True, text=True,
+                           env=dict(os.environ, CODERPG_NO_REFILL="1"))
+        self.assertEqual((r.stdout, self.meter_file()), ("", 9), "a round's session from tools/rounds.py doesn't refill it")
 
     def test_the_save_carries_the_meter_and_switches_for_the_interface(self):
         self.at_the_lighthouse()
@@ -1585,6 +1589,98 @@ except Exception:
     pass
 print(json.dumps({"type": "result", "is_error": True, "result": "API Error: 400"})); sys.exit(1)
 """
+
+    REFEREE = """#!/usr/bin/env python3
+import json, os, pathlib, re, subprocess, sys
+d = pathlib.Path(__file__).parent
+n = len(list(d.glob("call-*.json")))
+(d / ("call-%d.json" % n)).write_text(json.dumps({"argv": sys.argv[1:], "no_refill": os.environ.get("CODERPG_NO_REFILL")}))
+rpg = lambda *a: subprocess.run([sys.executable, "rules/rpg.py", *a], capture_output=True, text=True).stdout
+subprocess.run([sys.executable, ".claude/hooks/session_start.py"], input=b"{}", capture_output=True)  # as Claude Code would
+meter = pathlib.Path("state/meter.json")
+m = json.loads(meter.read_text())
+m["left"] -= 2  # a world turn's price
+meter.write_text(json.dumps(m))
+mode = os.environ.get("STAND_IN", "")
+if mode == "fail@%d" % n:
+    print(json.dumps({"type": "result", "is_error": True, "result": "API Error: overloaded"}))
+    sys.exit(1)
+order = re.findall(r"\\((\\w+)\\)", rpg("round", "start"))
+for i, pid in enumerate(order):
+    if mode == "open@%d" % n and i == 1:
+        break
+    pathlib.Path("proposals/r.txt").write_text("DO: I wait.\\nJOURNAL: x\\n")
+    rpg("reply", pid, "proposals/r.txt")
+    rpg("look", "--as", pid)
+    pathlib.Path("proposals/s.txt").write_text("You wait.")
+    rpg("narrate", pid, "proposals/s.txt")
+    if mode == "pause@%d" % n and i == 0:
+        rpg("run", "pause")  # the owner presses Pause mid-round
+else:
+    rpg("round", "end")
+print(json.dumps({"type": "assistant", "message": {"usage": {"input_tokens": 10, "cache_read_input_tokens": 20000 + 1000 * n}}}))
+print(json.dumps({"type": "result", "is_error": False, "result": "Round done.", "session_id": "s%d" % n, "total_cost_usd": 0.4}))
+"""
+
+    def run_rounds(self, *args, mode=""):
+        """tools/rounds.py with a stand-in referee that plays each round through rpg.py. Returns its output and the calls."""
+        shutil.rmtree(self.dir / "referee", ignore_errors=True)
+        stand_in = self.write("referee/claude", self.REFEREE)
+        stand_in.chmod(0o755)
+        r = subprocess.run([sys.executable, "tools/rounds.py", *args], cwd=self.dir, capture_output=True, text=True, timeout=120,
+                           env=dict(os.environ, CODERPG_CLAUDE=str(stand_in), STAND_IN=mode))
+        self.assertNotIn("Traceback", r.stderr, r.stderr)
+        calls = [json.loads((self.dir / "referee" / ("call-%d.json" % i)).read_text()) for i in range(len(list((self.dir / "referee").glob("call-*.json"))))]
+        return r.stdout, calls
+
+    def test_rounds_runs_each_round_with_a_fresh_referee(self):
+        self.rpg("game", "switch", "dark_lighthouse")
+        self.settings_tool("preset", "simulation")
+        self.rpg("newgame", seed=43)
+        self.set_meter(9)
+        out, calls = self.run_rounds("3")
+        self.assertIn("REFILLED", out)
+        for n in (1, 2, 3):
+            self.assertIn("ROUND %d: $0.40, 0m0" % n, out)
+        self.assertIn("context up to 22k. Round done.\nSTOPPED: the 3 rounds asked for are done.\n3 rounds run, $1.20 for the referee", out)
+        self.assertEqual([(c["argv"][:2], c["argv"][c["argv"].index("--model") + 1], c["no_refill"]) for c in calls],
+                         [(["-p", "/rounds 1 from-script"], "sonnet", "1")] * 3, "one fresh session a round")
+        self.assertEqual(self.meter_file(), 24, "refilled once when the run started, never by a round's session")
+        refs = [(e["round_run"], e["session"], e["spend"], e["context"]) for e in self.log_entries() if e["kind"] == "referee"]
+        self.assertEqual(refs, [(1, "s0", 0.4, 20010), (2, "s1", 0.4, 21010), (3, "s2", 0.4, 22010)])
+        for n in range(2):  # two of the three sessions' transcripts, where Claude Code keeps them
+            rows = [{"type": "assistant", "message": {"id": "m%d" % n, "usage": {"input_tokens": 5, "cache_read_input_tokens": 995 + n, "output_tokens": 7},
+                     "content": [{"type": "tool_use", "name": "Bash", "input": {"command": "python3 rules/rpg.py look --as wren | head -5"}}]}}]
+            self.write("projects/-some-folder/s%d.jsonl" % n, "\n".join(json.dumps(r) for r in rows))
+        r = subprocess.run([sys.executable, "tools/audit.py", "--referee"], cwd=self.dir, capture_output=True, text=True,
+                           env=dict(os.environ, CODERPG_PROJECTS=str(self.dir / "projects")))
+        self.assertIn("== CUT READS\n  look: 2\n", r.stdout)
+        self.assertIn("== REFEREE, A ROUND A LINE\n  r1: $0.40, 0s, 1 calls, largest context 1000 tokens, 7 output tokens\n"
+                      "  r2: $0.40, 0s, 1 calls, largest context 1001 tokens, 7 output tokens\n"
+                      "  r3: $0.40, 0s, context up to 22010 tokens; session s2 not found", r.stdout)
+        self.settings_tool("set", "rounds.max_per_run", "4")
+        out, calls = self.run_rounds("--model", "opus")
+        self.assertIn("ROUND 4: $0.40", out)
+        self.assertIn("STOPPED: the run has had its 4 rounds (rounds.max_per_run)", out)
+        self.assertEqual([c["argv"][c["argv"].index("--model") + 1] for c in calls], ["opus"])
+
+    def test_rounds_stops_for_a_pause_a_failed_session_or_a_round_left_open(self):
+        self.rpg("game", "switch", "dark_lighthouse")
+        self.settings_tool("preset", "simulation")
+        self.rpg("newgame", seed=43)
+        self.rpg("run", "pause", as_=False)
+        out, calls = self.run_rounds("3", mode="pause@0")
+        self.assertIn("RESUMED", out, "starting it is the owner's say to go on")
+        self.assertIn("ROUND 1: ", out)
+        self.assertIn("STOPPED: the owner asked for a pause", out, "a pause pressed mid-round stops it after that round")
+        self.assertEqual(len(calls), 1)
+        out, calls = self.run_rounds("3", mode="fail@0")
+        self.assertIn("STOPPED: round 2's referee session failed (API Error: overloaded)", out)
+        self.assertNotIn("ROUND 2 OPEN", self.rpg("run", "status", as_=False))
+        out, calls = self.run_rounds("3", mode="open@1")
+        self.assertIn("ROUND 2: ", out)
+        self.assertIn("STOPPED: round 3 was left open (Round done.); the next run finishes it.", out)
+        self.assertIn("ROUND 3 OPEN", self.rpg("run", "status", as_=False))
 
     def test_probe_shows_what_a_person_is_sent_and_keeps_no_token(self):
         self.rpg("game", "switch", "dark_lighthouse")

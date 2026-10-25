@@ -3604,8 +3604,17 @@ def cmd_run(args):
         if why:
             print("NEXT ROUND WAITS: %s" % why)
         return
+    if what == "referee":  # tools/rounds.py, after each round's referee session
+        try:
+            number, session, usd, seconds, context = int(args[1]), args[2], float(args[3]), float(args[4]), int(args[5])
+        except (IndexError, ValueError):
+            raise Refused("use: run referee <round> <session id> <usd> <seconds> <largest context>")
+        log(state, "referee", round_run=number, session=session, spend=usd, seconds=seconds, context=context)
+        save_state(state)
+        print("REFEREE for round %d logged: $%.2f, %ds, context up to %d tokens." % (number, usd, seconds, context))
+        return
     if what not in ("pause", "resume", "end"):
-        raise Refused("use: run status | pause | resume | end")
+        raise Refused("use: run status | pause | resume | end | referee <round> <session> <usd> <seconds> <context>")
     if run.get("ended"):
         raise Refused("the run has already ended; a new run starts with newgame")
     if what == "pause":
