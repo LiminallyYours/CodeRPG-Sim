@@ -818,7 +818,7 @@ class Engine(unittest.TestCase):
         s = self.save()
         self.assertEqual(list(s["players"]), ["wren", "corin"])
         cast = json.loads((self.dir / "games/dark_lighthouse/cast.json").read_text())
-        self.assertIn("CAST: Wren (wren, %s) at Harbor Square; Corin (corin, %s) at The Gull\n"
+        self.assertIn("CAST: Wren (wren, %s, they/them) at Harbor Square; Corin (corin, %s, they/them) at The Gull\n"
                       % (cast[0]["model"], cast[1]["model"]), out)
         self.assertEqual(s["players"]["corin"]["location"], "gull_tavern")
         self.assertEqual(s["players"]["corin"]["stats"]["coins"], 4)
@@ -828,14 +828,22 @@ class Engine(unittest.TestCase):
         self.assertIn("no one called 'nell' is playing", self.rpg("look", as_="nell", ok=False))
         self.assertIn("--as needs a player id", self.rpg("look", "--as", ok=False))
 
+    def test_the_cast_says_how_to_speak_of_each_person(self):
+        self.rpg("game", "switch", "thirteenth_stroke")
+        out = self.rpg("newgame", seed=43)
+        self.assertIn("Dilly Quickstep (dilly, haiku, they/them) at ", out)
+        self.assertIn("Hobb Ashcombe (hobb, sonnet, he/him) at ", out)
+        self.assertIn("PEOPLE HERE: Dilly Quickstep (dilly, they/them).", self.rpg("look", as_="marigold"))
+        self.assertIn("Marigold Thimble (she/her) at The Lopsided Square", self.rpg("world-brief", "turn", as_=False))
+
     def test_two_players_share_a_room_and_its_things(self):
         self.rpg("game", "switch", "dark_lighthouse")
         self.rpg("newgame", seed=43)
         self.assertNotIn("PEOPLE HERE", self.rpg("look", as_="wren"))
         self.rpg("move", "south", as_="corin")  # from the Gull to Harbor Square, where Wren is
         self.assertEqual(self.save()["players"]["corin"]["location"], "harbor_square")
-        self.assertIn("PEOPLE HERE: Corin (corin).", self.rpg("look", as_="wren"))
-        self.assertIn("PEOPLE HERE: Wren (wren).", self.rpg("look", as_="corin"))
+        self.assertIn("PEOPLE HERE: Corin (corin, they/them).", self.rpg("look", as_="wren"))  # the cast names none
+        self.assertIn("PEOPLE HERE: Wren (wren, they/them).", self.rpg("look", as_="corin"))
         self.rpg("drop", "healing_tonic", as_="corin")
         self.assertIn("healing_tonic", self.rpg("look", as_="wren").split("ITEMS HERE:")[1].split("\n")[0])
         self.rpg("take", "healing_tonic", as_="wren")
@@ -1171,7 +1179,7 @@ class Engine(unittest.TestCase):
         status = self.rpg("run", "status", as_=False)
         self.assertIn("next to act: %s (waiting for their reply)" % second, status)
         pl = self.save()["players"][second]
-        self.assertIn("%s (%s, %s) at " % (pl["name"], second, pl["model"]), status.split("CAST: ")[1])
+        self.assertIn("%s (%s, %s, " % (pl["name"], second, pl["model"]), status.split("CAST: ")[1])
         self.write("proposals/reply.txt", "DO: I look around.")
         self.rpg("reply", second, "proposals/reply.txt")
         self.assertIn("next to act: %s (they have replied" % second, self.rpg("run", "status", as_=False))
@@ -1377,8 +1385,8 @@ print(json.dumps({"type": "result", "is_error": False, "result": answers[min(n, 
         self.assertEqual(self.save()["run"]["moves"], 2)
         # between rounds the world turn is no one's: it runs without --as, and its brief says where everyone is
         brief = self.rpg("world-brief", "turn", as_=False)
-        self.assertIn("## Where the players are\nWren at ", brief)
-        self.assertIn("; Corin at ", brief)
+        self.assertIn("## Where the players are\nWren (they/them) at ", brief)
+        self.assertIn("; Corin (they/them) at ", brief)
         self.assertNotIn("## Where the player is", brief)
         self.assertIn("say who acts", self.rpg("world-brief", "extra", as_=False, ok=False))
         self.write("proposals/wt.json", json.dumps({"rumors": ["The keeper's lamp burned blue last night."], "moves": []}))
@@ -1500,13 +1508,14 @@ print(json.dumps({"type": "result", "is_error": False, "result": answers[min(n, 
     def test_validate_checks_the_cast(self):
         d = "games/dark_lighthouse/cast.json"
         cast = json.loads((self.dir / d).read_text())
-        cast[1].update(id="morwen", model="gpt", home="atlantis", inventory=["kipper"], hp=99, attributes={"might": 9})
+        cast[1].update(id="morwen", model="gpt", home="atlantis", inventory=["kipper"], hp=99, attributes={"might": 9},
+                       pronouns="Her")
         cast.append(dict(cast[0], extra=1))
         self.write(d, json.dumps(cast))
         out = self.rpg("validate", "--game", "dark_lighthouse", ok=False)
         for problem in ("the id is also a character's", "model must be one of", "home 'atlantis' is not a room",
                         "unknown item 'kipper'", "hp must be a whole number", "attributes must be whole numbers",
-                        "the id is used twice", "unknown key 'extra'"):
+                        "the id is used twice", "unknown key 'extra'", "pronouns are written like she/her"):
             self.assertIn(problem, out)
         (self.dir / d).unlink()
         self.rpg("validate", "--game", "dark_lighthouse")  # a world without a cast is valid content

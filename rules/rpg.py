@@ -1517,10 +1517,15 @@ def cmd_newgame(args):
         cmd_look([])
 
 
+def pronouns(pid):
+    """How to speak of a person in the cast: their entry's `pronouns`, or they/them when it gives none."""
+    return cast_entry(pid).get("pronouns") or "they/them"
+
+
 def cast_line(state):
-    """CAST: who plays, with the model each is spawned with, and where each is now."""
-    return "CAST: %s" % "; ".join("%s (%s, %s) at %s%s" % (
-        pl["name"], pid, pl["model"], ent("rooms", pl["location"]).get("name", pl["location"]),
+    """CAST: who plays, with the model each is asked on, their pronouns, and where each is now."""
+    return "CAST: %s" % "; ".join("%s (%s, %s, %s) at %s%s" % (
+        pl["name"], pid, pl["model"], pronouns(pid), ent("rooms", pl["location"]).get("name", pl["location"]),
         "" if pl["status"] == "playing" else ", %s" % pl["status"]) for pid, pl in state["players"].items())
 
 
@@ -1599,7 +1604,7 @@ def cmd_look(args):
     if others:
         print("PEOPLE HERE: %s. Each acts on their own turn: never speak or decide for them. What the player says "
               "aloud, they hear: `say <file>`; what they see and hear of the turn: `witnessed <file>`." % ", ".join(
-            "%s (%s)" % (state["players"][p]["name"], p) for p in others))
+            "%s (%s, %s)" % (state["players"][p]["name"], p, pronouns(p)) for p in others))
     makers = [c for c in here if makes(c)]
     if makers and not why_no_order(state):
         print("MAKERS HERE: %s. If the player orders something made: `world-brief craft <maker>` (see gm-turn)."
@@ -2508,7 +2513,7 @@ def cmd_world_brief(args):
                 desc.append(text)
         out += ["## Where the player is", "%s. %s" % (room.get("name", room["id"]), " ".join(desc))]
     else:
-        out += ["## Where the players are", "; ".join("%s at %s" % (state["players"][p]["name"], ent(
+        out += ["## Where the players are", "; ".join("%s (%s) at %s" % (state["players"][p]["name"], pronouns(p), ent(
             "rooms", state["players"][p]["location"]).get("name", state["players"][p]["location"])) for p in playing(state)) + "."]
     notes = run["notes"].get(room.get("id"), [])
     if notes:
@@ -3092,7 +3097,7 @@ def validate_cast(problems):
     if len(data) > int(limits["max_players"]):
         problems.append("cast.json: at most %d players (has %d)" % (int(limits["max_players"]), len(data)))
     seen_ids, seen_names = set(), set()
-    known = {"id", "model", "motivations", "attributes", "hp", "coins", "inventory", "equipped", "home"} | set(CAST_TEXT)
+    known = {"id", "model", "pronouns", "motivations", "attributes", "hp", "coins", "inventory", "equipped", "home"} | set(CAST_TEXT)
     for n, e in enumerate(data, 1):
         if not isinstance(e, dict):
             problems.append("cast.json entry %d is not an object" % n)
@@ -3115,6 +3120,8 @@ def validate_cast(problems):
             if e["name"].lower() in seen_names:
                 problems.append("%s: the name %r is used twice" % (where, e["name"]))
             seen_names.add(e["name"].lower())
+        if "pronouns" in e and not (isinstance(e["pronouns"], str) and re.fullmatch(r"[a-z]+(/[a-z]+)+", e["pronouns"])):
+            problems.append("%s: pronouns are written like she/her, he/him or they/them" % where)
         motives = e.get("motivations")
         if not isinstance(motives, list) or not motives or not all(isinstance(m, str) and m.strip() for m in motives):
             problems.append("%s: motivations must be a list of short lines" % where)
@@ -3701,7 +3708,7 @@ def cmd_reply(args):
         remember(pl, "reasoned", reply["journal"], number)
     log(state, "action", do=reply["do"], journal=reply["journal"], model=pl.get("model"), **spent(usd))
     save_state(state)
-    print("REPLY from %s: DO: %s" % (pl["name"], reply["do"]))
+    print("REPLY from %s (%s): DO: %s" % (pl["name"], pronouns(args[0]), reply["do"]))
     if reply["journal"]:
         print("JOURNAL: %s" % reply["journal"])
     print("Now run the turn for it with --as %s, then `narrate %s <file>`." % (args[0], args[0]))
