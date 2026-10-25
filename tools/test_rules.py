@@ -5,6 +5,7 @@ Each test gets a fresh temp copy of rules/, games/ and proposals/ with an empty 
 rules/rpg.py as the game master would, through its command line. The real save is never touched.
 """
 import csv
+import datetime
 import getpass
 import io
 import json
@@ -1469,6 +1470,23 @@ print(json.dumps({"type": "result", "is_error": False, "result": answers[min(n, 
 
     def log_entries(self):
         return [json.loads(line) for line in (self.dir / "state" / "log" / ("%s.jsonl" % self.save()["run"]["id"])).read_text().splitlines()]
+
+    def test_audit_looks_for_signs_of_claude_codes_lines_in_what_people_wrote(self):
+        self.rpg("game", "switch", "flooded_station")
+        self.settings_tool("preset", "simulation")
+        self.rpg("newgame", seed=44)
+        first = self.rpg("round", "start").split(": ", 1)[1].split("(")[1].split(")")[0]
+        year = str(datetime.date.today().year)
+        self.write("proposals/reply.txt", "DO: I write a haiku about the tide.\nJOURNAL: It's %s, and someone@example.org owes me.\n" % year)
+        self.rpg("reply", first, "proposals/reply.txt")
+        self.rpg("look", as_=first)
+        self.write("proposals/story.txt", "You think of Claude, an old friend.")  # the referee's words: not looked at
+        self.rpg("narrate", first, "proposals/story.txt")
+        out = self.run_py("tools/audit.py", "state/log/%s.jsonl" % self.save()["run"]["id"]).stdout
+        signs = out.split("== SIGNS OF CLAUDE CODE'S LINES\n")[1].split("\n== ")[0].splitlines()
+        self.assertEqual([s.split(": ...")[0] for s in signs],
+                         ["  r1 %s do 'haiku'" % first, "  r1 %s journal '%s'" % (first, year), "  r1 %s journal 'someone@example.org'" % first])
+        self.assertIn("== LEAKS\n  none", out, "a separate list from the leaks")
 
     def test_audit_reads_a_run_back(self):
         self.rpg("game", "switch", "flooded_station")  # Sol and Ade both start on the Landing
