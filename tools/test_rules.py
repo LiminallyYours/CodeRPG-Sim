@@ -5,6 +5,7 @@ Each test gets a fresh temp copy of rules/, games/ and proposals/ with an empty 
 rules/rpg.py as the game master would, through its command line. The real save is never touched.
 """
 import csv
+import getpass
 import io
 import json
 import os
@@ -1522,11 +1523,11 @@ print(json.dumps({"type": "result", "is_error": False, "result": answers[min(n, 
         system = argv[0][argv[0].index("--system-prompt") + 1]
         self.assertTrue(system.startswith("You are a person living your own life."), system[:80])
         self.assertNotIn("---", system, "the instructions without player.md's front matter")
-        where, inside = json.loads((self.dir / "stand_in" / "cwd-0.json").read_text())
-        self.assertEqual(inside, [], "asked from an empty folder")
-        for name in (self.dir.name, ROOT.name, "coderpg"):
-            self.assertNotIn(name.lower(), Path(where).resolve().as_posix().lower(), "whose path names nothing of the game's folder")
-        self.assertFalse(Path(where).exists(), "and taken away after")
+        where = Path(json.loads((self.dir / "stand_in" / "cwd-0.json").read_text())[0]).resolve()
+        self.assertEqual(where, Path("/tmp/here").resolve(), "asked from a plain folder outside the game's")
+        for name in (self.dir.name, ROOT.name, "coderpg", getpass.getuser()):
+            self.assertNotIn(name.lower(), where.as_posix().lower(), "whose path names neither the game's folder nor the owner")
+        self.assertFalse(any((d / ".git").exists() for d in (where, *where.parents)), "and isn't in a git repository")
         action =[e for e in self.log_entries() if e["kind"] == "action"][-1]
         self.assertEqual((action["do"], action["spend"]), ("I look out to sea.", 0.0012))
         self.assertIn("already replied", self.rpg("reply", first, "proposals/reply-%s.txt" % first, ok=False))
