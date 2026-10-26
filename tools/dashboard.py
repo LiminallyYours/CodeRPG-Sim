@@ -11,6 +11,11 @@ latest commands); what the run has spent, for whom, and each round's time, cost,
 of each turn (what they did and why, the townspeople's words, onlookers' notes, trades, coins and orders, the
 chronicle, the story, and what they were told, fetched when opened), what came between rounds (the world's turn,
 memories condensed) and endings. "Everything" (or `/?view=all`) adds the referee's commands and each turn's cost.
+Three views: Run (all of the above), Turns (a card a turn, newest first: where and with whom, what they were given,
+their reasoning and choice, what happened, what changed for them and in the world, its time and cost; a card a round's
+end) and World (the town now: places, people, shared work, offers and lets, talk, orders, and the hooks: quests,
+timed events, scarce prizes, a timeline), and on every view the coverage strip (the audit's count of each mechanic).
+The town is worked out by the engine's own read functions, never a command (every command is logged).
 Its two buttons ask `rpg.py run pause` and `run end`; the dashboard never writes a game file itself.
 The log is also served as CSV, one row per entry, for analysis elsewhere (`/export.csv`, or `--csv`).
 Python's standard library only.
@@ -19,16 +24,22 @@ import csv
 import datetime
 import io
 import json
+import re
 import subprocess
 import sys
+import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "rules"))
+sys.path.insert(0, str(ROOT / "tools"))
+import audit  # noqa: E402  the coverage count, shared with the run's audit
 import rpg  # noqa: E402
 
-FEED_LIMIT = 80  # feed items sent to the page, newest first
+LOCK = threading.Lock()  # the engine's read functions keep the acting person and the run in globals: one reader at a time
+
+FEED_LIMIT = 240  # feed items sent to the page, newest first (a 14-round run of four is about 90)
 
 
 def read_save():
@@ -173,6 +184,26 @@ def world_lines(output, name):
     return out
 
 
+WORLD_CHANGING = ("flag", "quest", "work", "buy", "rent", "sleep", "eat", "meet", "pay", "trade", "contest", "generate", "take",
+                  "drop", "gain", "lose", "coins", "sell", "ending")  # the commands that change the world, not only read it
+_TAGGED = re.compile(r"^(?:[A-Z][A-Z ]+:|FLAG (?:set|unset)|EFFORT on|ENDING:)")
+
+
+def changes_in(e):
+    """What a state-changing command did, from the lines it printed that say so (PAID:, BOUGHT:, FLAG set, STAGE:...)."""
+    lines = [clip(line, 200) for line in (e.get("output") or "").splitlines() if _TAGGED.match(line.strip())]
+    return lines or [clip(" ".join([e.get("command", "")] + [str(a) for a in e.get("args", [])]), 120)]
+
+
+def where_of(brief):
+    """The brief's Where you are: the place, the time and the weather on one line; who was with them on another."""
+    head, with_you = rpg.phrase("where_you_are"), rpg.phrase("with_you", people="\0").split("\0")[0]
+    lines = brief.split(head + "\n", 1)[1].splitlines() if head + "\n" in brief else []
+    with_line = next((line for line in lines[:6] if line.startswith(with_you)), None)
+    return {"where": lines[0].rstrip(".") if lines else None,
+            "with": with_line[len(with_you):].rstrip(".") if with_line else None}
+
+
 def add(item, key, value):
     item.setdefault(key, []).append(value)
 
@@ -186,12 +217,13 @@ def build_feed(entries, names, name, currency="coins"):
     latest round marker."""
     items, turn, bucket = [], None, None
 
-    def new_turn(e):
+    def new_turn(e, i):
         pid = e.get("player")
         t = {"kind": "turn", "key": "%s:%s" % (e.get("round"), pid), "round": e.get("round"), "player": pid,
              "name": names.get(pid, pid), "model": None, "exact_model": None, "do": "", "journal": "", "options": None,
              "story": None, "brief_at": None, "brief_chars": None, "heard_by": [], "trades": [], "spend": 0.0,
-             "seconds": None, "t": e.get("t")}
+             "seconds": None, "t": e.get("t"), "position": e.get("order_position"), "where": None, "with": None,
+             "first": i, "last": i, "changed": None, "outcome": None, "world_changes": []}
         items.append(t)
         return t
 
@@ -199,11 +231,12 @@ def build_feed(entries, names, name, currency="coins"):
         kind = e["kind"]
         fresh = turn is not None and turn["player"] == e.get("player") and turn["round"] == e.get("round") and not turn["do"]
         if kind == "brief" and e.get("player"):
-            turn = turn if fresh else new_turn(e)
-            turn.update(brief_at=i, brief_chars=len(e.get("text", "")))
+            turn = turn if fresh else new_turn(e, i)
+            turn.update(brief_at=i, brief_chars=len(e.get("text", "")), **where_of(e.get("text", "")))
             continue
         if kind == "action":
-            turn = turn if fresh else new_turn(e)
+            turn = turn if fresh else new_turn(e, i)
+            turn["last"] = i
             turn.update(model=e.get("model"), exact_model=e.get("exact_model"), do=e.get("do", ""),
                         journal=e.get("journal", ""), options=e.get("options"), no_longer=e.get("no_longer"))
             turn["spend"] += e.get("spend") or 0
@@ -219,9 +252,14 @@ def build_feed(entries, names, name, currency="coins"):
         mine = turn is not None and e.get("round") == turn["round"] and e.get("player") in (None, turn["player"])
         theirs = mine and e.get("player") == turn["player"]  # a trade or grab is the person's own, never no one's
         here = turn if mine else bucket
+        if mine:
+            turn["last"] = i
         if kind == "narration" and mine:
             turn["story"] = e.get("text", "")
+            turn["changed"] = e.get("changed")
             turn["seconds"] = seconds_between(turn, e)
+        elif kind == "outcome" and mine:
+            turn["outcome"] = {"result": e.get("result"), "what": e.get("what")}
         elif kind == "speech" and mine:
             turn["heard_by"] = [names.get(p, p) for p in e.get("heard_by", [])]
         elif kind == "trade":
@@ -275,6 +313,8 @@ def build_feed(entries, names, name, currency="coins"):
         elif kind == "referee":
             here["referee"] = {"spend": e.get("spend"), "seconds": e.get("seconds"), "context": e.get("context")}
         elif kind == "command":
+            if mine and not e.get("refused") and e.get("command") in WORLD_CHANGING:
+                turn["world_changes"] += changes_in(e)
             if not e.get("refused"):
                 if e.get("command") == "chronicle" and e.get("args"):
                     add(here, "chronicle", e["args"][0])
@@ -349,8 +389,123 @@ def happening(items, run, next_name):
     return {"stage": "between", "next": next_name, "round": last["round"], "steps": steps}
 
 
+_DONE = re.compile(r"^(.*?)\s*\(done when\s+(.+)\)\s*$")
+
+
+def world_view(save, entries, names, name):
+    """The town now, from the save and the world's content, worked out by the engine's own read-only functions
+    (never a command: every command is logged): the clock, each place, each person, shared work, offers, lets and
+    beds paid ahead, rumors and who has heard them, orders, and the hooks: quests, timed events, scarce prizes and
+    a timeline. Called under LOCK, with rpg's run set to this save's."""
+    run, view, players = save["run"], save.get("view", {}), save["players"]
+    shared = list(save["flags"]) + rpg.time_conditions(save)  # the shared flags and the clock: what decides where things are
+    places = []
+    for r in list(rpg.content.ids("rooms")) + [r for r in run.get("rooms", {}) if not rpg.content.exists("rooms", r)]:
+        room = rpg.ent("rooms", r)
+        here = [c for c in rpg.content.visible(room.get("characters"), shared) if rpg.ent_exists("characters", c)]
+        places.append({"name": room.get("name", r),
+                       "cast": [names[pid] for pid, pl in players.items() if pl["location"] == r and pl["status"] == "playing"],
+                       "people": [name(c) for c in here], "lying": [name(i) for i in save.get("room_items", {}).get(r, [])],
+                       "building": [rpg.order_name(i, c) for i, c in run.get("commissions", {}).items()
+                                    if c.get("status") == "building" and c.get("room") == r]})
+    lets = run.get("lets", {})
+    people = []
+    for pid, pl in players.items():
+        own = [rpg.ent("rooms", r).get("name", r) for r, rec in run.get("rooms", {}).items() if rec.get("meta", {}).get("owner") == pid]
+        own += ["%s (to the end of day %s)" % (rpg.ent("rooms", r).get("name", r), let["until"]) for r, let in lets.items() if let["tenant"] == pid]
+        people.append({"name": pl["name"], "coins": pl["stats"]["coins"], "hp": pl["stats"]["hp"], "max_hp": pl["stats"]["max_hp"],
+                       "needs": rpg.needs_words(save, pid) if rpg.world_needs() else [],
+                       "carrying": [name(i) for i in pl.get("inventory", [])], "own": own,
+                       "taken_on": [rpg.ent("quests", q).get("name", q) for q in pl.get("taken_on", []) if rpg.ent_exists("quests", q)],
+                       "beds": ["%s, %d night%s" % (name(r), n, "" if n == 1 else "s") for r, n in (pl.get("paid_beds") or {}).items() if n]})
+    paid = {}
+    for e in entries:
+        if e["kind"] == "coins" and e.get("reason") == "work":
+            paid[(e.get("note"), e.get("player"))] = paid.get((e.get("note"), e.get("player")), 0) + 1
+    projects = []
+    for ident, r in rpg.project_rooms().items():
+        spec, rec = rpg.project_of(rpg.ent("rooms", r)), run.get("projects", {}).get(ident, {"total": 0, "by": {}, "stages": []})
+        top = max(rec["by"].values() or [0])
+        projects.append({"name": spec["name"], "place": name(r), "total": rec["total"],
+                         "stages": [{"at": a, "flag": f, "reached": f in rec["stages"]} for a, f in spec["stages"]],
+                         "by": [{"name": names.get(p, p), "turns": n, "paid": paid.get((r, p), 0), "most": n == top}
+                                for p, n in sorted(rec["by"].items(), key=lambda kv: -kv[1])],
+                         "until": spec["until"], "open": rpg.content.condition_holds(spec["until"], shared) if spec["until"] else True})
+    offers = ["%s offers %s %s for %s" % (names.get(x["from"]), names.get(x["to"]), side_text(x["give"], name), side_text(x["want"], name))
+              for x in rpg.open_trades(save)]
+    rumors = [{"text": r, "heard_by": [pl["name"] for pl in players.values() if r in (pl.get("heard") or [])]} for r in run.get("rumors", [])]
+    orders = [{"name": rpg.order_name(i, c) if "record" in c or c["kind"] == "item" else name(i), "kind": "place" if c["kind"] == "room" else "thing",
+               "maker": name(c.get("maker")), "for": names.get(c.get("by") or c.get("ordered_by")), "status": c.get("status"),
+               "price": c.get("price")} for i, c in run.get("commissions", {}).items()]
+    return {"clock": ", ".join(x for x in ("%s on day %d" % (view["time"], view["day"]) if view.get("time") and view.get("day") else view.get("time"),
+                                          view.get("weather")) if x),
+            "places": places, "people": people, "projects": projects, "offers": offers,
+            "lets": ["%s: %s's to the end of day %s" % (name(r), names.get(x["tenant"]), x["until"]) for r, x in lets.items()],
+            "rumors": rumors, "orders": orders, "hooks": hooks(save, entries, names, name, shared, projects)}
+
+
+def side_text(side, name):
+    return ", ".join([name(i) for i in side.get("items", [])] + (["%d coins" % side["coins"]] if side.get("coins") else [])) or "nothing"
+
+
+def hooks(save, entries, names, name, shared, projects):
+    """Each quest (its objectives done for whom and what each waits on, how it stands, who took it on and when, how
+    it ended and whose doing it was), each timed event, the scarce prizes, and a timeline of them in log order."""
+    run, players = save["run"], save["players"]
+    flags_of = {}
+    for pid in players:
+        with rpg.acting(pid):
+            flags_of[pid] = rpg.condition_flags(save)
+    ended, taken, timeline = {}, {}, []
+    quest_names = {q: rpg.ent("quests", q).get("name", q) for q in rpg.ent_ids("quests")}
+    for e in entries:
+        who = names.get(e.get("player")) or "no one"
+        if e["kind"] == "command" and not e.get("refused") and e.get("command") == "quest" and len(e.get("args", [])) > 1:
+            q = e["args"][1]
+            taken.setdefault(q, []).append("%s (round %s%s)" % (who, e.get("round"), "" if e["args"][0] == "take" else ", set aside"))
+            timeline.append("r%s %s %s %s" % (e.get("round"), who, "took on" if e["args"][0] == "take" else "set aside", quest_names.get(q, q)))
+        if e["kind"] == "ending":  # told once a quest is decided: by the turn's person, or for no one after a world turn or event
+            for q, how in (e.get("quests") or {}).items():
+                ended.setdefault(q, {"round": e.get("round"), "how": how, "by": names.get(e.get("player")) or "the world (a turn or a timed event)"})
+                timeline.append("r%s %s %s (%s)" % (e.get("round"), quest_names.get(q, q), how, ended[q]["by"]))
+        if e["kind"] == "project":
+            timeline.append("r%s %s reached %s" % (e.get("round"), e.get("project"), e.get("stage")))
+        elif e["kind"] == "event" and e.get("happened"):
+            timeline.append("r%s timed event %s (%s)" % (e.get("round"), e.get("id"), e.get("when")))
+        elif e["kind"] == "command" and not e.get("refused") and e.get("command") == "flag" and e.get("args", [None])[0] == "set":
+            timeline.append("r%s %s: flag %s" % (e.get("round"), who, e["args"][1] if len(e["args"]) > 1 else "?"))
+    quests = []
+    for q, qname in quest_names.items():
+        meta = rpg.ent("quests", q)
+        objectives = []
+        for line in meta.get("objectives") or []:
+            m = _DONE.match(str(line))
+            text, cond = (m.group(1), m.group(2)) if m else (str(line), None)
+            objectives.append({"text": text, "waits_on": cond, "done_for": [players[pid]["name"] for pid in players
+                                                                             if cond and rpg.content.condition_holds(cond, flags_of[pid])]})
+        complete = bool(meta.get("completed_by")) and rpg.content.condition_holds(meta["completed_by"], shared)
+        failed = not complete and bool(meta.get("failed_by")) and rpg.content.condition_holds(meta["failed_by"], shared)
+        quests.append({"name": qname, "side": rpg.is_generated("quests", q), "giver": name(meta.get("giver")),
+                       "state": "complete" if complete else "failed" if failed else "open", "ended": ended.get(q),
+                       "completed_by": meta.get("completed_by"), "failed_by": meta.get("failed_by"),
+                       "taken_on": taken.get(q, []), "objectives": objectives})
+    happened = {e.get("id"): e.get("happened") for e in entries if e["kind"] == "event"}
+    events = [{"id": ev["id"], "when": ev.get("when"), "if": ev.get("if"),
+               "state": ("happened" if happened.get(ev["id"]) else "its time came; its condition didn't hold") if ev["id"] in run.get("fired", [])
+               else "waiting"} for ev in (rpg.content.timed(rpg.world()["body"]) if rpg.has_days() else [])]
+    prizes = ["%s: to let, %s" % (rpg.ent("rooms", r).get("name", r), "%s's to the end of day %s" % (names.get(run.get("lets", {})[r]["tenant"]),
+              run["lets"][r]["until"]) if r in run.get("lets", {}) else "free") for r in rpg.content.ids("rooms") if rpg.rent_of(rpg.ent("rooms", r))]
+    prizes += ["most help on %s: %s" % (p["name"], ", ".join(b["name"] for b in p["by"] if b["most"]) or "no one yet") for p in projects]
+    return {"quests": quests, "events": events, "prizes": prizes, "timeline": timeline}
+
+
 def live():
     """Everything the page shows, as JSON-ready data."""
+    with LOCK:
+        return live_now()
+
+
+def live_now():
     save = read_save()
     if not save or "players" not in save:
         return {"game": None}
@@ -415,6 +570,8 @@ def live():
         "meter": meter_of(entries, run.get("round")),
         "happening": happening(items, run, names.get(nxt)),
         "feed": items[::-1][:FEED_LIMIT],
+        "coverage": audit.coverage(entries),
+        "world": world_view(save, entries, names, name),
     }
 
 
@@ -425,6 +582,16 @@ def brief_at(n):
     entries = log_entries(save["run"]["id"]) if save and "run" in save else []
     e = entries[n] if 0 <= n < len(entries) else None
     return {"text": e.get("text", "")} if e and e["kind"] == "brief" else None
+
+
+def steps_of(first, last, pid):
+    """A turn's commands in order with all each printed, from its log lines first to last (fetched when the card's
+    What happened is opened: a look prints the whole room)."""
+    save = read_save()
+    entries = log_entries(save["run"]["id"]) if save and "run" in save else []
+    return [{"text": " ".join([e.get("command", "")] + [str(a) for a in e.get("args", [])]), "said": e.get("output", ""),
+             "refused": bool(e.get("refused"))} for e in entries[max(0, first):last + 1]
+            if e["kind"] == "command" and e.get("player") in (None, pid) and e.get("command") not in QUIET]
 
 
 def ask_run(what):
@@ -460,6 +627,9 @@ class Handler(BaseHTTPRequestHandler):
             brief = brief_at(int(self.path[11:]))
             return self.send(200, json.dumps(brief, ensure_ascii=False), "application/json") if brief else \
                 self.send(404, "no brief there", "text/plain")
+        m = re.match(r"^/api/steps/(\d+)-(\d+)/([a-z0-9_]+)$", self.path)
+        if m:
+            return self.send(200, json.dumps(steps_of(int(m.group(1)), int(m.group(2)), m.group(3)), ensure_ascii=False), "application/json")
         if self.path == "/export.csv":
             save = read_save()
             if not save or "run" not in save:
@@ -598,6 +768,34 @@ details pre { white-space: pre-wrap; overflow-wrap: anywhere; font: 12.5px/1.5 v
 .ending .who { font: 600 14px var(--sans); color: var(--brass); margin: 0 0 6px; }
 .empty { font: 17px/1.5 var(--serif); color: var(--slate); margin: 40px 0; }
 .stale { color: var(--brick); }
+.tabs { display: flex; gap: 0; margin: 16px 0 0; border-bottom: 1px solid var(--rule); flex-wrap: wrap; }
+.tabs button { border: 0; border-radius: 0; border-bottom: 3px solid transparent; padding: 8px 16px; color: var(--slate); }
+.tabs button[aria-pressed="true"] { color: var(--ink); border-bottom-color: var(--brass); background: none; }
+.coverage { margin: 12px 0 0; font-size: 13.5px; }
+.coverage ul { columns: 2 280px; column-gap: 32px; list-style: none; padding: 0; margin: 8px 0 0; }
+.coverage li { display: flex; justify-content: space-between; gap: 12px; padding: 1px 0; break-inside: avoid; }
+.coverage li b { font-variant-numeric: tabular-nums; font-weight: 600; }
+.coverage li.never { color: var(--slate); }
+.coverage li.never b { font-weight: 400; }
+.cards { margin-top: 20px; max-width: 80ch; }
+.came { font-size: 13.5px; margin: 0 0 8px; }
+.came b { color: var(--brass); font-weight: 600; }
+.changed { font-size: 14px; margin: 8px 0 0; }
+.changed b, .label { font: 600 12.5px var(--sans); color: var(--slate); text-transform: uppercase; letter-spacing: 0.05em; }
+.changes { margin: 4px 0 0; padding-left: 20px; font-size: 13.5px; }
+.world { display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; margin-top: 20px; }
+.world .box { min-width: 0; }
+.world .box p, .world .box li { overflow-wrap: anywhere; }
+.world .scroll table { min-width: 620px; }  /* a wide table scrolls within its box on a phone, words whole */
+.scroll { overflow-x: auto; }
+.world table td, .world table th { text-align: left; vertical-align: top; padding: 4px 12px 4px 0; }
+.world .box p, .world .box li { margin: 2px 0; font-size: 14px; }
+.world .box ul { margin: 4px 0 0; padding-left: 20px; }
+.quest { border-top: 1px solid var(--rule); padding: 10px 0 4px; }
+.quest:first-of-type { border-top: 0; padding-top: 0; }
+.quest h4 { font: 600 15px var(--serif); margin: 0 0 4px; }
+.st-complete { color: var(--brass); } .st-failed { color: var(--brick); } .st-open { color: var(--slate); }
+.cond { font: 12px var(--mono); color: var(--slate); }
 </style>
 </head>
 <body>
@@ -614,6 +812,15 @@ details pre { white-space: pre-wrap; overflow-wrap: anywhere; font: 12.5px/1.5 v
       <p class="said" id="said" aria-live="polite"></p>
     </div>
   </header>
+  <nav class="tabs" role="group" aria-label="Views">
+    <button type="button" id="tab-run" aria-pressed="true">Run</button>
+    <button type="button" id="tab-turns" aria-pressed="false">Turns</button>
+    <button type="button" id="tab-world" aria-pressed="false">World</button>
+  </nav>
+  <div class="coverage" id="coverage"></div>
+  <div id="view-turns" hidden><div class="cards" id="cards"></div></div>
+  <div id="view-world" class="world" hidden></div>
+  <div id="view-run">
   <section class="people" id="people" aria-label="The people"></section>
   <div class="below">
     <section class="feed" aria-label="What happened">
@@ -631,13 +838,17 @@ details pre { white-space: pre-wrap; overflow-wrap: anywhere; font: 12.5px/1.5 v
       <section class="box" aria-label="The run so far"><h3>The run so far</h3><div id="meter"></div></section>
     </aside>
   </div>
+  </div>
 </main>
 <script>
 const INKS = ["#1F6F78", "#6E3B6E", "#4E6B2F", "#9A4A1C", "#3A4FA0", "#9C3D5A"];
 const INKS_DARK = ["#5FB7BF", "#C98BC9", "#9DBB72", "#E09A66", "#8EA0EA", "#E58AA6"];
 const dark = matchMedia("(prefers-color-scheme: dark)");
 const opened = new Set(), briefs = new Map();
-let inkOf = {}, last = null, only = null, everything = false;
+let inkOf = {}, last = null, only = null, everything = false, tab = "run";
+const steps = new Map();
+try { tab = localStorage.getItem("dashboard-tab") || "run"; } catch (e) {}
+{ const m = /[?&]tab=(run|turns|world)\b/.exec(location.search); if (m) tab = m[1]; }
 try { everything = localStorage.getItem("dashboard-view") === "all"; } catch (e) {}
 if (/[?&]view=(all|people)\b/.test(location.search)) everything = /view=all/.test(location.search);  // a view that can be bookmarked
 
@@ -819,6 +1030,155 @@ function renderFeed(d) {
   }));
 }
 
+// every mechanic the kit has and how often this run has used it (the audit's COVERAGE, the same function)
+function renderCoverage(d) {
+  const box = document.getElementById("coverage"), used = d.coverage.filter(c => c[1]).length;
+  box.replaceChildren(fold("coverage", "Mechanics used so far: " + used + " of " + d.coverage.length,
+    el("ul", {}, ...d.coverage.map(([name, n]) => el("li", {class: n ? "" : "never"}, el("span", {text: name}), el("b", {text: n ? n : "never"}))))));
+}
+
+// a turn's commands in order, with all each printed: fetched when opened (a look prints the whole room)
+function stepsFold(item) {
+  const key = item.first + "-" + item.last + "/" + item.player, body = el("ul", {class: "cmds"});
+  const fill = () => body.replaceChildren(...(steps.get(key) || [{text: "Loading…", said: ""}]).map(c =>
+    el("li", {class: c.refused ? "refused" : ""}, c.text, c.said ? el("pre", {text: c.said}) : null)));
+  const d = fold("steps:" + item.key, "The referee's commands, and what each printed", body);
+  const load = async () => {
+    if (!d.open) return;
+    if (!steps.has(key) || item.story == null) {
+      try { const r = await fetch("/api/steps/" + key, {cache: "no-store"}); steps.set(key, await r.json()); } catch (e) { return; }
+    }
+    fill();
+  };
+  fill();
+  d.addEventListener("toggle", load);
+  load();
+  return d;
+}
+
+const CAME = {done: "done", partly: "partly done", failed: "failed a check", refused: "refused by someone",
+              out_of_reach: "out of reach", not_there: "reached for something that isn't there"};
+
+function turnCard(item) {
+  const chosen = (item.options || []).find(o => o.chosen);
+  const reasoning = (item.options && item.options.length) || item.journal || (item.no_longer || []).length ?
+    fold("why:" + item.key, "Their reasoning", el("div", {},
+      item.options && item.options.length ? el("ul", {class: "options"}, ...item.options.map(o =>
+        el("li", {class: o.chosen ? "chosen" : ""}, o.text, o.for ? el("span", {text: " (for: " + o.for + ")"}) : null,
+           o.chosen ? el("b", {text: " chosen"}) : null))) : null,
+      item.journal ? el("p", {class: "why", text: item.journal}) : null,
+      ...(item.no_longer || []).map(x => el("p", {class: "cost", text: "No longer holds, they say: " + x.said +
+        (x.struck ? " (struck from what they've learned)" : " (not on their list)")})))) : null;
+  const voices = (item.voices || []).filter(v => v.agent === "npc").map(v => el("p", {class: "voice"}, el("b", {text: v.about}), quote(v.said)));
+  const notes = (item.notes || []).map((n, i) => fold("tn:" + item.key + i, "What " + (n.seen_by.join(" and ") || "no one") + " saw", paragraphs(n.text)));
+  const happened = item.do ? fold("what:" + item.key, "What happened", el("div", {},
+    item.heard_by.length ? el("p", {class: "heard", text: "Their words were heard by " + item.heard_by.join(" and ")}) : null,
+    ...voices,
+    ...(item.trades || []).map(x => el("p", {class: "trade", text: x})),
+    ...(item.money || []).map(x => el("p", {class: "trade", text: x})),
+    ...(item.made || []).map(x => el("p", {class: "trade", text: "New in the world: " + x})),
+    ...notes,
+    item.story != null ? fold("ts:" + item.key, "The story they were told", paragraphs(item.story)) : el("p", {class: "heard", text: "Their turn is still being played."}),
+    stepsFold(item))) : null;
+  const head = ["Round " + item.round + (item.position ? ", turn " + item.position : ""), item.where].filter(Boolean).join(" · ");
+  return el("article", {class: "turn", style: "--who:" + (inkOf[item.name] || "var(--slate)")},
+    el("p", {class: "who"}, item.name, el("span", {text: " · " + head + (item.with ? " · with " + item.with : "")})),
+    item.do ? el("p", {class: "do", text: item.do}) : el("p", {class: "waiting", text: "Deciding…"}),
+    item.outcome ? el("p", {class: "came"}, "Came to: ", el("b", {text: CAME[item.outcome.result] || item.outcome.result}),
+                      item.outcome.what ? ": " + item.outcome.what : "") : null,
+    chosen ? el("p", {class: "cost", text: "The option they chose: " + chosen.text}) : null,
+    briefFold(item), reasoning, happened,
+    item.changed ? el("p", {class: "changed"}, el("b", {text: "For them "}), item.changed.replace(/^What changed: /, "")) : null,
+    item.world_changes && item.world_changes.length ? el("div", {}, el("p", {class: "changed"}, el("b", {text: "In the world"})),
+      el("ul", {class: "changes"}, ...item.world_changes.map(x => el("li", {text: x})))) : null,
+    item.spend || item.seconds != null ? el("p", {class: "cost", text: [item.seconds != null ? took(item.seconds) + " from brief to story" : "",
+      item.spend ? money(item.spend) + " for their reply and the agents asked" : ""].filter(Boolean).join(" · ")}) : null);
+}
+
+function roundCard(item) {
+  const ref = item.referee;
+  const was = everything;
+  everything = true;  // a round's card shows the world agent and the referee's session whichever feed view is chosen
+  const between = renderBetween(Object.assign({}, item, {commands: []}));  // the referee's housekeeping stays in the Run view's Everything
+  everything = was;
+  return [el("p", {class: "marker", text: item.kind === "round" ? "Round " + item.round + " begins: " + item.order.join(", then ") :
+    "Round " + item.round + " ends" + (item.world_turn ? ", and the world turns" : "") + (ref ? " · the referee: " +
+    [took(ref.seconds), money(ref.spend)].filter(Boolean).join(", ") : "")}), between];
+}
+
+function renderTurns(d) {
+  const box = document.getElementById("cards");
+  const items = d.feed.filter(item => !only || item.kind !== "turn" || item.name === only);
+  if (!items.length) { box.replaceChildren(el("p", {class: "empty", text: "No turns yet."})); return; }
+  box.replaceChildren(...(only ? [el("p", {class: "filter"}, "Showing only " + only + "'s turns. Click the name again for everyone.")] : []),
+    ...items.flatMap(item => {
+      if (item.kind === "turn") {
+        const card = turnCard(item);
+        card.querySelector(".who").addEventListener("click", () => { only = only === item.name ? null : item.name; render(last); });
+        card.querySelector(".who").style.cursor = "pointer";
+        return [card];
+      }
+      if (item.kind === "round" || item.kind === "round_end") return roundCard(item);
+      if (item.kind === "ending") return [el("article", {class: "ending"},
+        el("p", {class: "who", text: "An ending, round " + item.round + (item.by ? ", by " + item.by + "'s turn" : "")}),
+        fold("te:" + item.key, "What everyone was told", paragraphs(item.text)))];
+      if (item.kind === "trade") return [el("p", {class: "marker", text: item.text})];
+      return [];
+    }));
+}
+
+const list = (xs, empty) => xs && xs.length ? xs.join(", ") : (empty == null ? "none" : empty);
+function box(title, ...kids) { return el("section", {class: "box"}, el("h3", {text: title}), ...kids); }
+function table(heads, rows) {
+  return el("div", {class: "scroll"}, el("table", {}, el("thead", {}, el("tr", {}, ...heads.map(h => el("th", {scope: "col", text: h})))),
+    el("tbody", {}, ...rows.map(r => el("tr", {}, ...r.map(c => el("td", {text: c})))))));
+}
+
+function renderWorld(d) {
+  const w = d.world, h = w.hooks, out = document.getElementById("view-world");
+  const quests = h.quests.map(q => el("div", {class: "quest"},
+    el("h4", {}, q.name + (q.side ? " (a side job)" : ""), " ", el("span", {class: "st-" + q.state, text: q.state})),
+    el("p", {text: "From " + (q.giver || "no one") + ". Taken on by: " + list(q.taken_on, "no one yet") + "."}),
+    q.ended ? el("p", {text: "Ended in round " + q.ended.round + ", " + q.ended.how + ", by " + q.ended.by + "."}) : null,
+    el("p", {class: "cond", text: "complete when " + (q.completed_by || "—") + (q.failed_by ? " · failed when " + q.failed_by : "")}),
+    el("ul", {}, ...q.objectives.map(o => el("li", {}, o.text + " ", el("span", {class: "cond", text: "(waits on " + (o.waits_on || "nothing") + ")"}),
+      " — done for: " + list(o.done_for, "no one"))))));
+  out.replaceChildren(
+    box("Now", el("p", {text: w.clock || "No time of day in this world."})),
+    box("Places", table(["Place", "Of the cast", "Townspeople", "Lying there", "Being built"],
+      w.places.map(p => [p.name, list(p.cast, "—"), list(p.people, "—"), list(p.lying, "—"), list(p.building, "—")]))),
+    box("The people", table(["Who", "Money", "Health", "Needs", "Carrying", "Their own places", "Taken on", "Beds paid ahead"],
+      w.people.map(p => [p.name, p.coins + " " + d.currency, p.hp + " of " + p.max_hp, p.needs.join(" "), list(p.carrying, "nothing"),
+                         list(p.own, "—"), list(p.taken_on, "—"), list(p.beds, "—")]))),
+    box("Shared work", ...(w.projects.length ? w.projects.map(p => el("div", {class: "quest"},
+      el("h4", {text: p.name + ", at " + p.place + ": " + p.total + " done"}),
+      el("p", {text: "Stages: " + p.stages.map(s => s.at + " " + s.flag + (s.reached ? " (reached)" : "")).join(", ") + "."}),
+      el("p", {}, p.until ? "Open while " : "Always open", p.until ? el("span", {class: "cond", text: p.until}) : null, p.open ? "; open now." : "; over now."),
+      el("ul", {}, ...(p.by.length ? p.by.map(b => el("li", {text: b.name + ": " + b.turns + " turn" + (b.turns === 1 ? "" : "s") +
+        ", " + b.paid + " paid" + (b.most ? " (most)" : "")})) : [el("li", {text: "No one has helped yet."})])))) : [el("p", {text: "None in this world."})])),
+    box("Offers, lets and orders",
+      el("p", {text: "Offers open: " + list(w.offers) + "."}), el("p", {text: "Places let: " + list(w.lets) + "."}),
+      el("p", {text: "Things made and places built: " + list(w.orders.map(o => o.name + " (" + o.kind + ", by " + o.maker + " for " +
+        (o.for || "someone") + ", " + o.status + ", " + o.price + ")")) + "."})),
+    box("Talk going around", ...(w.rumors.length ? w.rumors.map(r => el("p", {text: r.text + " — heard by " + list(r.heard_by, "no one yet") + "."})) :
+      [el("p", {text: "None yet."})])),
+    box("Quests", ...quests),
+    box("Timed events", h.events.length ? table(["Event", "When", "If", "Now"], h.events.map(e => [e.id, e.when, e.if || "", e.state])) :
+      el("p", {text: "None in this world."})),
+    box("Scarce prizes", el("ul", {}, ...h.prizes.map(x => el("li", {text: x})))),
+    box("How the hooks went, in order", h.timeline.length ? el("ul", {}, ...h.timeline.map(x => el("li", {text: x}))) : el("p", {text: "Nothing yet."})));
+}
+
+function setTab(which) {
+  tab = which;
+  for (const t of ["run", "turns", "world"]) {
+    document.getElementById("tab-" + t).setAttribute("aria-pressed", String(t === which));
+    document.getElementById("view-" + t).hidden = t !== which;
+  }
+  try { localStorage.setItem("dashboard-tab", which); } catch (e) {}
+  if (last) render(last);
+}
+
 function render(d) {
   const people = document.getElementById("people");
   if (!d.game) {
@@ -829,6 +1189,7 @@ function render(d) {
     document.getElementById("feed").replaceChildren();
     document.getElementById("happening").replaceChildren();
     document.getElementById("meter").replaceChildren();
+    for (const id of ["coverage", "cards", "view-world"]) document.getElementById(id).replaceChildren();
     setButtons(null);
     return;
   }
@@ -872,6 +1233,9 @@ function render(d) {
   renderHappening(d.happening, d);
   renderMeter(d.meter, d);
   renderFeed(d);
+  renderCoverage(d);
+  if (tab === "turns") renderTurns(d);
+  if (tab === "world") renderWorld(d);
   setButtons(d.run);
 }
 
@@ -922,6 +1286,8 @@ document.getElementById("pause").addEventListener("click", () => ask("pause"));
 document.getElementById("end").addEventListener("click", () => {
   if (confirm("End the run? The round in progress finishes, then the run closes for good.")) ask("end");
 });
+for (const which of ["run", "turns", "world"]) document.getElementById("tab-" + which).addEventListener("click", () => setTab(which));
+setTab(tab);
 document.getElementById("view-people").addEventListener("click", () => setView(false));
 document.getElementById("view-all").addEventListener("click", () => setView(true));
 setView(everything);

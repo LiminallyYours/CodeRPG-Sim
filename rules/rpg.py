@@ -4763,7 +4763,7 @@ def cmd_narrate(args):
     pl["snapshot"] = now
     unrecorded = args[0] not in run["round_state"].get("outcomes", {})
     run["round_state"]["done"].append(args[0])
-    log(state, "narration", text=text)
+    log(state, "narration", text=text, changed=line or None)  # the line their memory keeps, for the owner's dashboard too
     save_state(state)
     print("NARRATED for %s (round %d). %s%s" % (pl["name"], run["round"],
           "Next: %s." % whose_turn(state) if whose_turn(state) else "Everyone has had their turn: `round end`.",

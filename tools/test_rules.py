@@ -1587,6 +1587,84 @@ class Engine(unittest.TestCase):
         got = json.loads(self.run_py("-c", "import json, sys; sys.path.insert(0, 'tools'); import dashboard; print(json.dumps([dashboard.brief_at(%d), dashboard.brief_at(0)]))" % at).stdout)
         self.assertEqual(got, [{"text": brief_text}, None], "a brief by its line in the log, and nothing else")
 
+    def test_the_dashboards_turns_and_world_views_and_its_coverage_come_from_the_log_and_save_and_write_nothing(self):
+        self.rpg("game", "switch", "wendleford")
+        self.rpg("newgame", seed=46)
+
+        def round_of(doing):
+            order = [p.split("(")[1].rstrip(")") for p in self.rpg("round", "start").split(": ", 1)[1].strip().split(", ")]
+            for pid in order:
+                self.rpg("brief", pid)
+                self.write("proposals/reply.txt", "DO: I get on with my day.\nJOURNAL: Busy.\n")
+                self.rpg("reply", pid, "proposals/reply.txt")
+                for command in doing.get(pid, ()):
+                    out = self.rpg(*command, as_=pid)
+                    if "ENDING:" in out:
+                        self.write("proposals/ending.txt", "Word of it goes round the square.")
+                        self.rpg("ending", "proposals/ending.txt", as_=pid)
+                self.write("proposals/story.txt", "Your day goes on.")
+                self.rpg("narrate", pid, "proposals/story.txt")
+            return self.rpg("round", "end")
+        round_of({"hobb": [["move", "south"], ["contest", "might", "dilly", "might", "--take", "tinderbox"], ["quest", "take", "wage_box"],
+                           ["outcome", "partly"]],
+                  "dilly": [["buy", "bread"], ["eat", "bread"], ["outcome", "done"]],
+                  "marigold": [["work"]], "hester": [["work"]]})
+        s = self.save()
+        s["players"]["marigold"]["stats"]["coins"] = 10
+        self.write("state/save.json", json.dumps(s))
+        round_of({"hobb": [["move", "south"], ["work"], ["outcome", "not_there", "a ferryman"]],
+                  "marigold": [["move", "west"], ["move", "northwest"], ["rent", "mabry_cottage"]],
+                  "dilly": [["move", "south"], ["work"], ["flag", "set", "wage_box_found"]]})
+        log = self.dir / "state" / "log" / ("%s.jsonl" % self.save()["run"]["id"])
+        before = (self.dir / "state" / "save.json").read_bytes(), log.read_bytes()
+        code = ("import json, sys; sys.path.insert(0, 'tools'); import dashboard; d = dashboard.live(); "
+                "t = next(x for x in d['feed'] if x['kind'] == 'turn' and x['player'] == 'hobb' and x['round'] == 2); "
+                "print(json.dumps([d, dashboard.steps_of(t['first'], t['last'], 'hobb')]))")
+        live, steps = json.loads(self.run_py("-c", code).stdout)
+        self.assertEqual(before, ((self.dir / "state" / "save.json").read_bytes(), log.read_bytes()), "the dashboard writes nothing")
+        turns = {(x["round"], x["player"]): x for x in live["feed"] if x["kind"] == "turn"}
+        self.assertEqual([x["kind"] for x in live["feed"]][0], "round_end", "newest first")
+        dilly = turns[(1, "dilly")]
+        self.assertTrue(dilly["where"].startswith("Market Square, morning on day 1"), dilly["where"])
+        self.assertEqual(dilly["outcome"], {"result": "done", "what": None})
+        self.assertIn("BOUGHT: Loaf of Bread from Bet Lamb for 1 pennies. COINS -1 -> 3", dilly["world_changes"])
+        hobb = turns[(2, "hobb")]
+        kept = [m["text"] for m in self.save()["players"]["hobb"]["memory"]["recent"] if m["kind"] == "changed" and m["round"] == 2]
+        self.assertEqual([hobb["changed"]], kept, "the engine's own what-changed line")
+        self.assertEqual(hobb["outcome"], {"result": "not_there", "what": "a ferryman"})
+        self.assertTrue(any(line.startswith("EFFORT on the new bridge") for line in hobb["world_changes"]))
+        self.assertIn("ROOM TEXT:", next(x["said"] for x in steps if x["text"] == "move south"), "every command's whole output, on asking")
+        self.assertEqual(turns[(1, "hobb")]["with"], "no one", "he wakes alone in the barn")
+        self.assertIn("Bet Lamb", dilly["with"])
+        w = live["world"]
+        square = next(p for p in w["places"] if p["name"] == "Market Square")
+        self.assertEqual((square["people"], square["cast"]), (["Bet Lamb", "Ned Pike"], []), "day 1: the market; the cast have gone")
+        bridge = next(p for p in w["projects"] if p["name"] == "the new bridge")
+        self.assertEqual(sorted((b["name"], b["turns"]) for b in bridge["by"]), [("Dilly Quickstep", 1), ("Hobb Ashcombe", 1)])
+        self.assertTrue(all(b["most"] for b in bridge["by"]), "a tie for most is shared")
+        self.assertIn("The Cottage on Lark Lane: Marigold Thimble's to the end of day 7", w["lets"])
+        people = {p["name"]: p for p in w["people"]}
+        self.assertIn("The Cottage on Lark Lane (to the end of day 7)", people["Marigold Thimble"]["own"])
+        self.assertIn("The Reeve's Wage Box", people["Hobb Ashcombe"]["taken_on"])
+        self.assertTrue(people["Dilly Quickstep"]["needs"][0].startswith("You"), "needs in words")
+        rumor = next(r for r in w["rumors"] if r["text"].startswith("Ned Pike swears"))
+        self.assertIsInstance(rumor["heard_by"], list)
+        box = next(q for q in w["hooks"]["quests"] if q["name"] == "The Reeve's Wage Box")
+        self.assertEqual((box["state"], box["ended"]["by"], box["ended"]["round"]), ("complete", "Dilly Quickstep", 2))
+        self.assertEqual(box["taken_on"], ["Hobb Ashcombe (round 1)"])
+        self.assertEqual(box["objectives"][2]["waits_on"], "wage_box_found")
+        events = {e["id"]: e["state"] for e in w["hooks"]["events"]}
+        self.assertEqual((events["false_lead"], events["rain"]), ("happened", "waiting"), "the false lead came as round 1 ended, before the box was found")
+        self.assertIn("r1 Hobb Ashcombe took on The Reeve's Wage Box", w["hooks"]["timeline"])
+        self.assertIn("r2 The Reeve's Wage Box done (Dilly Quickstep)", w["hooks"]["timeline"])
+        self.assertIn("The Cottage on Lark Lane: to let, Marigold Thimble's to the end of day 7", w["hooks"]["prizes"])
+        coverage = dict(live["coverage"])
+        self.assertEqual((coverage["a grab"], coverage["a place let, taken or renewed"], coverage["an ending"], coverage["a quest taken on"]),
+                         (1, 1, 1, 1))
+        self.assertEqual(live["coverage"], [list(x) for x in json.loads(self.run_py("-c", "import json, sys; sys.path.insert(0, 'tools'); "
+                         "import audit; print(json.dumps(audit.coverage(audit.read_jsonl(sys.argv[1]))))", str(log)).stdout)],
+                         "the dashboard's strip and the audit count the same")
+
     def test_the_log_exports_as_csv_one_row_per_entry(self):
         self.rpg("game", "switch", "dark_lighthouse")
         self.rpg("newgame", seed=43)
