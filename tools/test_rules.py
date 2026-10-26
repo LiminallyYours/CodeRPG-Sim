@@ -1028,7 +1028,8 @@ class Engine(unittest.TestCase):
         exits = self.save()["players"][first]["map"][self.save()["players"][first]["location"]]["exits"]
         self.rpg("move", next(iter(exits)), as_=first)
         self.write("proposals/words.txt", "Anyone?")
-        self.assertIn("no one else is here to hear it", self.rpg("say", "proposals/words.txt", as_=first, ok=False))
+        self.assertIn("NOT KEPT: no one else of the cast is here to hear it", self.rpg("say", "proposals/words.txt", as_=first),
+                      "accepted quietly: nothing to retry")
         self.assertFalse((self.dir / "proposals/words.txt").exists(), "words no one heard leave nothing behind")
 
     def test_the_others_there_see_and_hear_a_turn_on_their_next(self):
@@ -1086,7 +1087,8 @@ class Engine(unittest.TestCase):
         self.rpg("reply", "wren", "proposals/reply.txt")
         self.rpg("move", "east", as_="wren")
         self.write("proposals/note.txt", "Wren walks east.")
-        self.assertIn("no one else was there to see it", self.rpg("witnessed", "proposals/note.txt", as_="wren", ok=False))
+        self.assertIn("NOT KEPT: no one else was there to see it", self.rpg("witnessed", "proposals/note.txt", as_="wren"),
+                      "accepted quietly: nothing to retry")
 
     # ---------------------------------------------------------------- trades between people
 

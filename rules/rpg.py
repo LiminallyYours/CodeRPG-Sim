@@ -4777,8 +4777,10 @@ def cmd_say(args):
     require_playing(state)
     words = text_arg(args[0], "words", BALANCE["turns"]["said_chars"]).strip('"“” ')  # used up, heard or not
     listeners = players_here(state)[1:]
-    if not listeners:
-        raise Refused("no one else is here to hear it")
+    if not listeners:  # only the world's people (or no one) to hear: nothing for anyone's memory, and nothing to retry
+        save_state(state)
+        print("NOT KEPT: no one else of the cast is here to hear it; nothing to store (the world's people answer in the story).")
+        return
     speaker = me(state)["name"]
     for pid in listeners:
         remember(state["players"][pid], "told", phrase("says", name=speaker, words=words), state["run"].get("round", 0))
@@ -4829,10 +4831,12 @@ def cmd_witnessed(args):
         rooms = {turn.get("room", me(state)["location"]), me(state)["location"]}
         onlookers = [p for p, pl in state["players"].items()
                      if p != pid and pl["location"] in rooms and pl["status"] == "playing"]
-    if not onlookers:
-        raise Refused("no one else was there to see it%s" % (
+    if not onlookers:  # nobody watching: nothing to keep, and nothing to retry (unless someone was passed on the way)
+        save_state(state)
+        print("NOT KEPT: no one else was there to see it%s" % (
             "; on the way, %s" % "; ".join("%s was in %s (`--in %s`)" % (", ".join(state["players"][p]["name"] for p in ps), r, r)
-                                           for r, ps in passed.items()) if passed else ""))
+                                           for r, ps in passed.items()) if passed else "; nothing to store."))
+        return
     learned = args[1:]
     for f in learned:
         if f not in personal_flags():
