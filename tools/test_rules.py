@@ -1522,7 +1522,8 @@ class Engine(unittest.TestCase):
             e("narration", 2, "wren", text="Morwen tells you the lamp burns blue."),
             cmd(2, "narrate", ["wren", "proposals/story.txt"], "NARRATED"),
             e("round", 2, phase="end", order=["wren", "corin"], world_turn_due=True),
-            e("memory", 2, "wren", rounds=[1, 2], text="I asked about the lamp.", replaced=3, model="sonnet", spend=0.005),
+            e("memory", 2, "wren", rounds=[1, 2], text="I asked about the lamp.", replaced=3, model="sonnet", spend=0.005,
+              learned=["Morwen keeps the lamp."], learned_given=True),
             e("voice", 2, agent="world", about="turn", model="sonnet", reply='{"rumors": []}', spend=0.03),
             cmd(2, "world-turn", ["proposals/world-turn.json"],
                 "WORLD TURN: 1 rumors, 1 moves\n  rumor: The lamp burns blue.\n  morwen is now at gull_tavern\nSIGNAL for Wren: a gull cries"),
@@ -1548,7 +1549,8 @@ class Engine(unittest.TestCase):
         self.assertEqual([c["text"] for c in turn["commands"] if c["refused"]], ["say proposals/words.txt"])
         self.assertNotIn("run status", [c["text"] for c in by_key["e2"]["commands"]], "the referee's lookups are left out")
         end = by_key["e2"]
-        self.assertEqual([(m["who"], m["rounds"], m["replaced"]) for m in end["memories"]], [("Wren", [1, 2], 3)])
+        self.assertEqual([(m["who"], m["rounds"], m["replaced"], m["learned"]) for m in end["memories"]],
+                         [("Wren", [1, 2], 3, ["Morwen keeps the lamp."])])
         self.assertEqual(end["world"], ["Rumor: The lamp burns blue.", "Morwen is now at The Gull."], "no SIGNAL: that's the referee's")
         self.assertEqual(end["referee"], {"spend": 0.4, "seconds": 120.0, "context": 60000})
         self.assertEqual([v["agent"] for v in end["voices"]], ["world"])
@@ -1973,6 +1975,26 @@ print(json.dumps({"type": "result", "is_error": False, "result": answer, "total_
         out = bench("run", "past", "--times", "1", answers=["OPTIONS:\n- Wait (for: rest)\n* Go (for: news)\nDO: I go.\nJOURNAL: x"])[0]
         self.assertIn("\n  past, today: 1 of 1 taken; options in 1 (2); one marked chosen in 1\n", out)
 
+    def test_the_bench_keeps_a_think_back_from_a_log_and_reads_its_replies_as_memory_store_would(self):
+        self.rpg("game", "switch", "dark_lighthouse")
+        self.settings_tool("preset", "simulation")
+        self.settings_tool("set", "memory.recent_rounds", "1")
+        self.settings_tool("set", "memory.condense_every", "1")
+        self.rpg("newgame", seed=43)
+        self.play_round()
+        self.play_round()
+        think = self.rpg("memory", "condense", "wren")
+        log = "state/log/%s.jsonl" % self.save()["run"]["id"]
+        bench = lambda *a, answers=(), ok=True: self.ask(*a, answers=list(answers), ok=ok, tool="tools/bench.py")  # noqa: E731
+        bench("add", "tb", log, "wren", "1", "--thinkback", ok=False)  # nothing was folded in round 1
+        bench("add", "tb", log, "wren", "2", "--thinkback")
+        self.assertEqual(json.loads((self.dir / "bench/moments/tb.json").read_text())["brief"], think.rstrip("\n"))
+        self.assertIn("thinking back", bench("list")[0])
+        out, asked, _ = bench("run", "tb", "--times", "2", answers=["MEMORY: I looked about.\nLEARNED: Morwen keeps the lamp.\nLEARNED: x", "I forgot the form."])
+        self.assertEqual(asked, [think.rstrip("\n")] * 2)
+        self.assertIn("\n  tb, today: a memory in 2 of 2; things learned in each: ", out)
+        self.assertTrue(re.search(r"things learned in each: (2, -|-, 2)\n", out), out)
+
     def voice(self, *args, answers, ok=True):
         return self.ask(*args, answers=answers, ok=ok, tool="tools/voice.py")
 
@@ -2196,7 +2218,7 @@ print(json.dumps({"type": "result", "is_error": False, "result": "Round done.", 
         self.rpg("game", "switch", "dark_lighthouse")
         self.settings_tool("preset", "simulation")
         self.settings_tool("set", "memory.recent_rounds", "1")
-        self.settings_tool("set", "memory.max_chars", "500")
+        self.settings_tool("set", "memory.max_chars", "50")
         self.rpg("newgame", seed=43)
         self.play_round()
         out, asked, _ = self.ask("wren", "--memory", answers=["MEMORY: Nothing much."])
@@ -2234,14 +2256,14 @@ print(json.dumps({"type": "result", "is_error": False, "result": "Round done.", 
                                              "text": "I spent those first nights looking around and learning nothing."}])
         self.assertEqual(sorted({e["round"] for e in self.save()["players"]["corin"]["memory"]["recent"]}), list(range(1, 11)))
         entries = [json.loads(line) for line in (self.dir / "state" / "log" / ("%s.jsonl" % self.save()["run"]["id"])).read_text().splitlines()]
-        self.assertEqual([(e["rounds"], e["replaced"]) for e in entries if e["kind"] == "memory"], [([1, 5], 20)])
+        self.assertEqual([(e["rounds"], e["replaced"]) for e in entries if e["kind"] == "memory"], [([1, 5], 15)])  # did, why, happened: nothing changed
         self.assertEqual(len([e for e in entries if e["kind"] == "narration" and e["player"] == "wren"]), 10, "the log forgets nothing")
 
     def test_the_size_cap_condenses_early_and_each_stretch_is_remembered_apart(self):
         self.rpg("game", "switch", "dark_lighthouse")
         self.settings_tool("preset", "simulation")
         self.settings_tool("set", "memory.recent_rounds", "1")
-        self.settings_tool("set", "memory.max_chars", "500")  # far under a round's memory, so it's due once 2 are held
+        self.settings_tool("set", "memory.max_chars", "50")  # far under a round's memory, so it's due once 2 are held
         self.rpg("newgame", seed=43)
         self.play_round()
         self.assertIn("NOTHING TO CONDENSE", self.rpg("memory", "condense", "wren"))  # one round held, and one is kept
@@ -2253,6 +2275,117 @@ print(json.dumps({"type": "result", "is_error": False, "result": "Round done.", 
         self.assertEqual([c["rounds"] for c in self.save()["players"]["wren"]["memory"]["condensed"]], [[1, 1], [2, 2]])
         self.assertIn("## What you remember from before\nI looked about the harbor.\n\nI asked after the lighthouse.\n\n## Lately",
                       self.rpg("brief", "wren"))
+
+    def thirteenth_round(self, hobb=()):
+        """A round of The Thirteenth Stroke in which Hobb's turn runs the given commands (each a list of arguments)."""
+        for pid in [p.split("(")[1].rstrip(")") for p in self.rpg("round", "start").split(": ", 1)[1].strip().split(", ")]:
+            self.write("proposals/reply.txt", "DO: I look around.\nJOURNAL: Getting my bearings.\n")
+            self.rpg("reply", pid, "proposals/reply.txt")
+            for command in hobb if pid == "hobb" else ():
+                self.rpg(*command, as_="hobb")
+            self.write("proposals/story.txt", "You look around.")
+            self.rpg("narrate", pid, "proposals/story.txt")
+        self.rpg("round", "end")
+
+    def test_a_moment_ends_with_what_changed_for_them_not_a_copy_of_how_things_stood(self):
+        self.rpg("game", "switch", "thirteenth_stroke")
+        self.settings_tool("preset", "simulation")
+        self.rpg("newgame", seed=44)
+        self.assertEqual(self.save()["players"]["hobb"]["snapshot"]["place"], "The Tock Tower")  # how he began
+        self.thirteenth_round(hobb=[["move", "south"], ["coins", "-2", "gift"], ["hurt", "2"], ["gain", "iron_poker"],
+                                    ["equip", "iron_poker"], ["lose", "tally_stick"]])
+        self.thirteenth_round()  # nothing changes for him
+        self.thirteenth_round(hobb=[["gain", "bent_umbrella"], ["equip", "bent_umbrella"]])
+        brief = self.rpg("brief", "hobb")
+        line = re.search(r"### Moment 1\n(?:.*\n)*?What changed: (.*)\n", brief).group(1)
+        self.assertTrue(line.startswith("you went from The Tock Tower to The Lopsided Square; buttons 6 to 4; health 13 to 11; "
+                                        "you got Iron Poker; you no longer had Tally Stick; you took Iron Poker in hand; you met "), line)
+        self.assertIn("Pip Pumbleton", line)
+        moment2 = brief.split("### Moment 2")[1].split("### Moment 3")[0]
+        self.assertNotIn("What changed", moment2)  # nothing changed, so no line
+        self.assertIn("What changed: you got Bent Umbrella; you took Bent Umbrella in hand; you put Iron Poker away.", brief)
+        self.assertNotIn("How things stood after", brief)
+        self.assertIn("## You\nHealth 11 of 13.", brief)  # how things stand now, in full as before
+        for e in self.save()["players"]["hobb"]["memory"]["recent"]:
+            self.assertNotEqual(e["kind"], "status")
+
+    def test_a_moment_kept_with_a_copy_of_how_things_stood_is_still_shown_with_it(self):
+        self.rpg("game", "switch", "thirteenth_stroke")
+        self.settings_tool("preset", "simulation")
+        self.rpg("newgame", seed=44)
+        self.thirteenth_round()
+        s = self.save()
+        s["players"]["hobb"]["memory"]["recent"].append({"round": 1, "kind": "status", "text": "## You\nMoney: 6 buttons.", "uses": 0})
+        del s["players"]["hobb"]["snapshot"]  # a save from before: nothing to compare with, so no line
+        self.write("state/save.json", json.dumps(s))
+        self.assertIn("How things stood after:\n  You:\n    Money: 6 buttons.", self.rpg("brief", "hobb"))
+        self.thirteenth_round(hobb=[["move", "south"]])
+        self.assertNotIn("What changed", self.rpg("brief", "hobb"))
+        self.thirteenth_round(hobb=[["move", "north"]])
+        self.assertIn("What changed: you went from The Lopsided Square to The Tock Tower.", self.rpg("brief", "hobb"))
+
+    def test_what_they_learn_is_theirs_to_keep_up_at_each_think_back(self):
+        self.rpg("game", "switch", "thirteenth_stroke")
+        self.settings_tool("preset", "simulation")
+        for key, value in (("memory.recent_rounds", "1"), ("memory.condense_every", "1"), ("memory.learned_max", "2")):
+            self.settings_tool("set", key, value)
+        self.assertIn("the think-back sees the whole Who I am note, and keeps at most 2 things learned", self.rpg("settings"))
+        self.rpg("newgame", seed=44)
+        self.thirteenth_round()
+        self.thirteenth_round()
+        think = self.rpg("memory", "condense", "hobb")
+        self.assertIn("## What you've learned so far\nNothing yet.\n", think)
+        self.assertIn("at most 2 lines", think)
+        self.write("proposals/m.txt", "MEMORY: I looked about.\nLEARNED: %s\nLEARNED:\n- Nell makes things to order.\n- A third thing." % ("a" * 300))
+        self.assertIn("2 things learned (cut at the limit)", self.rpg("memory", "store", "hobb", "proposals/m.txt"))
+        self.assertEqual(self.save()["players"]["hobb"]["learned"], ["a" * 240, "Nell makes things to order."])
+        self.assertEqual(self.save()["players"]["hobb"]["memory"]["condensed"][-1]["text"], "I looked about.")
+        self.thirteenth_round()
+        self.assertIn("## What you've learned so far\n- %s\n- Nell makes things to order.\n" % ("a" * 240), self.rpg("memory", "condense", "hobb"))
+        self.write("proposals/m.txt", "MEMORY: More looking about.")  # no LEARNED: lines: the list stands
+        self.assertIn("what they've learned left as it was", self.rpg("memory", "store", "hobb", "proposals/m.txt"))
+        self.assertEqual(self.save()["players"]["hobb"]["learned"], ["a" * 240, "Nell makes things to order."])
+        self.thirteenth_round()
+        self.rpg("memory", "condense", "hobb")
+        self.write("proposals/m.txt", "LEARNED: Only this.")
+        self.assertIn("no MEMORY", self.rpg("memory", "store", "hobb", "proposals/m.txt", ok=False))
+        self.write("proposals/m.txt", "MEMORY: Ambrose told me plain.\nLEARNED: Ambrose builds sheds, for five buttons.")
+        self.rpg("memory", "store", "hobb", "proposals/m.txt")  # rewritten whole: what they leave out is gone
+        s = self.save()
+        self.assertEqual(s["players"]["hobb"]["learned"], ["Ambrose builds sheds, for five buttons."])
+        s["players"]["hobb"]["kept"] = [{"round": 4, "text": "The clock stopped."}]
+        self.write("state/save.json", json.dumps(s))
+        self.assertIn("## What I know\n- Ambrose builds sheds, for five buttons.\n- The clock stopped.\n\n## What everyone", self.rpg("brief", "hobb"))
+        memories = [e for e in self.log_entries() if e["kind"] == "memory"]
+        self.assertEqual([(e["learned_given"], len(e["learned"]), e["learned_cut"], e["sees"]) for e in memories],
+                         [(True, 2, True, "who_i_am"), (False, 2, False, "who_i_am"), (True, 1, False, "who_i_am")])
+        audit = self.run_py("tools/audit.py", "state/log/%s.jsonl" % s["run"]["id"]).stdout
+        self.assertIn("learned, 2  <<< cut at the limit", audit)
+        self.assertIn("learned, 2 (left as it was)", audit)
+        self.assertIn("      - Ambrose builds sheds, for five buttons.", audit)
+
+    def test_the_think_back_sees_their_whole_note_or_only_their_voice(self):
+        self.rpg("game", "switch", "thirteenth_stroke")
+        self.settings_tool("preset", "simulation")
+        self.settings_tool("set", "memory.recent_rounds", "1")
+        self.settings_tool("set", "memory.condense_every", "1")
+        self.rpg("newgame", seed=44)
+        self.thirteenth_round()
+        self.thirteenth_round()
+        think = self.rpg("memory", "condense", "hobb")
+        self.assertIn("You are Hobb Ashcombe. This is the note you keep about yourself:\n\n## Who I am (a note to myself)\n"
+                      "I'm Hobb Ashcombe (he/him).", think)
+        self.assertIn("What drives me: I want a place of my own", think)
+        self.settings_tool("set", "memory.thinkback_sees", "voice")
+        think = self.rpg("memory", "condense", "hobb")
+        self.assertIn("You are Hobb Ashcombe. How you speak, in your own words: Few words, said slow and plain.", think)
+        self.assertNotIn("What drives me", think)
+        self.assertIsNone(self.FORBIDDEN.search(think.replace("Hobb Ashcombe", "")), think)
+        self.write("proposals/m.txt", "MEMORY: I looked about.")
+        self.rpg("memory", "store", "hobb", "proposals/m.txt")
+        self.assertEqual([e["sees"] for e in self.log_entries() if e["kind"] == "memory"], ["voice"])
+        self.assertIn("memory.thinkback_sees must be who_i_am or voice", self.settings_tool("set", "memory.thinkback_sees", "all", ok=False))
+        self.assertIn("memory.learned_max must be a whole number, at least 1", self.settings_tool("set", "memory.learned_max", "0", ok=False))
 
     def test_in_a_simulation_the_clock_moves_by_rounds_not_moves(self):
         self.rpg("game", "switch", "dark_lighthouse")

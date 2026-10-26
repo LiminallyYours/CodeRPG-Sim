@@ -6,7 +6,7 @@
 # # is a comment, and blank lines are ignored. Words in {braces} are filled in by rules/rpg.py; a phrase may leave
 # one out, but may not name one it doesn't list. `rpg.py validate` checks every phrase is here and every gap is
 # known. Which sections appear, and in what order, is decided by the code (rules/rpg.py: cmd_brief, memory_text,
-# pane_text); the think-back prompt is rules/people/thinkback.md.
+# pane_text); the think-back prompt is rules/people/thinkback.md, and the last lines here fill its gaps.
 #
 # Nothing here may name the machinery (game, rules, dice, player, ...): to them it's a life, not a game.
 
@@ -32,7 +32,22 @@ did:             What you did
 why:             Why
 happened:        What happened
 told:            What you were told
+changed:         What changed
 stood:           How things stood after
+
+# ---- a moment's what-changed line, its parts joined by "; " (rules/rpg.py: changed_line). "How things stood after"
+# ---- (stood) is only for moments kept before the line existed, each with a whole copy of the status block
+change_went:     you went from {before} to {after}
+change_money:    {currency} {before} to {after}
+change_health:   health {before} to {after}
+change_got:      you got {things}
+change_lost:     you no longer had {things}
+change_in_hand:  you took {things} in hand
+change_put_away: you put {things} away
+change_waiting:  {things} waiting for you to pay
+change_building: work began on {things} for you
+change_own:      {things} became yours
+change_met:      you met {people}
 
 # ---- the status block: where they are
 where_you_are:   ## Where you are
@@ -84,3 +99,9 @@ closing:         What do you do now?
 says:            {name} says: "{words}"
 finished:        {place} is finished, {direction} of {where}: {builder} built it for you.
 finished_rumor:  {place} is finished, {direction} of {where}, and folk are curious to see it.
+
+# ---- the think-back (rules/people/thinkback.md): who they are, as memory.thinkback_sees says (the whole Who I am
+# ---- note follows thinkback_note), and their list of what they've learned when it's empty
+thinkback_voice: How you speak, in your own words: {voice}
+thinkback_note:  This is the note you keep about yourself:
+learned_none:    Nothing yet.

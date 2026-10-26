@@ -1506,6 +1506,9 @@ def cmd_newgame(args):
         "run": run,
     }
     back = carry_over(state)
+    refresh_view(state)
+    for pid, pl in players.items():  # how each began: their first moment's what-changed line compares with it
+        pl["snapshot"] = snapshot(state, pid)
     first = ACTOR if ACTOR in players else next(iter(players))
     with acting(first):  # the look that ends a new game is the first player's, or the one named with --as
         save_state(state)
@@ -2784,10 +2787,14 @@ def validate_game(kit=False, sim=False):
     unknown_keys(overrides, presets["normal"], "settings.json overrides", problems)
     merged = content.deep_merge(presets.get(own.get("preset", "normal"), presets["normal"]), overrides)
     for key, allowed in (("rounds.clock", ("move", "round")), ("memory.condenser", ("self", "neutral")),
+                         ("memory.thinkback_sees", ("who_i_am", "voice")),
                          ("cast.model", tuple(BALANCE["cast"]["models"]) + ("own",))):
         section, name = key.split(".")
         if (merged.get(section) or {}).get(name) not in allowed:
             problems.append("settings.json: %s must be %s" % (key, " or ".join(allowed)))
+    most = (merged.get("memory") or {}).get("learned_max")
+    if not isinstance(most, int) or isinstance(most, bool) or most < 1:
+        problems.append("settings.json: memory.learned_max must be a whole number, at least 1")
     cap = (merged.get("rounds") or {}).get("max_per_run")
     if not isinstance(cap, int) or isinstance(cap, bool) or cap < 0:
         problems.append("settings.json: rounds.max_per_run must be a whole number (0 for no limit)")
@@ -3880,7 +3887,11 @@ def cmd_narrate(args):
     run = state["run"]
     remember(pl, "seen", text, run["round"])
     refresh_view(state)
-    remember(pl, "status", pane_text(state), run["round"])
+    now = snapshot(state, args[0])  # the moment ends with what changed since the last one, not a copy of the pane
+    line = changed_line(pl.get("snapshot"), now)
+    if line:
+        remember(pl, "changed", line, run["round"])
+    pl["snapshot"] = now
     run["round_state"]["done"].append(args[0])
     log(state, "narration", text=text)
     save_state(state)
@@ -4393,7 +4404,7 @@ def cmd_memory(args):
             return
         mem["condensing"] = rounds
         save_state(state)
-        print(condensing_brief(pl, rounds))
+        print(condensing_brief(state, args[1], rounds))
         return
     rounds = mem.get("condensing")
     if not rounds:
@@ -4404,17 +4415,52 @@ def cmd_memory(args):
         raise Refused("%s's memory has changed since; run `memory condense %s` again" % (args[1], args[1]))
     if len(args) < 3:
         raise Refused("usage: memory store <player> <file>")
-    raw = text_arg(args[2], "memory", BALANCE["turns"]["memory_chars"] + 20)
-    text = " ".join(re.sub(r"^\s*MEMORY\s*:\s*", "", raw).split())
+    turns, most = BALANCE["turns"], int(SETTINGS["memory"]["learned_max"])
+    raw = text_arg(args[2], "memory", turns["memory_chars"] + 20 + most * (turns["learned_chars"] + 20))
+    text, learned, cut = parse_thinkback(raw)
+    if not text:
+        raise Refused("the reply has no MEMORY: line")
+    if len(text) > turns["memory_chars"]:
+        raise Refused("the memory is at most %d characters (got %d)" % (turns["memory_chars"], len(text)))
+    given = learned is not None  # a reply with no LEARNED: lines leaves the list as it was
+    if given:
+        pl["learned"] = learned
     before = [e for e in mem["recent"] if e["round"] in rounds]
     mem["recent"] = [e for e in mem["recent"] if e["round"] not in rounds]
     mem["condensed"].append({"rounds": [rounds[0], rounds[-1]], "kind": "condensed", "text": text,
                              "round": state["run"]["round"], "uses": 0})
     mem.pop("condensing")
-    log(state, "memory", rounds=[rounds[0], rounds[-1]], text=text, replaced=len(before), model=model_for(state, args[1]), **exact(exact_model),
-        versions=versions(state, args[1], instructions), **spent(usd))
+    log(state, "memory", rounds=[rounds[0], rounds[-1]], text=text, replaced=len(before), learned=list(pl.get("learned", [])),
+        learned_given=given, learned_cut=cut, sees=SETTINGS["memory"]["thinkback_sees"], model=model_for(state, args[1]),
+        **exact(exact_model), versions=versions(state, args[1], instructions), **spent(usd))
     save_state(state)
-    print("REMEMBERED by %s, rounds %d-%d, in their own words (%d entries folded in)." % (pl["name"], rounds[0], rounds[-1], len(before)))
+    print("REMEMBERED by %s, rounds %d-%d, in their own words (%d entries folded in); %s." % (
+        pl["name"], rounds[0], rounds[-1], len(before),
+        "%d things learned%s" % (len(pl["learned"]), " (cut at the limit)" if cut else "") if given else "what they've learned left as it was"))
+
+
+_THINKBACK = re.compile(r"^\s*(MEMORY|LEARNED)\s*:\s*", re.I)
+
+
+def parse_thinkback(raw):
+    """(memory, learned, cut) from a think-back reply: the MEMORY: text as one paragraph, and the LEARNED: lines (a
+    line each, or listed under one LEARNED:), or None when it gives none. Lines past memory.learned_max, or longer
+    than turns.learned_chars, are cut, never refused: what they've learned is theirs, like their options."""
+    memory, learned, part, found = [], [], "MEMORY", False
+    for line in raw.splitlines():
+        m = _THINKBACK.match(line)
+        if m:
+            part, line = m.group(1).upper(), line[m.end():]
+            found = found or part == "LEARNED"
+        if part == "MEMORY":
+            memory.append(line)
+            continue
+        thing = re.sub(r"^\s*[-*•]\s*", "", line).strip()
+        if thing and thing not in learned:
+            learned.append(thing)
+    limit, most = BALANCE["turns"]["learned_chars"], int(SETTINGS["memory"]["learned_max"])
+    cut = len(learned) > most or any(len(x) > limit for x in learned)
+    return " ".join(" ".join(memory).split()), [x[:limit].rstrip() for x in learned[:most]] if found else None, cut
 
 
 # ---------------------------------------------------------------- the words a person reads
@@ -4438,8 +4484,13 @@ PHRASES = {
     "for_things": ("things",), "and": (), "working_on": (), "quest_done": (), "quest_failed": (), "step_done": (),
     "people_met": (), "places_been": (), "talk": (), "attempts": (), "closing": (), "says": ("name", "words"),
     "finished": ("place", "direction", "where", "builder"), "finished_rumor": ("place", "direction", "where"),
+    "changed": (), "change_went": ("before", "after"), "change_money": ("currency", "before", "after"),
+    "change_health": ("before", "after"), "change_got": ("things",), "change_lost": ("things",),
+    "change_in_hand": ("things",), "change_put_away": ("things",), "change_waiting": ("things",),
+    "change_building": ("things",), "change_own": ("things",), "change_met": ("people",),
+    "thinkback_voice": ("voice",), "thinkback_note": (), "learned_none": (),
 }
-THINKBACK_GAPS = ("name", "voice", "stretch")
+THINKBACK_GAPS = ("name", "voice", "self", "stretch", "learned", "learned_max")
 UNIVERSE_GAPS = ("currency",)
 _WORDS = {}
 
@@ -4583,17 +4634,57 @@ def versions(state, pid, instructions=None):
     return record_texts(state, texts)
 
 
+def snapshot(state, pid):
+    """How things stand for `pid`, as far as a moment's what-changed line looks: where they are, health, money, what
+    they carry and hold in hand, their own places, what's being built or waits to be paid for, and who they've met.
+    Names, not ids, so a thing gone from the world can still be named. Read from the view (save_state's refresh)."""
+    v, run = state["view"]["players"][pid], state["run"]
+    return {"place": v["location_name"], "hp": v["stats"]["hp"], "coins": v["stats"]["coins"],
+            "items": {i["id"]: i["name"] for i in v["items"]}, "in_hand": [i["id"] for i in v["items"] if i["equipped"]],
+            "places": [ent("rooms", r).get("name", r) for r, rec in run["rooms"].items() if rec["meta"].get("owner") == pid],
+            "building": [c["record"]["meta"]["name"] for c in run["commissions"].values() if c.get("by") == pid and c["status"] == "building"],
+            "waiting": [(run["items"].get(i) or c.get("record") or {}).get("meta", {}).get("name", i)
+                        for i, c in run["commissions"].items() if c.get("ordered_by") == pid and c["status"] == "ordered"],
+            "met": [c["name"] for c in v["people"]]}
+
+
+def changed_line(before, now):
+    """What changed between two snapshots, as one line for the moment's end ("you went from ... to ...; ..."), or
+    "" when nothing did, or when there's nothing to compare with (a save from before snapshots were kept)."""
+    if not before:
+        return ""
+    new = lambda key: [x for x in now[key] if x not in before[key]]
+    parts = []
+    if before["place"] != now["place"]:
+        parts.append(phrase("change_went", before=before["place"], after=now["place"]))
+    if before["coins"] != now["coins"]:
+        parts.append(phrase("change_money", currency=currency(), before=before["coins"], after=now["coins"]))
+    if before["hp"] != now["hp"]:
+        parts.append(phrase("change_health", before=before["hp"], after=now["hp"]))
+    got = [n for i, n in now["items"].items() if i not in before["items"]]
+    lost = [n for i, n in before["items"].items() if i not in now["items"]]
+    held = [now["items"][i] for i in now["in_hand"] if i not in before["in_hand"]]
+    let_go = [now["items"][i] for i in before["in_hand"] if i not in now["in_hand"] and i in now["items"]]
+    for key, things in (("change_got", got), ("change_lost", lost), ("change_in_hand", held), ("change_put_away", let_go),
+                        ("change_waiting", new("waiting")), ("change_building", new("building")), ("change_own", new("places"))):
+        if things:
+            parts.append(phrase(key, things=", ".join(things)))
+    if new("met"):
+        parts.append(phrase("change_met", people=", ".join(new("met"))))
+    return "; ".join(parts) + "." if parts else ""
+
+
 def memory_text(entries):
     """Memory entries as the player reads them: round by round, in the second person."""
     lines, current = [], None
     label = {"did": phrase("did"), "reasoned": phrase("why"), "seen": phrase("happened"), "told": phrase("told"),
-             "status": phrase("stood")}
+             "changed": phrase("changed"), "status": phrase("stood")}
     for e in entries:
         if e["round"] != current:
             current = e["round"]
             lines.append("")
             lines.append(phrase("moment", n=current))
-        if e["kind"] == "status":  # a pane: its headings become labels, indented under this moment
+        if e["kind"] == "status":  # a whole pane, as saves before what-changed lines kept: its headings become labels
             lines.append("%s:" % label["status"])
             lines += ["  %s:" % l[3:] if l.startswith("## ") else "    " + l for l in e["text"].splitlines() if l.strip()]
         else:
@@ -4601,13 +4692,20 @@ def memory_text(entries):
     return "\n".join(lines).strip()
 
 
-def condensing_brief(pl, rounds):
-    """What the player is asked to do to remember a stretch: in their own voice, first person."""
-    mem = pl["memory"]
-    entries = [e for e in mem["recent"] if e["round"] in rounds]
-    entry = cast_entry(ACTOR)  # memory condense made them the acting player
+def condensing_brief(state, pid, rounds):
+    """What the player is asked to do to remember a stretch: in their own voice, first person, seeing their whole
+    "Who I am" note or only their voice (memory.thinkback_sees), and the list of what they've learned, to rewrite."""
+    pl = state["players"][pid]
+    entries = [e for e in pl["memory"]["recent"] if e["round"] in rounds]
+    voice = cast_entry(pid).get("voice", "")
+    if SETTINGS["memory"]["thinkback_sees"] == "voice":
+        self_text = phrase("thinkback_voice", voice=voice)
+    else:
+        self_text = "\n\n".join([phrase("thinkback_note"), "\n".join(who_i_am(state, pid))])
+    learned = "\n".join("- " + x for x in pl.get("learned", [])) or phrase("learned_none")
     try:  # rules/people/thinkback.md, its gaps filled
-        return thinkback_text().format(name=pl["name"], voice=entry.get("voice", ""), stretch=memory_text(entries))
+        return thinkback_text().format(name=pl["name"], voice=voice, self=self_text, stretch=memory_text(entries),
+                                       learned=learned, learned_max=SETTINGS["memory"]["learned_max"])
     except (KeyError, IndexError, ValueError):
         raise Refused("rules/people/thinkback.md has a gap the code doesn't fill (`rpg.py validate`)")
 
@@ -4699,16 +4797,10 @@ def cmd_brief(args):
     pl = player_arg(state, args[0])
     mem = pl.setdefault("memory", {"recent": [], "condensed": []})
     entry = cast_entry(args[0])
-    # the cast writes who they are in their own first person: a note to themselves, like their journal and memories
-    out = [phrase("who_i_am"), phrase("i_am", name=pl["name"], pronouns=pronouns(args[0]), personality=entry.get("personality", "")),
-           phrase("how_i_talk", voice=entry.get("voice", "")),
-           phrase("drives", motivations="; ".join(entry.get("motivations") or []))]
-    if entry.get("people"):
-        out.append(phrase("people_i_know", people="; ".join(phrase("person_i_know", who=person_name(state, k["who"]), how=k["how"])
-                                                            for k in entry["people"])))
-    out.append("")
-    # what they knew when the night began, and what this run has settled for good: theirs every turn, never fading
-    known = list(entry.get("knows") or []) + [k["text"] for k in pl.get("kept", [])]
+    out = who_i_am(state, args[0]) + [""]
+    # what they knew when the night began, what they've kept as learned since (theirs to revise at each think-back),
+    # and what this run has settled for good (never fading)
+    known = list(entry.get("knows") or []) + list(pl.get("learned", [])) + [k["text"] for k in pl.get("kept", [])]
     if known:
         out += [phrase("i_know")] + ["- " + k for k in known] + [""]
     everyone = ["- " + l for l in universe_lines()] + [l for l in public_knowledge().splitlines() if l.strip()]
@@ -4732,6 +4824,19 @@ def cmd_brief(args):
     log(state, "brief", text=text, versions=versions(state, args[0], instructions))
     save_state(state)
     print(text)
+
+
+def who_i_am(state, pid):
+    """The "Who I am" note that opens every brief, as lines: the cast writes who they are in their own first person,
+    a note to themselves, like their journal and memories. The think-back shows it too (memory.thinkback_sees)."""
+    entry = cast_entry(pid)
+    out = [phrase("who_i_am"), phrase("i_am", name=state["players"][pid]["name"], pronouns=pronouns(pid), personality=entry.get("personality", "")),
+           phrase("how_i_talk", voice=entry.get("voice", "")),
+           phrase("drives", motivations="; ".join(entry.get("motivations") or []))]
+    if entry.get("people"):
+        out.append(phrase("people_i_know", people="; ".join(phrase("person_i_know", who=person_name(state, k["who"]), how=k["how"])
+                                                            for k in entry["people"])))
+    return out
 
 
 def person_name(state, ident):
@@ -4881,8 +4986,10 @@ def cmd_settings(args):
     print("ROUNDS: the world's clock moves by %s; %s" % (SETTINGS["rounds"]["clock"],
                                                        "at most %d rounds per run" % cap if cap else "no limit on rounds"))
     m = SETTINGS["memory"]
-    print("MEMORY: the last %s rounds word for word; older ones condensed every %s rounds, or past %s characters held (%s)"
-          % (m["recent_rounds"], m["condense_every"], m["max_chars"], m["condenser"]))
+    print("MEMORY: the last %s rounds word for word; older ones condensed every %s rounds, or past %s characters held (%s); "
+          "the think-back sees %s, and keeps at most %s things learned"
+          % (m["recent_rounds"], m["condense_every"], m["max_chars"], m["condenser"],
+             "the whole Who I am note" if m["thinkback_sees"] == "who_i_am" else "only their voice", m["learned_max"]))
     model = SETTINGS["cast"]["model"]
     print("PEOPLE: %s" % ("each asked on their own model, as cast.json names it" if model == "own" else "everyone asked on %s" % model))
 

@@ -2,6 +2,9 @@
 
 Where the build stands, for whoever picks it up next, human or Claude. Read `PLAN.md` (the agreed steps) and `DEVELOPING.md` (invariants, checks) with it. Update this file at the end of each stage.
 
+## Where things are (eleventh session, 2026-10-25, in progress)
+- **Step 54, memory, built** (JW's answers: the learned list rewritten whole at each think-back, no line when nothing changed, the journal not held longer): each moment ends with one line of what changed instead of a status copy (briefs 38% smaller on real stories by round 8, more later); a *What I've learned* list from `LEARNED:` lines, shown under *What I know*; the think-back sees the whole *Who I am* note (`memory.thinkback_sees`). Bench $0.38: no clear change in Hobb's round-8 choice; think-backs keep their voices and practical facts, but the lists also hold plans and whereabouts of the time, which read as true under *What I know* until the next think-back (`PLAN.md` step 54, *As built*). Next: 56–60.
+
 ## Where things are (end of the tenth session, 2026-10-25)
 - **The tenth session built steps 65, 52 (in two parts) and 53,** a commit each, checks before and after; each has an *As built* note in `PLAN.md`, with JW's answers to its draft. Pushed at the end (JW).
   - **65, the dashboard for watching** (JW asked for it first, before any more long runs; it went ahead of 52): the run meter (spend by whom it was for, each round's time, cost, the referee's context and refusals, a warning after 5 minutes with nothing logged), *Now* (who is deciding or being played, for how long, the referee's latest commands), and in the feed the townspeople's words, onlookers' notes, coins and orders, the chronicle, world turns, memories, endings, the options people weighed, and each brief (folded, fetched when opened); a People/Everything switch (`/?view=all`); click a name for their turns only. Not yet seen on a live run: only on the 14-round run's log, copied to a scratch folder.

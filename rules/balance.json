@@ -118,7 +118,8 @@
     "said_chars": 600,
     "witnessed_chars": 800,
     "narration_chars": 4000,
-    "memory_chars": 2400
+    "memory_chars": 2400,
+    "learned_chars": 240
   },
   "trades": {
     "offer_rounds": 2

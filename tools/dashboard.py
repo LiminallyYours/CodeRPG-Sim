@@ -248,7 +248,8 @@ def build_feed(entries, names, name, currency="coins"):
         elif kind == "memory":
             rounds = e.get("rounds") or []
             add(here, "memories", {"who": names.get(e.get("player"), e.get("player")), "rounds": rounds,
-                                   "text": e.get("text", ""), "replaced": e.get("replaced"), "spend": e.get("spend")})
+                                   "text": e.get("text", ""), "replaced": e.get("replaced"), "spend": e.get("spend"),
+                                   "learned": e.get("learned"), "learned_given": e.get("learned_given", True)})
         elif kind == "referee":
             here["referee"] = {"spend": e.get("spend"), "seconds": e.get("seconds"), "context": e.get("context")}
         elif kind == "command":
@@ -758,7 +759,9 @@ function renderBetween(item) {
     ...(item.notes || []).map((n, i) => fold("n:" + item.key + i, "What " + (n.seen_by.join(" and ") || "no one") + " saw", paragraphs(n.text))),
     ...(item.memories || []).filter(m => !only || m.who === only).map((m, i) => fold("m:" + item.key + i,
       m.who + "'s memory of rounds " + m.rounds.join("–") + ", condensed (" + count(m.text.length) + " characters, from " + m.replaced + " entries)",
-      paragraphs(m.text))),
+      el("div", {}, paragraphs(m.text), m.learned ? el("div", {class: "story"},
+        el("p", {text: "What they've learned" + (m.learned_given ? "" : " (left as it was)") + ":"}),
+        el("ul", {}, ...m.learned.map(x => el("li", {text: x})))) : null))),
     ...(item.voices || []).filter(v => everything && v.agent !== "npc").map((v, i) =>
       fold("v:" + item.key + i, "The world agent, for " + v.about + (v.spend ? " (" + money(v.spend) + ")" : ""), el("pre", {text: v.reply}))),
     everything && ref ? el("p", {class: "cost", text: "The referee's session: " + [took(ref.seconds), money(ref.spend),

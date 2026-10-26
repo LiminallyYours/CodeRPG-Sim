@@ -14,7 +14,9 @@ From the run's log (state/log/<run>.jsonl; the active run's by default):
     CONTINUITY   what the referee kept for later rounds, per round (place notes, lines of the story so far, what the
                  town's people remember), and each minor townsperson whose file was read in a turn (as it is
                  before they're voiced) with nothing remembered of that turn
-    MEMORY       each condensing: whose, which rounds, how many entries folded; a stretch stored twice is flagged
+    MEMORY       each condensing: whose, which rounds, how many entries folded, what the think-back saw, and the
+                 list of what they've learned as it stood after (left as it was, or cut at the limit, flagged); a
+                 stretch stored twice is flagged
     COINS        every coin that moved, with its reason
     TRADES       each offer between people: who to whom, the terms, and how it ended (accepted, declined or lapsed,
                  and when); for one accepted, whether the coins moved under its id come to nothing either way
@@ -58,13 +60,19 @@ def read_jsonl(path):
     return [json.loads(line) for line in Path(path).read_text(encoding="utf-8").splitlines() if line.strip()]
 
 
+def told_text(e):
+    """What a person reads of an entry: its text, and for a memory the list of what they've learned too."""
+    return "\n".join([e.get("text", "")] + list(e.get("learned") or []))
+
+
 def leaks(log):
     out, seen = [], set()
     for e in log:
         if e["kind"] not in TOLD:
             continue
-        for m in FORBIDDEN.finditer(e.get("text", "")):
-            ctx = e["text"][max(0, m.start() - 60):m.end() + 60].replace("\n", " ")
+        text = told_text(e)
+        for m in FORBIDDEN.finditer(text):
+            ctx = text[max(0, m.start() - 60):m.end() + 60].replace("\n", " ")
             if (e["kind"], ctx) in seen:  # a brief repeats what earlier ones held
                 continue
             seen.add((e["kind"], ctx))
@@ -72,7 +80,7 @@ def leaks(log):
     return out
 
 
-WROTE = {"action": ("do", "journal", "options"), "memory": ("text",), "speech": ("text",)}  # what the people wrote themselves
+WROTE = {"action": ("do", "journal", "options"), "memory": ("text", "learned"), "speech": ("text",)}  # what the people wrote themselves
 
 
 def traces(log):
@@ -86,6 +94,8 @@ def traces(log):
             text = e.get(field) or ""
             if field == "options":  # the options they weighed, one a line
                 text = "\n".join("%s (for: %s)" % (o.get("text", ""), o.get("for") or "") for o in text)
+            elif field == "learned":  # what they've learned, one a line
+                text = "\n".join(text)
             for m in pattern.finditer(text):
                 ctx = text[max(0, m.start() - 60):m.end() + 60].replace("\n", " ")
                 if (e["kind"], field, m.group(0), ctx) in seen:  # a memory may repeat a journal line
@@ -154,8 +164,13 @@ def memory(log):
         if e["kind"] == "memory":
             key = (e["player"], tuple(e["rounds"]))
             stored[key] += 1
-            out.append("  r%s %s: rounds %s-%s, %s entries folded%s" % (e["round"], e["player"], e["rounds"][0], e["rounds"][1],
-                                                                       e["replaced"], "  <<< stored again" if stored[key] > 1 else ""))
+            out.append("  r%s %s: rounds %s-%s, %s entries folded%s%s" % (e["round"], e["player"], e["rounds"][0], e["rounds"][1],
+                                                                         e["replaced"], ", seeing " + e["sees"] if e.get("sees") else "",
+                                                                         "  <<< stored again" if stored[key] > 1 else ""))
+            if "learned" in e:
+                out.append("    learned, %d%s%s" % (len(e["learned"]), " (left as it was)" if not e.get("learned_given", True) else "",
+                                                     "  <<< cut at the limit" if e.get("learned_cut") else ""))
+                out += ["      - " + x for x in e["learned"]]
     return out or ["  none"]
 
 

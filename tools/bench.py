@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 """The bench: put fixed moments to the people again, cheaply, before a change goes into a run.
 
-    bench.py add <name> <log> <person> <round> [--edited <file>] [--game <id>] [--note <why>]
+    bench.py add <name> <log> <person> <round> [--thinkback] [--edited <file>] [--game <id>] [--note <why>]
         keep a past moment as a fixed brief: the brief exactly as that run's log holds it for that person in that
         round (the last one, if there were several), or, with --edited, a copy of it changed by hand (the Hobb
         test's added "What I know"), kept as such. Only the instructions can vary for it: the page is frozen as
-        it was, so changes to the brief itself (new sections, other wording) don't show on it
+        it was, so changes to the brief itself (new sections, other wording) don't show on it. With --thinkback,
+        the moment is their thinking back instead: what `memory condense` printed for them in that round, asked
+        as tools/ask.py --memory asks it
     bench.py save <name> <person> [--from <save.json>] [--note <why>]
         keep a moment as a saved game: the save as it stands (this folder's, or another's with --from) and whose
         turn it is. Its brief is rebuilt with the current code and wording every time it's run, so it shows every
@@ -77,16 +79,24 @@ def cmd_add(args):
     args, game = take(args, "--game")
     args, note = take(args, "--note")
     args, edited = take(args, "--edited")
+    thinkback = "--thinkback" in args
+    args = [a for a in args if a != "--thinkback"]
     if len(args) != 4 or not args[3].isdigit():
-        sys.exit("usage: bench.py add <name> <log> <person> <round> [--edited <file>] [--game <id>] [--note <why>]")
+        sys.exit("usage: bench.py add <name> <log> <person> <round> [--thinkback] [--edited <file>] [--game <id>] [--note <why>]")
     name, log, person, number = args[0], Path(args[1]), args[2], int(args[3])
-    briefs = [e for e in audit.read_jsonl(log) if e["kind"] == "brief" and e.get("player") == person and e.get("round") == number]
+    entries = audit.read_jsonl(log)
+    if thinkback:  # what `memory condense <person>` printed, when it had a stretch to fold
+        briefs = [e["output"] for e in entries if e["kind"] == "command" and e.get("command") == "memory" and not e.get("refused")
+                  and e.get("args", [])[:2] == ["condense", person] and e.get("round") == number and "### Moment" in e.get("output", "")]
+    else:
+        briefs = [e["text"] for e in entries if e["kind"] == "brief" and e.get("player") == person and e.get("round") == number]
     if not briefs:
-        sys.exit("%s has no brief for %s in round %d" % (log, person, number))
+        sys.exit("%s has no %s for %s in round %d" % (log, "think-back" if thinkback else "brief", person, number))
     game = game or rpg.read_json(rpg.ACTIVE).get("game")
-    text = Path(edited).read_text(encoding="utf-8") if edited else briefs[-1]["text"]
-    write_moment(name, {"kind": "brief", "person": person, "game": game, "note": note or "", "brief": text,
-                        "from": "%s, round %d%s" % (log.stem, number, ", edited by hand" if edited else "")})
+    text = Path(edited).read_text(encoding="utf-8") if edited else briefs[-1].rstrip("\n")
+    write_moment(name, dict({"kind": "brief", "person": person, "game": game, "note": note or "", "brief": text,
+                             "from": "%s, round %d%s" % (log.stem, number, ", edited by hand" if edited else "")},
+                            **({"asks": "thinkback"} if thinkback else {})))
 
 
 def cmd_save(args):
@@ -115,8 +125,8 @@ def moments(names):
 
 def cmd_list(args):
     for name, m in moments([]):
-        print("%-24s %-6s %-10s %s%s" % (name, "frozen" if m["kind"] == "brief" else "saved", m["person"], m["from"],
-                                         " (%s)" % m["note"] if m["note"] else ""))
+        print("%-24s %-6s %-10s %s%s%s" % (name, "frozen" if m["kind"] == "brief" else "saved", m["person"], m["from"],
+                                           ", thinking back" if m.get("asks") == "thinkback" else "", " (%s)" % m["note"] if m["note"] else ""))
 
 
 def rebuilt_brief(m):
@@ -153,6 +163,12 @@ def reply_forms(chosen, files, label, replies):
     for name, m in chosen:
         for f in files:
             mine = [r for r in replies if r["moment"] == name and r["variant"] == label[f]]
+            if m.get("asks") == "thinkback":  # as `memory store` would read it: a MEMORY line, and what they learned
+                read = [rpg.parse_thinkback(r["reply"]) for r in mine]
+                out.append("  %s, %s: a memory in %d of %d; things learned in each: %s" % (
+                    name, label[f], sum(1 for x in read if x[0]), len(mine),
+                    ", ".join("-" if x[1] is None else str(len(x[1])) for x in read) or "-"))
+                continue
             read = []
             for r in mine:
                 try:
