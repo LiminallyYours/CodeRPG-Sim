@@ -5,12 +5,22 @@
     "pronouns": "he/him",
     "personality": "A stand-in until this world's cast is made: a labourer in Wendleford, sleeping in the tithe barn's hayloft by the reeve's leave.",
     "voice": "Few words, said slow and plain. I count things out loud, half to myself. I say \"fair's fair\" and mean it, and I'd rather pay twice than say thank you, because thanks feels like owing.",
-    "motivations": ["a place of my own, with a door that locks", "to owe nobody anything"],
-    "attributes": {"might": 2, "agility": 0, "wits": 1},
+    "motivations": [
+      "a place of my own, with a door that locks",
+      "to owe nobody anything"
+    ],
+    "attributes": {
+      "might": 2,
+      "agility": 0,
+      "wits": 1
+    },
     "hp": 13,
     "coins": 6,
-    "inventory": ["tally_stick"],
+    "inventory": [
+      "tally_stick"
+    ],
     "home": "tithe_barn",
+    "situation": "Sleeps in the tithe barn's hayloft by the reeve's leave: free, but rough. Takes whatever honest work there is, by the day.",
     "opening": "Morning light comes in grey through the gaps in the tithe barn's boards, and you climb down from the hayloft with straw in your hair."
   },
   {
@@ -19,13 +29,28 @@
     "pronouns": "she/her",
     "personality": "A stand-in until this world's cast is made: a seamstress in Wendleford, with a bed at the Wheatsheaf paid through tonight.",
     "voice": "Bright, quick and a little theatrical. I notice what everyone's wearing before I notice their faces, and I describe the world in fabric (\"a moth-eaten sort of night\", \"a voice like wet flannel\"). I say \"goodness\" when I'm surprised. I fish for compliments, and I don't pretend otherwise.",
-    "motivations": ["to be admired, looked at twice", "fine things of my own"],
-    "attributes": {"might": 0, "agility": 2, "wits": 1},
+    "motivations": [
+      "to be admired, looked at twice",
+      "fine things of my own"
+    ],
+    "attributes": {
+      "might": 0,
+      "agility": 2,
+      "wits": 1
+    },
     "hp": 10,
     "coins": 5,
-    "inventory": ["needle_case"],
+    "inventory": [
+      "needle_case"
+    ],
     "home": "wheatsheaf",
-    "paid_beds": [{"room": "wheatsheaf", "nights": 1}],
+    "situation": "Has a bed at the Wheatsheaf paid for tonight only. Sews for a living, and has no steady place.",
+    "paid_beds": [
+      {
+        "room": "wheatsheaf",
+        "nights": 1
+      }
+    ],
     "opening": "You come down the Wheatsheaf's back stair into the smell of porridge and woodsmoke, smoothing your sleeves."
   },
   {
@@ -34,13 +59,29 @@
     "pronouns": "they/them",
     "personality": "A stand-in until this world's cast is made: an odd-job hand in Wendleford, with a bed at the Wheatsheaf paid for two nights.",
     "voice": "Fast and chatty, all brag and good cheer. Everything's \"easy as winking\". I call people \"chum\", I say what I'm going to fix before I've looked at it, and I ask what a thing costs before I ask what it is.",
-    "motivations": ["the credit for fixing things", "a bargain", "something to do"],
-    "attributes": {"might": 1, "agility": 2, "wits": 0},
+    "motivations": [
+      "the credit for fixing things",
+      "a bargain",
+      "something to do"
+    ],
+    "attributes": {
+      "might": 1,
+      "agility": 2,
+      "wits": 0
+    },
     "hp": 11,
     "coins": 4,
-    "inventory": ["tinderbox"],
+    "inventory": [
+      "tinderbox"
+    ],
     "home": "market_square",
-    "paid_beds": [{"room": "wheatsheaf", "nights": 2}],
+    "situation": "Has a bed at the Wheatsheaf paid for two nights. Turns a hand to any odd job going.",
+    "paid_beds": [
+      {
+        "room": "wheatsheaf",
+        "nights": 2
+      }
+    ],
     "opening": "You're out in the Market Square early, hands in your pockets, looking at the notice board."
   },
   {
@@ -49,13 +90,29 @@
     "pronouns": "she/her",
     "personality": "A stand-in until this world's cast is made: the smith's new hand in Wendleford, boarding in the loft over the forge.",
     "voice": "Fast and full of enthusiasm. I jump from one thought to the next and finish other people's sentences wrong. I talk in experiments (\"Hypothesis: the drain is rude. Test: be ruder.\") and give things grand names (\"Gimbal's Patent Anti-Drowse Compound\"). I call people \"my dear colleague\", whoever they are. When something goes wrong I say \"Fascinating!\" and mean it.",
-    "motivations": ["to get to the bottom of every mystery", "to prove my inventions work", "to help whoever's in trouble"],
-    "attributes": {"might": -1, "agility": 1, "wits": 3},
+    "motivations": [
+      "to get to the bottom of every mystery",
+      "to prove my inventions work",
+      "to help whoever's in trouble"
+    ],
+    "attributes": {
+      "might": -1,
+      "agility": 1,
+      "wits": 3
+    },
     "hp": 9,
     "coins": 4,
-    "inventory": ["notebook"],
+    "inventory": [
+      "notebook"
+    ],
     "home": "smithy",
-    "paid_beds": [{"room": "smithy", "nights": 4}],
+    "situation": "Newly come to Wendleford as Sam Tolley's helper at the smithy, boarding in the loft over the forge for her work.",
+    "paid_beds": [
+      {
+        "room": "smithy",
+        "nights": 4
+      }
+    ],
     "opening": "You climb down the ladder from the smithy loft, warm from the forge's night heat, with a new idea already half-sketched in your head."
   }
 ]

@@ -3842,7 +3842,7 @@ def validate_cast(problems):
         problems.append("cast.json: at most %d players (has %d)" % (int(limits["max_players"]), len(data)))
     seen_ids, seen_names = set(), set()
     known = {"id", "model", "pronouns", "motivations", "attributes", "hp", "coins", "inventory", "equipped", "home",
-             "knows", "people", "look", "paid_beds", "archetype", "made_with"} | set(CAST_TEXT) | set(MADE_TEXT) | set(MADE_LISTS)
+             "knows", "people", "look", "paid_beds", "archetype", "made_with", "situation"} | set(CAST_TEXT) | set(MADE_TEXT) | set(MADE_LISTS)
     cast_ids = {e.get("id") for e in data if isinstance(e, dict)}
     for n, e in enumerate(data, 1):
         if not isinstance(e, dict):
@@ -3852,6 +3852,9 @@ def validate_cast(problems):
         where = "cast.json %s" % (ident if isinstance(ident, str) else "entry %d" % n)
         for k in sorted(set(e) - known):
             problems.append("%s: unknown key %r" % (where, k))
+        if "situation" in e and (not isinstance(e["situation"], str) or not e["situation"].strip()
+                                 or len(e["situation"]) > int(limits["line_chars"])):  # for the generator only: never shown
+            problems.append("%s: situation is one line of at most %d characters" % (where, int(limits["line_chars"])))
         if not isinstance(ident, str) or not CAST_ID.match(ident):
             problems.append("%s: id must be lowercase letters, digits and underscores, starting with a letter" % where)
         elif ident in seen_ids:

@@ -16,4 +16,6 @@ Write the entry as one JSON object and nothing else, with exactly these keys:
 - "attributes": {"might": n, "agility": n, "wits": n}, each from -1 to 3, fitting who they are; "hp": 8 to 14; "coins": as the world's starting money suggests.
 - "opening": second person, 40 to 100 words: the scene as their first turn begins, where they are and what they're doing. Nothing that belongs in knows or in what everyone knows.
 
+If their situation here is given as already decided (where they start, their money, a bed paid for, how they stand), keep it: "home" and "coins" exactly as given, and their backstory, knows and opening written to fit it.
+
 Write as someone living in this world would think and speak, in its register. Nothing you write may mention a game, rules, dice, rolls, checks, players, agents, models, logs, flags or numbers for traits: to them, it is a life.

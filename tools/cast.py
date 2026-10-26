@@ -7,7 +7,9 @@
         (rules/people/defaults.json, with the world's people.json) and the world; checks what comes back (its shape,
         as `validate` holds a cast entry to; no word of the machinery; name, pronouns, voice and what they won't do
         the archetype's word for word; no number and no trait's line word for word in how they are), records what it
-        was made with, and writes it to proposals/cast-<id>.json, with what failed, for the owner to read and edit
+        was made with, and writes it to proposals/cast-<id>.json, with what failed, for the owner to read and edit.
+        What the world's cast file already fixes for that person (home, coins, paid_beds, a `situation` line) is
+        told to the generator as decided, and kept as given
     cast.py apply <world> <id>
         puts proposals/cast-<id>.json into games/<world>/cast.json in place of that person's entry (or beside the
         others), then runs `validate` on the world
@@ -92,11 +94,38 @@ def world_text(world, ident):
                      + ["", "## Things (id: name)"] + things + ["", "## The others in the cast (id: name)"] + (others or ["(none)"]))
 
 
-def make_prompt(world, arch, defs):
+SITUATION = ("home", "coins", "paid_beds", "situation")  # what the world's cast file may already fix for a person
+
+
+def situation_of(ident):
+    """What the world's cast file already fixes for this person (where they start, their money, nights paid for, a
+    line on how they stand): kept as given in the made entry, and told to the generator to write around."""
+    old = next((e for e in rpg.content.cast() if e.get("id") == ident), {})
+    return {k: old[k] for k in SITUATION if k in old}
+
+
+def situation_text(fixed):
+    if not fixed:
+        return []
+    out = ["# Their situation here, already decided (keep it as given)"]
+    if "home" in fixed:
+        out.append("- They start in: %s (%s)" % (rpg.ent("rooms", fixed["home"]).get("name", fixed["home"]), fixed["home"]))
+    if "coins" in fixed:
+        out.append("- Their money: %d %s" % (fixed["coins"], rpg.currency()))
+    for b in fixed.get("paid_beds") or []:
+        out.append("- Already paid for: a bed at %s, %d night%s" % (rpg.ent("rooms", b["room"]).get("name", b["room"]), b["nights"],
+                                                                    "" if b["nights"] == 1 else "s"))
+    if fixed.get("situation"):
+        out.append("- " + fixed["situation"])
+    return out + [""]
+
+
+def make_prompt(world, arch, defs, fixed=None):
     return "\n".join(["# Who they are anywhere", json.dumps({k: arch[k] for k in ("id", "name", "pronouns", "voice", "wants_and_needs",
                       "avoids_and_dislikes", "wont_do", "priorities")}, indent=2, ensure_ascii=False), "",
                       "# How they lean (1 to 5; %d is ordinary, and only the others are listed)" % defs["scale"]["ordinary"]]
-                     + traits(arch, defs) + ["", world_text(world, arch["id"]), "", "Write their entry for this world."])
+                     + traits(arch, defs) + ["", world_text(world, arch["id"]), ""] + situation_text(fixed or {})
+                     + ["Write their entry for this world."])
 
 
 def read_entry(reply):
@@ -151,8 +180,9 @@ def cmd_make(args):
         sys.exit("usage: cast.py make <world> <id> [--model <m>]")
     world, ident = args
     arch, defs = setup(world, ident)
+    fixed = situation_of(ident)
     try:
-        reply, cost, exact = ask.call(model or "sonnet", make_prompt(world, arch, defs), GENERATE)
+        reply, cost, exact = ask.call(model or "sonnet", make_prompt(world, arch, defs, fixed), GENERATE)
     except ask.Failed as e:
         sys.exit("MAKE FAILED: %s" % e)
     entry = read_entry(reply)
@@ -161,6 +191,7 @@ def cmd_make(args):
         (PROPOSALS / ("cast-%s.txt" % ident)).write_text(reply, encoding="utf-8")
         sys.exit("MAKE FAILED: the reply held no entry (kept as proposals/cast-%s.txt)" % ident)
     entry = dict({"id": ident, "archetype": ident}, **{k: v for k, v in entry.items() if k not in ("id", "archetype")})
+    entry.update(fixed)  # what was already decided stays as it was, whatever the reply says
     entry["made_with"] = dict(tags(arch, defs), model=exact or model or "sonnet", cost=round(cost, 4),
                               when=datetime.datetime.now().isoformat(timespec="seconds"))
     problems = entry_problems(world, entry, arch, defs)

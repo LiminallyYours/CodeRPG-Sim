@@ -2883,6 +2883,21 @@ print(json.dumps({"type": "result", "is_error": False, "result": "Round done.", 
         out, _, _ = self.ask("make", "thirteenth_stroke", "hobb", answers=["I can't."], ok=False, tool="tools/cast.py")
         self.assertEqual((self.dir / "proposals" / "cast-hobb.txt").read_text(), "I can't.", "a reply with no entry is kept as it came")
 
+    def test_the_generator_keeps_a_situation_already_decided_and_writes_around_it(self):
+        reply = self.made_hobb(home="lopsided_square", coins=2, situation="sleeping in a ditch", people=[], inventory=["tally_stick"])
+        out, asked, _ = self.ask("make", "wendleford", "hobb", answers=[json.dumps(reply)], tool="tools/cast.py")
+        self.assertIn("# Their situation here, already decided (keep it as given)\n- They start in: The Tithe Barn (tithe_barn)\n"
+                      "- Their money: 6 pennies\n- Sleeps in the tithe barn's hayloft", asked[0])
+        made = json.loads((self.dir / "proposals" / "cast-hobb.json").read_text())
+        self.assertEqual((made["home"], made["coins"], made["situation"][:30]), ("tithe_barn", 6, "Sleeps in the tithe barn's hay"),
+                         "what was decided stays, whatever the reply says")
+        out, asked, _ = self.ask("make", "wendleford", "marigold", answers=["{}"], ok=False, tool="tools/cast.py")
+        self.assertIn("- Already paid for: a bed at The Wheatsheaf, 1 night\n", asked[0])
+        s = self.rpg("validate", "--game", "wendleford")
+        cast = self.dir / "games" / "wendleford" / "cast.json"
+        cast.write_text(cast.read_text().replace('"situation": "Sleeps', '"situation": "' + "x" * 300 + 'Sleeps', 1))
+        self.assertIn("situation is one line of at most 240 characters", self.rpg("validate", "--game", "wendleford", ok=False))
+
     def test_an_entry_made_from_an_archetype_opens_the_brief_in_its_own_layout(self):
         self.write("proposals/cast-hobb.json", json.dumps(self.made_hobb(archetype="hobb")))
         out, _, _ = self.ask("apply", "thirteenth_stroke", "hobb", answers=[], tool="tools/cast.py")
