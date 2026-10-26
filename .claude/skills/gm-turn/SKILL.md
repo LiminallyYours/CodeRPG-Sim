@@ -23,6 +23,7 @@ The current room's text is the `ROOM TEXT:` that `look` or `move` printed: don't
 - The game names its own stats and money: `look` prints them as e.g. `Grit (might)` and `Credits`. Use the game's names in narration, and the mechanical name (`might`) in commands.
 - Authored and generated content together are everything you know about the world. You never make up anything that matters to the game yourself, such as an item, exit, character, clue or price. When the player reaches a gap, follow **Filling gaps** below: either the world agent creates it through `rpg.py`, or it doesn't exist.
 - `ESTABLISHED HERE` lines in `look` are small details already narrated in this room. Keep them true.
+- `FOR THE REFEREE` in `run status` is the world's own advice on its situations (how it pays, what doesn't exist there): follow it.
 
 ## 3. Resolve the action with rpg.py
 Work out what the player is trying to do, then use the matching command:

@@ -4526,6 +4526,9 @@ def cmd_run(args):
         print(cast_line(state))
         story = run["chronicle"][-BALANCE["world"]["chronicle_lines"]:]
         print("\n".join(["STORY SO FAR:"] + ["- " + c for c in story]) if story else "STORY SO FAR: nothing yet")
+        notes = _section(world()["body"], "For the referee").strip()
+        if notes:  # the world's own advice on its situations, so the kit needn't know them
+            print("FOR THE REFEREE (this world's own notes; follow them):\n" + notes)
         if rs:
             nxt = whose_turn(state)
             replied = nxt and (state["players"][nxt].get("turn") or {}).get("round") == run["round"]

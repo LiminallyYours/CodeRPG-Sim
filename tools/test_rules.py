@@ -1667,6 +1667,16 @@ class Engine(unittest.TestCase):
                          "import audit; print(json.dumps(audit.coverage(audit.read_jsonl(sys.argv[1]))))", str(log)).stdout)],
                          "the dashboard's strip and the audit count the same")
 
+    def test_a_world_may_advise_the_referee_and_run_status_says_so(self):
+        self.rpg("game", "switch", "wendleford")
+        self.rpg("newgame", seed=47)
+        status = self.rpg("run", "status")
+        self.assertIn("FOR THE REFEREE (this world's own notes; follow them):\n- Wages", status)
+        self.assertIn("no back pay is owed", status)
+        self.rpg("game", "switch", "dark_lighthouse")
+        self.rpg("newgame", seed=47)
+        self.assertNotIn("FOR THE REFEREE", self.rpg("run", "status"), "a world without notes shows none")
+
     def test_the_log_exports_as_csv_one_row_per_entry(self):
         self.rpg("game", "switch", "dark_lighthouse")
         self.rpg("newgame", seed=43)

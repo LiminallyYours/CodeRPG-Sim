@@ -14,6 +14,7 @@ Brisk and plain, in short sentences. She calls people by their names once she kn
 - On the night of the flood she was at the bridge with the wage box, paying the men who'd been shoring it up. The water came over all at once; she set the box down on the parapet to help pull a man out, and when she turned round, the parapet was gone and the box with it.
 - She thinks the river took it, but she can't swear to it. She's heard Ned Pike's tale about a tinker and doesn't believe a word of it.
 - Until the box is found she pays the bridge wages from the town's own cash tin, which is nearly empty, so she can't pay more than she does.
+- She pays bridge wages in hand, there and then, at the end of each spell of work, to whoever did it. She keeps no tally of loads, and nobody is owed back pay: what was worked was paid when it was done.
 - Jory Crane is the best carpenter for miles, and she needs him on the bridge every afternoon.
 - Farmer Dunn's barley has to be in before the rain, or the whole town will pay for it in the price of bread this winter.
 - The hayloft in the tithe barn is anyone's to sleep in, with her leave, so long as they don't bring a light up there.
