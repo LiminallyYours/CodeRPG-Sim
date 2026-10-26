@@ -24,6 +24,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 GAMES = sorted(p.name for p in (ROOT / "games").glob("*") if (p / "world.md").is_file())
 SIM_GAMES = ("thirteenth_stroke",)  # the worlds with the simulation's whole economy (PLAN.md step 17)
+STRICT_GAMES = ("wendleford",)  # the worlds built for the simulation, held to SIM-WORLD-SPEC.md (validate --sim-strict)
 
 
 class Engine(unittest.TestCase):
@@ -234,10 +235,25 @@ class Engine(unittest.TestCase):
 
     # ---------------------------------------------------------------- seeds and daily worlds (no RPG_SEED)
 
+    def room_exits(self, room):
+        """A room's exits as the active game's file gives them, {direction: target room}, conditions dropped."""
+        text = (self.dir / "games" / self.save()["game"] / "rooms" / ("%s.md" % room)).read_text()
+        out = {}
+        for line in text.split("exits:\n", 1)[1].splitlines():
+            m = re.match(r"^  (\w+): (\w+)", line)
+            if not m:
+                break
+            out[m.group(1)] = m.group(2)
+        return out
+
     def play(self, seed):
         """A fixed little session from a named seed: what it rolled and printed."""
         outs = [self.rpg("newgame", seed)]
-        for d in ("north", "south", "north"):
+        here = self.save()["players"][next(iter(self.save()["players"]))]["location"]
+        exits = self.room_exits(here)
+        way = sorted(exits)[0]  # out by the start room's first way, back, and out again: whatever the world's map
+        back = next(d for d, target in self.room_exits(exits[way]).items() if target == here)
+        for d in (way, back, way):
             outs.append(self.rpg("move", d))
         outs += [self.rpg("check", "wits", "normal") for _ in range(3)]
         outs.append(self.rpg("roll", "3d6"))
@@ -2668,6 +2684,28 @@ print(json.dumps({"type": "result", "is_error": False, "result": "Round done.", 
             self.rpg("narrate", pid, "proposals/story.txt")
         self.rpg("round", "end")
 
+    def test_a_place_to_let_with_no_bed_price_is_only_its_tenants_to_sleep_in(self):
+        self.selling_world(coins=6)
+        gull = self.dir / "games" / "dark_lighthouse" / "rooms" / "gull_tavern.md"
+        gull.write_text(gull.read_text().replace("bed_price: 2\n", ""))
+        self.rpg("move", "north", as_="wren")  # to the Gull, beside Corin and Pell
+        for _ in range(3):
+            self.round_doing()
+        order = [p.split("(")[1].rstrip(")") for p in self.rpg("round", "start").split(": ", 1)[1].strip().split(", ")]
+        for pid in order:  # the small hours, both at the Gull
+            self.write("proposals/reply.txt", "DO: I go to bed.\nJOURNAL: Tired.\n")
+            self.rpg("reply", pid, "proposals/reply.txt")
+            if pid == "wren":
+                self.assertIn("isn't theirs to sleep in: it's to let", self.rpg("sleep", as_="wren", ok=False), "not yet let to anyone")
+                self.rpg("rent", "gull_tavern", as_="wren")
+                self.assertIn("SLEPT: The Gull, in a bed (their own, while the let lasts)", self.rpg("sleep", as_="wren"))
+            else:
+                self.assertIn("isn't theirs to sleep in: it's to let", self.rpg("sleep", as_="corin", ok=False))
+            self.write("proposals/story.txt", "You look around.")
+            self.rpg("narrate", pid, "proposals/story.txt")
+        self.rpg("round", "end")
+        self.assertEqual([self.save()["players"][p]["stats"]["coins"] for p in ("corin", "wren")], [6, 3], "nobody slept free but the tenant")
+
     def test_validate_holds_sellers_beds_and_lets_to_their_shape(self):
         self.needs_world()
         games = self.dir / "games" / "dark_lighthouse"
@@ -3729,7 +3767,9 @@ near: stuck
 
     def test_the_kits_own_games_are_kit_complete_and_the_simulations_world_sim_complete(self):
         for g in GAMES:
-            if g in SIM_GAMES:  # its buyer is a fifth person, past the kit's 3-4; --sim-complete takes the kit check's place
+            if g in STRICT_GAMES:  # built for the simulation: the strict check, with --sim-complete's own
+                self.assertIn("(sim-strict)", self.rpg("validate", "--game", g, "--sim-complete", "--sim-strict"))
+            elif g in SIM_GAMES:  # its buyer is a fifth person, past the kit's 3-4; --sim-complete takes the kit check's place
                 self.assertIn("(sim-complete)", self.rpg("validate", "--game", g, "--sim-complete"))
             else:
                 self.assertIn("(kit-complete)", self.rpg("validate", "--game", g, "--kit-complete"))

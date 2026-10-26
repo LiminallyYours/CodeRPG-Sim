@@ -1781,6 +1781,10 @@ def cmd_sleep(args):
             raise Refused("a bed here is %d %s a night, and they have %d" % (price, currency(), pl["stats"]["coins"]))
         change_coins(state, -price, "purchase", "a night's bed at %s" % room["id"])
         paid = " for %d %s (COINS -%d -> %d)" % (price, currency(), price, pl["stats"]["coins"])
+    elif rent_of(room):  # a place to let with no price for a night: only its tenant's bed
+        let = let_of(state, room["id"])
+        raise Refused("%s isn't theirs to sleep in: it's %s" % (room.get("name", room["id"]), "let to someone else until the end of day %d"
+                      % let["until"] if let else "to let, and only whoever takes it (`rent`) sleeps there"))
     met(state, "sleep", place, "sleep")
     save_state(state)
     print("SLEPT: %s, %s%s. When the night has gone by they'll be %s." % (
