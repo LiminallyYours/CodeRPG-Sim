@@ -923,12 +923,12 @@ def migrate(state):
 
 def condition_flags(state):
     """The names content conditions are checked against: the shared story flags and the acting player's own
-    (the world's `personal_flags`), plus two automatic kinds that are true while they hold: has_<item>
-    (carrying it) and met_<character> (seen them in a room)."""
-    if no_one(state):  # a world turn between rounds: the shared story flags alone
-        return list(state["flags"])
+    (the world's `personal_flags`), plus the automatic kinds that are true while they hold: has_<item>
+    (carrying it), met_<character> (seen them in a room), and the clock's (time_conditions)."""
+    if no_one(state):  # a world turn between rounds: the shared story flags alone, and the time
+        return list(state["flags"]) + time_conditions(state)
     return (list(state["flags"]) + list(me(state).get("flags", [])) + ["has_" + i for i in me(state)["inventory"]]
-            + ["met_" + c for c in me(state).get("met", [])])
+            + ["met_" + c for c in me(state).get("met", [])] + time_conditions(state))
 
 
 def personal_flags():
@@ -970,11 +970,54 @@ def quest_view(ident, flags):
             "side": is_generated("quests", ident), "objectives": shown}
 
 
+AUTOMATIC = ("has_", "met_", "time_", "day_", "after_day_")  # condition names the code holds true, never set
+
+
+def has_days():
+    """Whether the world's times of day go round and days are counted (world.md `days: yes`)."""
+    return str(world().get("days", "no")).lower() == "yes"
+
+
+def time_steps(state):
+    """How many times of day have gone by since the run began: one every `rounds.time_every` ticks."""
+    every = int(SETTINGS["rounds"]["time_every"])
+    return state["run"]["moves"] // every if every > 0 else 0
+
+
+def day_of(state):
+    """Which day it is (1 on the first), in a world with days; else None."""
+    return time_steps(state) // len(world()["times"]) + 1 if has_days() and world().get("times") else None
+
+
+def time_slug(text):
+    """A time of day as a condition names it: `time_` and its words joined with _ ("a quarter to twelve": time_a_quarter_to_twelve)."""
+    return "time_" + re.sub(r"[^a-z0-9]+", "_", str(text).lower()).strip("_")
+
+
+def time_conditions(state):
+    """The automatic conditions the clock holds true now: time_<the time of day>, and in a world with days, day_<n>
+    and after_day_<k> for every day already gone by. Shared by everyone, like the world's own flags."""
+    now = time_of_day(state)
+    out = [time_slug(now)] if now else []
+    day = day_of(state)
+    if day:
+        out += ["day_%d" % day] + ["after_day_%d" % k for k in range(1, day)]
+    return out
+
+
+def when_text(state):
+    """The time of day as people hear it: "morning", or "morning on day 2" in a world with days."""
+    now, day = time_of_day(state), day_of(state)
+    return phrase("time_on_day", time=now, n=day) if now and day else now
+
+
 def time_of_day(state):
     times = world().get("times") or []
     clock = state["run"].get("clock")
     if not times:
         return None
+    if has_days():  # the times go round, one every rounds.time_every ticks, whatever the quest does
+        return times[time_steps(state) % len(times)]
     if not clock:
         every = int(SETTINGS["rounds"]["time_every"])  # with no deadline, time moves on every few ticks and stays at the last
         return times[min(len(times) - 1, state["run"]["moves"] // every)] if every > 0 else times[0]
@@ -1010,6 +1053,7 @@ def refresh_view(state):
         "run_label": run_label(state),
         "look": content.look(),
         "time": time_of_day(state),
+        "day": day_of(state),
         "weather": run.get("weather"),
         "clock": {"name": clock["name"], "left": clock["left"], "total": clock["total"]} if clock else None,
         "meter": dict(meter(), state=meter_state()),
@@ -1413,6 +1457,7 @@ def tick_move(state):
                 out.append("CLOCK: and since %s, flag set: %s" % (clock["also_if"], clock["also_flag"]))
         elif clock["left"] <= 3:
             out.append("CLOCK: %s in %s" % (clock["name"], ticks_text(clock["left"])))
+    out += timed_events(state)
     if run["moves"] % BALANCE["world"]["weather_every_moves"] == 0:
         weathers = world().get("weather") or []
         if weathers:
@@ -1424,6 +1469,47 @@ def tick_move(state):
     if turns["on"] and run["moves"] % max(1, int(turns["every_moves"])) == 0 and can_pay("world_turn"):
         run["world_turn_due"] = True
         out.append("WORLD TURN DUE: run `tools/voice.py world turn`, then `world-turn` on what it saved (see gm-turn)")
+    return out
+
+
+_WHEN = re.compile(r"^day\s+(\d+)\s*,\s*(.+?)\s*$", re.I)
+
+
+def when_of(text):
+    """`day 3, night` -> (3, "night"), or None."""
+    m = _WHEN.match(str(text or ""))
+    return (int(m.group(1)), m.group(2)) if m else None
+
+
+def timed_events(state):
+    """world.md's `## At:` sections whose day and time have just come: each happens once, for everyone, if its
+    `if:` holds then (else it never does). Its flag is shared; what everyone notices goes into every memory, as a
+    sign of the world moving does; its rumor into the talk going around."""
+    run, out = state["run"], []
+    if not has_days():
+        return out
+    now, fired = (day_of(state), time_of_day(state)), run.setdefault("fired", [])
+    for ev in content.timed(world()["body"]):
+        if ev["id"] in fired or when_of(ev.get("when")) != now:
+            continue
+        fired.append(ev["id"])  # its time has come, whether or not it happens: it never comes again
+        holds = content.condition_holds(ev.get("if"), list(state["flags"]) + time_conditions(state))
+        with acting(None):
+            log(state, "event", id=ev["id"], when=ev["when"], happened=holds, sets=ev.get("sets"), seen=ev.get("seen"), rumor=ev.get("rumor"))
+        if not holds:
+            out.append("AT %s (%s): not, since %s doesn't hold; nothing happens" % (ev["id"], ev["when"], ev["if"]))
+            continue
+        if ev.get("sets"):
+            set_flag(state, ev["sets"])
+        for pl in state["players"].values():
+            if ev.get("seen") and pl["status"] == "playing":
+                remember(pl, "seen", ev["seen"], run.get("round") or 0)
+        if ev.get("rumor"):
+            run["rumors"].append(ev["rumor"])
+            del run["rumors"][:-BALANCE["world"]["rumors_kept"]]
+        out.append("AT %s (%s):%s%s nothing for you to do: everyone playing has noticed it (it's in their memory), "
+                   "and the world follows the flag" % (ev["id"], ev["when"], " flag set: %s;" % ev["sets"] if ev.get("sets") else "",
+                                                      " %r;" % ev["seen"] if ev.get("seen") else ""))
     return out
 
 
@@ -1590,7 +1676,7 @@ def cmd_look(args):
     print("STATUS: %s | %s | %s | %s %d" % (me(state)["status"], hp_line(state), " ".join(
         "%s %+d" % (stat_label(k), me(state)["stats"][k]) for k in STATS), currency().capitalize(), me(state)["stats"]["coins"]))
     print("LOCATION: %s (%s)%s" % (room.get("name", room["id"]), room["id"], " [generated]" if room.get("generated") else ""))
-    texture = [x for x in (time_of_day(state), run.get("weather")) if x]
+    texture = [x for x in (when_text(state), run.get("weather")) if x]
     if texture:
         print("TIME AND WEATHER: %s" % ", ".join(texture))
     if run.get("clock"):
@@ -1974,8 +2060,9 @@ def cmd_flag(args):
     action, name = args[0], args[1]
     if not re.fullmatch(r"[a-z0-9_]+", name):
         raise Refused("flag names are lowercase letters, digits and underscores")
-    if name.startswith(("has_", "met_")):
-        raise Refused("has_ and met_ names are automatic (carrying an item, having met someone) and can't be set")
+    if name.startswith(AUTOMATIC):
+        raise Refused("has_, met_, time_, day_ and after_day_ names are automatic (carrying an item, having met "
+                      "someone, the time and the day) and can't be set")
     if action == "set":
         set_flag(state, name)
     elif action == "unset":
@@ -2588,6 +2675,8 @@ def cmd_world_brief(args):
     out = ["# World brief: %s" % request, "",
            "## The adventure", "%s. %s" % (w.get("title", ""), _section(w["body"], "Tone")), "",
            "## What everyone around here knows", _section(w["body"], "Public knowledge") or "(nothing listed)", ""]
+    if has_days():  # life off-screen keeps the hours: who's asleep, who's at work
+        out += ["## Now", ", ".join(x for x in (when_text(state), state["run"].get("weather")) if x), ""]
     if room:
         desc = [room["body"].split("\n## ")[0].strip()]
         for heading, text in content.sections(room["body"]):
@@ -2601,7 +2690,7 @@ def cmd_world_brief(args):
     notes = run["notes"].get(room.get("id"), [])
     if notes:
         out += ["Established details: " + " | ".join(notes)]
-    texture = [x for x in (time_of_day(state), run.get("weather")) if x]
+    texture = [x for x in (when_text(state), run.get("weather")) if x]
     if texture:
         out += ["Time and weather: " + ", ".join(texture)]
     out += ["", "## Names and ids already in use (never reuse or imitate them)"]
@@ -2799,6 +2888,9 @@ def validate_game(kit=False, sim=False):
     cap = (merged.get("rounds") or {}).get("max_per_run")
     if not isinstance(cap, int) or isinstance(cap, bool) or cap < 0:
         problems.append("settings.json: rounds.max_per_run must be a whole number (0 for no limit)")
+    every = (merged.get("rounds") or {}).get("time_every")
+    if str(world().get("days", "no")).lower() == "yes" and (not isinstance(every, int) or every < 1):
+        problems.append("settings.json: a world with days: yes needs rounds.time_every of 1 or more (ticks to each time of day)")
     for c in ((overrides.get("npc_agents") or {}).get("characters") or {}):
         if not content.exists("characters", c):
             problems.append("settings.json npc_agents characters: unknown character %r" % c)
@@ -2873,7 +2965,7 @@ def validate_game(kit=False, sim=False):
         variant_flags.update(options_of(opts))
     personal = set(options_of(w.get("personal_flags") or []))
     for f in sorted(personal):
-        if not re.fullmatch(r"[a-z][a-z0-9_]*", f) or f.startswith(("has_", "met_")):
+        if not re.fullmatch(r"[a-z][a-z0-9_]*", f) or f.startswith(AUTOMATIC):
             problems.append("world.md personal_flags: %r isn't a flag content can set" % f)
 
     def placing(cond, where):
@@ -3029,6 +3121,7 @@ def validate_game(kit=False, sim=False):
             elif flag_text.replace(own, "").count(term) == 0:
                 problems.append("%s: nothing in the game sets %r, so the curse can't be cured" % (where, term))
     validate_plans(w, flag_text, problems)
+    validate_days(w, problems)
     validate_scenes(problems)
     validate_cast(problems)
     validate_soundness(w, problems)
@@ -3325,6 +3418,7 @@ def settable_flags(w):
         out.update(options_of(opts))
     clock = w.get("clock") or {}
     out.update(x for x in (clock.get("flag"), clock.get("also_flag")) if x)
+    out.update(ev["sets"] for ev in content.timed(w["body"]) if ev.get("sets"))
     for c in content.ids("characters"):
         meta = content.load("characters", c)
         out.update(st["sets"] for st in content.plans(meta["body"]) if st.get("sets"))
@@ -3361,6 +3455,7 @@ def conditions_in(meta, body):
     if meta.get("clock") and meta["clock"].get("also_if"):
         out.append(str(meta["clock"]["also_if"]))
     out += [st["when"] for st in content.plans(body) if st.get("when")]
+    out += [ev["if"] for ev in content.timed(body) if ev.get("if")]
     out += _HEADING_IF.findall(body)
     return out
 
@@ -3375,8 +3470,8 @@ def command_problem(words):
     if cmd == "attack" and not content.exists("characters", args[0]):
         return "no character %r" % args[0]
     if cmd == "flag" and (args[0] not in ("set", "unset") or not re.fullmatch(r"[a-z0-9_]+", args[1])
-                          or args[1].startswith(("has_", "met_"))):
-        return "use flag set|unset <name> (has_ and met_ are automatic)"
+                          or args[1].startswith(AUTOMATIC)):
+        return "use flag set|unset <name> (has_, met_, time_, day_ and after_day_ are automatic)"
     if cmd == "coins" and (not re.fullmatch(r"[+-]\d+", args[0]) or args[1] not in COIN_REASONS):
         return "use coins +N <reason> or coins -N <reason> (%s)" % ", ".join(COIN_REASONS)
     if cmd == "check" and (args[0] not in STATS or not (args[1].isdigit() or args[1] in ("easy", "normal", "hard"))):
@@ -3393,6 +3488,53 @@ def command_problem(words):
                                                  or not content.exists(args[0], args[1])):
         return "use show <kind> <id>, naming something the game has, or show world"
     return None
+
+
+def time_condition_problem(w, term):
+    """What's wrong with a condition on the clock (time_<a time of day>, day_<n>, after_day_<n>), or None."""
+    times = w.get("times") or []
+    if term.startswith("time_"):
+        return None if term in {time_slug(x) for x in times} else "no time of day like that in world.md's times (%s)" % (
+            ", ".join(time_slug(x) for x in times) or "none")
+    if str(w.get("days", "no")).lower() != "yes":
+        return "days are counted only in a world with `days: yes`"
+    return None if re.fullmatch(r"(after_)?day_[1-9][0-9]*", term) else "a day is a number from 1 (day_2, after_day_3)"
+
+
+def validate_days(w, problems):
+    """`days:` and the timed events (`## At:` sections of world.md)."""
+    days, times = str(w.get("days", "no")).lower(), w.get("times") or []
+    if days not in ("yes", "no"):
+        problems.append("world.md days: must be yes or no")
+    if days == "yes":
+        if len(times) < 2:
+            problems.append("world.md days: yes needs at least two times of day in times:")
+        if w.get("clock"):
+            problems.append("world.md days: yes can't go with a clock: (the deadline clock drives the time of day)")
+    events, ids = content.timed(w["body"]), set()
+    if events and days != "yes":
+        problems.append("world.md: `## At:` sections need `days: yes` (they happen on a day, at a time)")
+    personal = set(options_of(w.get("personal_flags") or []))
+    for ev in events:
+        where = "world.md %s" % ev["heading"]
+        if not ev["id"]:
+            problems.append("%s: the heading is `## At: <id>`, the id lowercase letters, digits and _" % where)
+        elif ev["id"] in ids:
+            problems.append("%s: another `## At:` has this id" % where)
+        ids.add(ev["id"])
+        problems += ["%s: %r isn't one of when:, if:, sets:, seen:, rumor:" % (where, line) for line in ev["bad"]]
+        when = when_of(ev.get("when"))
+        if not when:
+            problems.append("%s: needs `when: day <n>, <a time of day>`" % where)
+        elif when[0] < 1 or when[1] not in times:
+            problems.append("%s: when: the day is a number from 1, and the time one of times: (%s)" % (where, ", ".join(times)))
+        elif times and when == (1, times[0]):
+            problems.append("%s: when: day 1, %s is when the run begins; nothing comes round to it" % (where, times[0]))
+        if not any(ev.get(k) for k in ("sets", "seen", "rumor")):
+            problems.append("%s: needs at least one of sets:, seen:, rumor:" % where)
+        flag = ev.get("sets")
+        if flag and (not re.fullmatch(r"[a-z][a-z0-9_]*", flag) or flag.startswith(AUTOMATIC) or flag in personal):
+            problems.append("%s: sets: %r must be a shared flag name (not automatic, not one of personal_flags)" % (where, flag))
 
 
 def validate_soundness(w, problems):
@@ -3412,6 +3554,10 @@ def validate_soundness(w, problems):
                 elif term.startswith("met_"):
                     if not content.exists("characters", term[4:]):
                         problems.append("%s: condition %r: no character %r" % (where, term, term[4:]))
+                elif term.startswith(("time_", "day_", "after_day_")):
+                    problem = time_condition_problem(w, term)
+                    if problem:
+                        problems.append("%s: condition %r: %s" % (where, term, problem))
                 elif term not in can_set:
                     problems.append("%s: a condition uses %r, but nothing in the game sets it" % (where, term))
         for span in _CODE.findall(body):
@@ -4520,7 +4666,7 @@ PHRASES = {
     "change_health": ("before", "after"), "change_got": ("things",), "change_lost": ("things",),
     "change_in_hand": ("things",), "change_put_away": ("things",), "change_waiting": ("things",),
     "change_building": ("things",), "change_own": ("things",), "change_met": ("people",),
-    "thinkback_voice": ("voice",), "thinkback_note": (), "learned_none": (),
+    "thinkback_voice": ("voice",), "thinkback_note": (), "learned_none": (), "time_on_day": ("time", "n"),
 }
 THINKBACK_GAPS = ("name", "voice", "self", "stretch", "learned", "learned_max")
 UNIVERSE_GAPS = ("currency",)
@@ -4762,7 +4908,7 @@ def pane_text(state):
     look_cfg, stats = content.look(), pl["stats"]
     labels = look_cfg["stat_labels"]
     lines = [phrase("where_you_are"), phrase("place", place=v["location_name"] + "".join(
-        ", " + x for x in (state["view"]["time"], state["view"]["weather"]) if x))]
+        ", " + x for x in (when_text(state), state["view"]["weather"]) if x))]
     exits = me(state)["map"].get(pl["location"], {}).get("exits", {})
     if exits:
         lines.append(phrase("ways_on", ways="; ".join(phrase("way", direction=d, place=ent("rooms", r).get("name", r) if ent_exists("rooms", r) else r)

@@ -233,6 +233,37 @@ def is_plan(heading):
     return heading.startswith("Plan:")
 
 
+_AT = re.compile(r"^At:\s*([a-z][a-z0-9_]*)\s*$")
+AT_KEYS = ("when", "if", "sets", "seen", "rumor")
+
+
+def is_timed(heading):
+    """A `## At: …` section of world.md: something that happens when the world's clock reaches a day and a time."""
+    return heading.startswith("At:")
+
+
+def timed(body):
+    """world.md's timed events: each `## At: <id>` section, whose lines are `when:` (day <n>, <a time of day>),
+    `if:` (a condition, checked when the time comes), `sets:` (a shared flag), `seen:` (what everyone notices,
+    wherever they are) and `rumor:` (what people say). Returns [{"id", <keys>..., "heading", "bad": [lines]}]."""
+    out = []
+    for heading, text in sections(body):
+        if not is_timed(heading):
+            continue
+        m = _AT.match(heading)
+        event = {"id": m.group(1) if m else None, "heading": heading, "bad": []}
+        for line in text.splitlines():
+            if not line.strip():
+                continue
+            k, _, v = line.partition(":")
+            if k.strip() in AT_KEYS and v.strip():
+                event[k.strip()] = v.strip()
+            else:
+                event["bad"].append(line.strip())
+        out.append(event)
+    return out
+
+
 def plans(body):
     """A character's off-screen plans: each `## Plan: <step> (if <condition>)` section, whose lines are
     `does:`, `sets:` or `clears:` (one of the character's own flags), `near:` and `rumor:`.

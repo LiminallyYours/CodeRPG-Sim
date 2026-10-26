@@ -2368,6 +2368,95 @@ print(json.dumps({"type": "result", "is_error": False, "result": "Round done.", 
         self.assertIn("learned, 2 (left as it was)", audit)
         self.assertIn("      - Ambrose builds sheds, for five buttons.", audit)
 
+    DAYS_EVENTS = ("\n\n## At: gulls_quiet\nwhen: day 3, dusk\nif: not lamp_lit\nsets: gulls_quiet\n"
+                   "seen: All along the harbor the gulls fall quiet at once.\nrumor: The gulls went quiet at dusk.\n"
+                   "\n## At: fleet_home\nwhen: day 9, dusk\nsets: fleet_arrived\n"
+                   "\n## At: fleet_lost\nwhen: day 9, dusk\nif: not lamp_lit\nsets: fleet_lost\n")
+
+    def days_world(self, events=DAYS_EVENTS):
+        """The Dark Lighthouse with days that go round, one time of day a round: its deadline clock taken out, and
+        what the clock set set by timed events instead."""
+        self.rpg("game", "switch", "dark_lighthouse")
+        self.settings_tool("preset", "simulation")
+        self.settings_tool("set", "rounds.time_every", "1")
+        path = self.dir / "games" / "dark_lighthouse" / "world.md"
+        text = re.sub(r"\nclock:\n(?:[ #].*\n)+", "\n", path.read_text()).replace("\ntimes:\n", "\ndays: yes\ntimes:\n", 1)
+        path.write_text(text.rstrip("\n") + events)
+        room = self.dir / "games" / "dark_lighthouse" / "rooms" / "harbor_square.md"
+        room.write_text(room.read_text().rstrip("\n") + "\n\n## If after_day_1 and time_dusk\nThe gulls know you by now.\n")
+
+    def test_in_a_world_with_days_the_times_go_round_and_the_days_are_counted(self):
+        self.days_world()
+        self.assertIn("CONTENT OK: dark_lighthouse", self.rpg("validate"))
+        self.rpg("newgame", seed=43)
+        self.assertIn("## Where you are\nHarbor Square, dusk on day 1", self.rpg("brief", "wren"))
+        look = self.rpg("look", as_="wren")
+        self.assertIn("TIME AND WEATHER: dusk on day 1", look)
+        self.assertIn("time_dusk, day_1", look)
+        self.assertNotIn("know you by now", look)
+        for _ in range(4):
+            self.play_round()
+        look = self.rpg("look", as_="wren")
+        self.assertIn("TIME AND WEATHER: dusk on day 2", look)
+        self.assertIn("time_dusk, day_2, after_day_1", look)
+        self.assertIn("The gulls know you by now.", look, "a room's text can follow the time and the day")
+        self.play_round()
+        self.assertIn("nightfall on day 2", self.rpg("pane", "wren"))
+        self.assertNotIn("know you by now", self.rpg("look", as_="wren"))
+        self.assertIn("## Now\nnightfall on day 2", self.rpg("world-brief", "turn", as_=False), "life off-screen keeps the hours")
+        self.assertIn("names are automatic", self.rpg("flag", "set", "day_3", as_="wren", ok=False))
+        self.assertIn("needs rounds.time_every of 1 or more", self.settings_tool("set", "rounds.time_every", "0", ok=False))
+
+    def test_a_timed_event_happens_once_when_its_day_and_time_come_if_its_condition_holds(self):
+        self.days_world()
+        self.rpg("newgame", seed=43)
+        for _ in range(7):
+            self.play_round()
+        self.assertNotIn("gulls_quiet", self.save()["flags"])
+        _, end = self.play_round()  # the end of round 8 brings dusk on day 3
+        self.assertIn("AT gulls_quiet (day 3, dusk): flag set: gulls_quiet;", end)
+        self.assertIn("gulls_quiet", self.save()["flags"])
+        for pid, pl in self.save()["players"].items():
+            self.assertIn({"round": 8, "kind": "seen", "text": "All along the harbor the gulls fall quiet at once.", "uses": 0},
+                          pl["memory"]["recent"], pid)
+        self.assertIn("The gulls went quiet at dusk.", self.save()["run"]["rumors"])
+        events = [e for e in self.log_entries() if e["kind"] == "event"]
+        self.assertEqual([(e["id"], e["happened"], e["player"]) for e in events], [("gulls_quiet", True, None)])
+        for _ in range(4):
+            _, end = self.play_round()  # dusk on day 4: it never comes again
+            self.assertNotIn("AT gulls_quiet", end)
+        self.rpg("newgame", seed=43)  # again, with the lamp lit: the event's time comes, but it doesn't happen
+        self.rpg("flag", "set", "lamp_lit", as_="wren")  # which wins the quest: its ending is told first
+        self.write("proposals/ending.txt", "The lamp blazes out over the water.")
+        self.rpg("ending", "proposals/ending.txt", as_=False)
+        for _ in range(7):
+            self.play_round()
+        _, end = self.play_round()
+        self.assertIn("AT gulls_quiet (day 3, dusk): not, since not lamp_lit doesn't hold; nothing happens", end)
+        self.assertNotIn("gulls_quiet", self.save()["flags"])
+
+    def test_validate_holds_days_and_timed_events_to_their_shape(self):
+        self.days_world(events="\n\n## At: early\nwhen: day 1, dusk\nseen: x\n\n## At: odd\nwhen: day 2, noon\nsets: lamp_quest_started\n"
+                               "colour: blue\n\n## At: Bad Name\nwhen: day 2, dusk\n\n## At: dawn\nwhen: tomorrow\nrumor: y\n")
+        room = self.dir / "games" / "dark_lighthouse" / "rooms" / "harbor_square.md"
+        room.write_text(room.read_text() + "\n## If time_noon or day_0\nNoon.\n")
+        out = self.rpg("validate", "--game", "dark_lighthouse", ok=False)
+        for expected in ("day 1, dusk is when the run begins", "the time one of times: (dusk, nightfall, deep night, the small hours)",
+                         "'colour: blue' isn't one of when:", "sets: 'lamp_quest_started' must be a shared flag name",
+                         "the heading is `## At: <id>`", "needs `when: day <n>, <a time of day>`",
+                         "condition 'time_noon': no time of day like that", "condition 'day_0': a day is a number from 1",
+                         "a condition uses 'fleet_arrived', but nothing in the game sets it"):
+            self.assertIn(expected, out)
+        path = self.dir / "games" / "dark_lighthouse" / "world.md"
+        path.write_text(path.read_text().replace("days: yes", "days: no"))
+        out = self.rpg("validate", "--game", "dark_lighthouse", ok=False)
+        self.assertIn("`## At:` sections need `days: yes`", out)
+        self.assertIn("condition 'day_0': days are counted only in a world with `days: yes`", out)
+        self.rpg("game", "switch", "thirteenth_stroke")
+        path = self.dir / "games" / "thirteenth_stroke" / "world.md"
+        path.write_text(path.read_text().replace("\ntimes:\n", "\ndays: yes\ntimes:\n", 1))
+        self.assertIn("days: yes can't go with a clock:", self.rpg("validate", "--game", "thirteenth_stroke", ok=False))
+
     def test_a_person_strikes_what_no_longer_holds_from_what_they_learned_on_their_own_turn(self):
         self.rpg("game", "switch", "thirteenth_stroke")
         self.settings_tool("preset", "simulation")

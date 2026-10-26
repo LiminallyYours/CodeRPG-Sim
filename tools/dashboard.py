@@ -227,6 +227,10 @@ def build_feed(entries, names, name, currency="coins"):
         elif kind == "ending":
             items.append({"kind": "ending", "key": "end%d" % i, "round": e.get("round"), "by": names.get(e.get("player")),
                           "text": e.get("text", ""), "heard_by": [names.get(p, p) for p in e.get("heard_by", [])]})
+        elif kind == "event" and here is not None:  # a timed event from world.md, as the clock reached it
+            add(here, "world", "%s (%s): %s" % (e.get("id"), e.get("when"), "; ".join(x for x in (
+                e.get("seen"), e.get("rumor") and "talk: " + e["rumor"], e.get("sets") and "now " + e["sets"]) if x)
+                if e.get("happened") else "its time came, and it didn't happen"))
         elif kind == "run" and e.get("action") in ("pause", "resume", "end", "ended"):
             items.append({"kind": "run", "key": "run%d" % len(items), "action": e["action"], "round": e.get("round")})
         elif here is None:
@@ -382,7 +386,8 @@ def live():
     return {
         "game": {"id": save["game"], "title": save.get("adventure", save["game"])},
         "seed": run.get("seed"), "currency": currency,
-        "time": ", ".join(x for x in (view.get("time"), view.get("weather")) if x),
+        "time": ", ".join(x for x in ("%s on day %d" % (view["time"], view["day"]) if view.get("time") and view.get("day") else view.get("time"),
+                                      view.get("weather")) if x),
         "run": {"round": run.get("round", 0), "open": bool(rs), "played": run.get("round", 0) - (1 if rs else 0),
                 "cap": cap, "stop": run.get("stop"), "ended": bool(run.get("ended")),
                 "order": [names.get(p, p) for p in rs["order"]] if rs else [],

@@ -52,6 +52,7 @@ change_met:      you met {people}
 # ---- the status block: where they are
 where_you_are:   ## Where you are
 place:           {place}.
+time_on_day:     {time} on day {n}
 ways_on:         Ways on: {ways}.
 way:             {direction} to {place}
 with_you:        With you: {people}.
