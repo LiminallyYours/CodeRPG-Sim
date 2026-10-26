@@ -548,7 +548,10 @@ td.so-far { color: var(--slate); font-style: italic; }
 .do { font: 17px/1.5 var(--serif); margin: 0 0 8px; }
 .why { font: italic 15.5px/1.5 var(--serif); color: var(--slate); margin: 0 0 8px; }
 .waiting { font: italic 16px/1.5 var(--serif); color: var(--slate); margin: 0 0 8px; }
-.options { margin: 0 0 8px; padding-left: 20px; font-size: 14px; }
+.options { margin: 0 0 10px; padding-left: 20px; font-size: 14px; color: var(--slate); }
+.options li.chosen { color: var(--ink); }
+.options span { color: var(--slate); }
+.options b { color: var(--brass); font-weight: 600; font-size: 12.5px; }
 .heard { font-size: 13px; color: var(--slate); margin: 0 0 6px; }
 .voice { font: 15.5px/1.5 var(--serif); margin: 0 0 8px; padding-left: 10px; border-left: 2px solid var(--rule); }
 .voice b { font: 600 13px var(--sans); color: var(--slate); display: block; }
@@ -712,8 +715,10 @@ function renderMeter(m, d) {
 }
 
 function renderTurn(item) {
-  const options = Array.isArray(item.options) && item.options.length ?  // step 52's options considered, once replies carry them
-    el("ol", {class: "options", "aria-label": "The options they weighed"}, ...item.options.map(o => el("li", {text: typeof o === "string" ? o : JSON.stringify(o)}))) : null;
+  const options = item.options && item.options.length ?  // what they weighed before choosing: theirs alone, like the journal
+    el("ul", {class: "options", "aria-label": "The options they weighed"}, ...item.options.map(o =>
+      el("li", {class: o.chosen ? "chosen" : ""}, o.text, o.for ? el("span", {text: " (for: " + o.for + ")"}) : null,
+         o.chosen ? el("b", {text: " chosen"}) : null))) : null;
   const voices = (item.voices || []).map(v => v.agent === "npc" ?
     el("p", {class: "voice"}, el("b", {text: v.about}), quote(v.said)) :
     everything ? fold("v:" + item.key + v.about, "The world agent, for " + v.about, el("pre", {text: v.reply})) : null);

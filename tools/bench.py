@@ -146,6 +146,26 @@ def model_for(m):
     return entry.get("model") or "sonnet"
 
 
+def reply_forms(chosen, files, label, replies):
+    """A line per moment and variant: how many replies `reply` would take, how many carried options and how many
+    options each, and how many marked the one chosen."""
+    out = []
+    for name, m in chosen:
+        for f in files:
+            mine = [r for r in replies if r["moment"] == name and r["variant"] == label[f]]
+            read = []
+            for r in mine:
+                try:
+                    read.append(rpg.parse_reply(r["reply"]))
+                except rpg.Refused:
+                    pass
+            weighed = [x for x in read if x["options"]]
+            out.append("  %s, %s: %d of %d taken; options in %d (%s); one marked chosen in %d" % (
+                name, label[f], len(read), len(mine), len(weighed), ", ".join(str(len(x["options"])) for x in weighed) or "-",
+                sum(1 for x in weighed if sum(o["chosen"] for o in x["options"]) == 1)))
+    return out
+
+
 def cmd_run(args):
     args, variants = take(args, "--variant", many=True)
     args, times = take(args, "--times")
@@ -199,6 +219,7 @@ def cmd_run(args):
     log += [{"kind": "action", "do": r["reply"], "journal": "", "round": 0, "player": r["moment"], "t": when} for r in replies]
     print("== LEAKS IN THE BRIEFS\n%s" % "\n".join(audit.leaks(log) or ["  none"]))
     print("== SIGNS OF CLAUDE CODE'S LINES IN THE REPLIES\n%s" % "\n".join(audit.traces(log)))
+    print("== THE REPLY FORM (as `rpg.py reply` would read it)\n%s" % "\n".join(reply_forms(chosen, files, label, replies)))
     print("BENCH: %d replies, $%.2f; kept in %s" % (len(replies), sum(r["cost"] for r in replies), out.relative_to(ROOT)))
     return 0
 

@@ -4,7 +4,8 @@ Where the build stands, for whoever picks it up next, human or Claude. Read `PLA
 
 ## The tenth session (2026-10-25), as it goes
 - **Step 65, the dashboard for watching (JW asked for it before any more long runs; built first):** the run meter (spend by whom, each round's time, cost, context and refusals, a warning after 5 minutes with nothing logged), what's happening now (who is deciding or being played, the referee's latest commands), and in the feed the townspeople's words, onlookers' notes, coins and orders, the chronicle, world turns, memories, endings and each brief (folded, fetched when opened); a People/Everything switch; click a name for their turns only. Step 52's options go in the slot left for them (`options` on the `action` entry). `PLAN.md` step 65 has the details. No spend.
-- **Next: steps 52 and 53, drafted together for JW** (as below).
+- **Step 52a, options considered (the code; the wording waits):** `reply` keeps an `OPTIONS:` list (chosen one marked `*`, each `(for: …)`) in the `action` entry only, cut at `turns.options_chars`, never refused; the audit's OPTIONS, the dashboard, the bench's REPLY FORM; variants `options-own` and `options-free`. `player.md` changes in 52b, once JW has chosen from the bench.
+- **Next: step 53 (drafted and approved: knows, people, look, pronouns, public knowledge and `rules/people/universe.md`, endings and finished buildings under What I know, quests only once taken on through `quest take | leave`), then the bench (both variants; about $1.80, JW to approve), then 52b.**
 
 ## Where things are (end of the ninth session, 2026-10-25)
 - **The ninth session built steps 45–51 and 55, in the decided order,** a commit each (step 50 in two), with checks before and after; each step's *As built* note in `PLAN.md` (under steps 49, 50, 51 and 55) has the details and JW's answers to its draft.

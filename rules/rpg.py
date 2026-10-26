@@ -3690,18 +3690,31 @@ def text_arg(path, what, limit):
     return text
 
 
-_REPLY = re.compile(r"^\s*(DO|JOURNAL)\s*:\s*", re.M)
+_REPLY = re.compile(r"^\s*(OPTIONS|DO|JOURNAL)\s*:\s*", re.M)
+_OPTION = re.compile(r"^\s*([-*•])\s*(.*?)\s*(?:\(for:\s*(.*?)\s*\))?\s*$")
 
 
 def parse_reply(text):
-    """{"do": ..., "journal": ...} from a player's reply, or Refused."""
+    """{"do": ..., "journal": ..., "options": [...], "options_cut": bool} from a player's reply, or Refused. The
+    options they weighed before choosing (OPTIONS:, one a line, `* ` marking the one chosen, "(for: ...)" what each
+    serves) are kept up to turns.options_chars, then cut: private notes never refuse a reply."""
     parts = _REPLY.split(text)
     found = {}
     for label, body in zip(parts[1::2], parts[2::2]):
-        found[label.lower()] = " ".join(body.split())
+        found[label.lower()] = body if label == "OPTIONS" else " ".join(body.split())
     if not found.get("do"):
         raise Refused("the reply has no DO: line")
-    return {"do": found["do"], "journal": found.get("journal", "")}
+    options, used, cut = [], 0, False
+    for line in (found.get("options") or "").splitlines():
+        m = _OPTION.match(line)
+        if not m or not m.group(2):
+            continue
+        used += len(line.strip())
+        if used > BALANCE["turns"]["options_chars"]:
+            cut = True
+            break
+        options.append({"text": m.group(2), "for": m.group(3), "chosen": m.group(1) == "*"})
+    return {"do": found["do"], "journal": found.get("journal", ""), "options": options, "options_cut": cut}
 
 
 def remember(pl, kind, text, number):
@@ -3762,7 +3775,8 @@ def cmd_reply(args):
     if len(args) < 2:
         raise Refused("usage: reply <player> <file>")
     limits = BALANCE["turns"]
-    reply = parse_reply(text_arg(args[1], "reply", limits["do_chars"] + limits["journal_chars"] + 40))
+    # room for a long list of options too, which parse_reply cuts rather than refuse the reply for
+    reply = parse_reply(text_arg(args[1], "reply", limits["do_chars"] + limits["journal_chars"] + 4 * limits["options_chars"] + 40))
     for k in ("do", "journal"):
         if len(reply[k]) > limits[k + "_chars"]:
             raise Refused("the %s line is at most %d characters" % (k.upper(), limits[k + "_chars"]))
@@ -3771,12 +3785,17 @@ def cmd_reply(args):
     remember(pl, "did", reply["do"], number)
     if reply["journal"]:
         remember(pl, "reasoned", reply["journal"], number)
+    weighed = {"options": reply["options"]} if reply["options"] else {}  # in the log only: never in memory or a brief
+    if reply["options_cut"]:
+        weighed["options_cut"] = True
     log(state, "action", do=reply["do"], journal=reply["journal"], model=model_for(state, args[0]), **exact(exact_model),
-        versions=versions(state, args[0], instructions), **spent(usd))
+        versions=versions(state, args[0], instructions), **weighed, **spent(usd))
     save_state(state)
     print("REPLY from %s (%s): DO: %s" % (pl["name"], pronouns(args[0]), reply["do"]))
     if reply["journal"]:
         print("JOURNAL: %s" % reply["journal"])
+    if reply["options"]:  # what they weighed stays theirs: the turn is run from the DO line alone
+        print("OPTIONS: %d, kept in the log%s" % (len(reply["options"]), " (cut at the limit)" if reply["options_cut"] else ""))
     print("Now run the turn for it with --as %s, then `narrate %s <file>`." % (args[0], args[0]))
 
 

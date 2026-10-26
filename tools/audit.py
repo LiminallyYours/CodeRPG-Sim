@@ -20,6 +20,8 @@ From the run's log (state/log/<run>.jsonl; the active run's by default):
                  and when); for one accepted, whether the coins moved under its id come to nothing either way
     CONTESTS     each grab at what another person held: who grabbed at whom, for what, each one's stat and total, and
                  who ended up with it
+    OPTIONS      each person's options considered (the action entry's `options`): how many replies carried them,
+                 how many options each, what the chosen one was for, and replies with none marked chosen or cut
     ENDINGS      each quest decided, and who heard of it
     VOICES       each call tools/voice.py made to a townsperson's agent or the world agent: the round, whose turn
                  (or no one's), the agent and what for, its model and effort, and whether it was asked again
@@ -70,7 +72,7 @@ def leaks(log):
     return out
 
 
-WROTE = {"action": ("do", "journal"), "memory": ("text",), "speech": ("text",)}  # what the people wrote themselves
+WROTE = {"action": ("do", "journal", "options"), "memory": ("text",), "speech": ("text",)}  # what the people wrote themselves
 
 
 def traces(log):
@@ -82,6 +84,8 @@ def traces(log):
     for e in log:
         for field in WROTE.get(e["kind"], ()):
             text = e.get(field) or ""
+            if field == "options":  # the options they weighed, one a line
+                text = "\n".join("%s (for: %s)" % (o.get("text", ""), o.get("for") or "") for o in text)
             for m in pattern.finditer(text):
                 ctx = text[max(0, m.start() - 60):m.end() + 60].replace("\n", " ")
                 if (e["kind"], field, m.group(0), ctx) in seen:  # a memory may repeat a journal line
@@ -187,6 +191,29 @@ def contests(log):
             out.append("  r%s %s -> %s: %s, %s %d against %s %d: %s" % (
                 e["round"], e["player"], e["against"], e["item"], me["stat"], me["total"], them["stat"], them["total"],
                 "taken" if e["winner"] == e["player"] else "kept (a tie)" if me["total"] == them["total"] else "kept"))
+    return out or ["  none"]
+
+
+def options(log):
+    """Each person's options considered: how many replies carried them and how many options each, the "for" of
+    the one chosen each time, and replies with options but none marked chosen, or cut at the limit."""
+    by = collections.OrderedDict()
+    for e in log:
+        if e["kind"] == "action":
+            by.setdefault(e["player"], []).append(e)
+    out = []
+    for pid, acts in by.items():
+        weighed = [a for a in acts if a.get("options")]
+        if not weighed:
+            continue
+        counts = collections.Counter(len(a["options"]) for a in weighed)
+        out.append("  %s: options in %d of %d replies (%s)" % (pid, len(weighed), len(acts), ", ".join(
+            "%d options %dx" % (n, c) for n, c in sorted(counts.items()))))
+        for a in weighed:
+            chosen = [o for o in a["options"] if o.get("chosen")]
+            line = "    r%s chose: %s" % (a["round"], "; ".join("%s (for: %s)" % (o["text"], o.get("for") or "-") for o in chosen)
+                                          if chosen else "NONE MARKED")
+            out.append(line + ("  <<< cut at the limit" if a.get("options_cut") else ""))
     return out or ["  none"]
 
 
@@ -330,7 +357,7 @@ def main(argv):
     log = read_jsonl(path)
     sections = [("LEAKS", leaks(log) or ["  none"]), ("SIGNS OF CLAUDE CODE'S LINES", traces(log)), ("WITNESSED", witnessed(log)), ("FLAGS", flags(path.stem)),
                 ("CONTINUITY", continuity(log)),
-                ("MEMORY", memory(log)), ("COINS", coins(log)), ("TRADES", trades(log)), ("CONTESTS", contests(log)), ("ENDINGS", endings(log)),
+                ("MEMORY", memory(log)), ("COINS", coins(log)), ("TRADES", trades(log)), ("CONTESTS", contests(log)), ("OPTIONS", options(log)), ("ENDINGS", endings(log)),
                 ("VOICES", voices(log)), ("VERSIONS", versions(log)), ("SPEND", spend(log))]
     if path_t:
         cut, spawns, referee = transcript(path_t, log)

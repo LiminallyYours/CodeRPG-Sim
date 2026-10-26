@@ -955,6 +955,43 @@ class Engine(unittest.TestCase):
         self.assertIn("ENDING TOLD: Marigold Thimble (marigold), ", self.rpg("ending", "proposals/ending.txt", as_=False))
         self.rpg("round", "start")
 
+    def test_the_options_a_person_weighed_go_in_the_log_only_and_are_cut_never_refused(self):
+        self.rpg("game", "switch", "dark_lighthouse")
+        self.rpg("newgame", seed=43)
+        first = self.rpg("round", "start").split(": ", 1)[1].split(", ")[0].split("(")[1].rstrip(")")
+        self.write("proposals/reply.txt", "OPTIONS:\n- Mend the nets with Morwen (for: paying my way)\n"
+                   "* Climb to the lighthouse (for: finding out what's wrong with the lamp)\n- Wait for morning\n"
+                   "DO: I climb to the lighthouse.\nJOURNAL: The lamp matters most tonight.\n")
+        out = self.rpg("reply", first, "proposals/reply.txt")
+        self.assertIn("OPTIONS: 3, kept in the log", out)
+        self.assertNotIn("Mend the nets", out, "the referee runs the turn from the DO line alone")
+        action = [e for e in self.log_of() if e["kind"] == "action"][-1]
+        self.assertEqual(action["options"], [
+            {"text": "Mend the nets with Morwen", "for": "paying my way", "chosen": False},
+            {"text": "Climb to the lighthouse", "for": "finding out what's wrong with the lamp", "chosen": True},
+            {"text": "Wait for morning", "for": None, "chosen": False}])
+        self.assertNotIn("options_cut", action)
+        self.assertEqual((action["do"], action["journal"]), ("I climb to the lighthouse.", "The lamp matters most tonight."))
+        self.rpg("look", as_=first)
+        self.write("proposals/story.txt", "You climb.")
+        self.rpg("narrate", first, "proposals/story.txt")
+        memory = json.dumps(self.save()["players"][first]["memory"])
+        self.assertNotIn("Mend the nets", memory)
+        second = [p for p in self.save()["players"] if p != first][0]
+        self.assertNotIn("Mend the nets", self.rpg("brief", second, as_=False))
+        many = "".join("- Option number %d, said at some length so the list runs long (for: something)\n" % i for i in range(40))
+        self.write("proposals/reply.txt", "OPTIONS:\n%sDO: I look around.\nJOURNAL: Getting my bearings.\n" % many)
+        self.assertIn("(cut at the limit)", self.rpg("reply", second, "proposals/reply.txt"))
+        action = [e for e in self.log_of() if e["kind"] == "action"][-1]
+        self.assertTrue(action["options_cut"])
+        limit = json.loads((self.dir / "rules" / "balance.json").read_text())["turns"]["options_chars"]
+        self.assertLessEqual(sum(len("- %s (for: %s)" % (o["text"], o["for"])) for o in action["options"]), limit)
+        self.assertEqual(action["do"], "I look around.")
+        audit = self.run_py("tools/audit.py", "state/log/%s.jsonl" % self.save()["run"]["id"]).stdout
+        self.assertIn("== OPTIONS\n  %s: options in 1 of 1 replies (3 options 1x)\n    r1 chose: Climb to the lighthouse "
+                      "(for: finding out what's wrong with the lamp)\n  %s: " % (first, second), audit)
+        self.assertIn("r1 chose: NONE MARKED  <<< cut at the limit", audit)
+
     def test_words_said_aloud_reach_the_others_here_on_their_next_turn(self):
         self.rpg("game", "switch", "flooded_station")  # Sol and Ade both start on the Landing
         self.rpg("newgame", seed=44)
@@ -1470,7 +1507,7 @@ class Engine(unittest.TestCase):
             e("round", 2, phase="start", order=["wren", "corin"], draw={}),
             e("brief", 2, "wren", text=brief_text, versions={}),
             e("action", 2, "wren", do="I ask Morwen about the lamp.", journal="To know.", model="sonnet",
-              exact_model="claude-sonnet-5-5", spend=0.01, options=["Ask Morwen (for: knowing)"]),
+              exact_model="claude-sonnet-5-5", spend=0.01, options=[{"text": "Ask Morwen", "for": "knowing", "chosen": True}]),
             cmd(2, "look", [], "LOCATION: The Gull", "wren"),
             e("voice", 2, "wren", agent="npc", about="morwen", model="sonnet", reply="SAY: The lamp burns blue.\nREMEMBER: none", spend=0.02),
             e("speech", 2, "wren", text="About the lamp?", heard_by=["corin"]),
@@ -1497,7 +1534,7 @@ class Engine(unittest.TestCase):
         by_key = {i["key"]: i for i in live["feed"]}
         turn = by_key["2:wren"]
         self.assertEqual((turn["do"], turn["exact_model"], turn["options"], turn["brief_chars"]),
-                         ("I ask Morwen about the lamp.", "claude-sonnet-5-5", ["Ask Morwen (for: knowing)"], len(brief_text)))
+                         ("I ask Morwen about the lamp.", "claude-sonnet-5-5", [{"text": "Ask Morwen", "for": "knowing", "chosen": True}], len(brief_text)))
         self.assertEqual([(v["about"], v["said"]) for v in turn["voices"]], [("Morwen", "The lamp burns blue.")], "a townsperson's SAY: line")
         self.assertEqual(turn["notes"], [{"text": "Wren asked Morwen about the lamp.", "seen_by": ["Corin"]}])
         self.assertEqual(turn["money"], ["-2 coins (order); now 1.", "Order o1: asked Morwen to make something."])
@@ -1923,10 +1960,14 @@ print(json.dumps({"type": "result", "is_error": False, "result": answer, "total_
         self.assertIn("--- plain (instructions ", out)
         self.assertIn("== LEAKS IN THE BRIEFS\n  none", out)
         self.assertIn("'Claude'", out.split("== SIGNS OF CLAUDE CODE'S LINES IN THE REPLIES\n")[1])
+        self.assertIn("== THE REPLY FORM (as `rpg.py reply` would read it)\n", out)
+        self.assertIn("\n  past, today: 2 of 2 taken; options in 0 (-); one marked chosen in 0\n", out)
         kept = json.loads(sorted((self.dir / "bench/results").glob("*.json"))[-1].read_text())
         self.assertEqual((len(kept["replies"]), sorted(kept["variants"]), kept["moments"]["past"]["kind"]), (8, ["plain", "today"], "brief"))
         self.assertEqual(kept["replies"][0]["exact_model"], "claude-test-1")
         self.assertEqual(len(self.log_entries()), entries, "the game's own log is untouched")
+        out = bench("run", "past", "--times", "1", answers=["OPTIONS:\n- Wait (for: rest)\n* Go (for: news)\nDO: I go.\nJOURNAL: x"])[0]
+        self.assertIn("\n  past, today: 1 of 1 taken; options in 1 (2); one marked chosen in 1\n", out)
 
     def voice(self, *args, answers, ok=True):
         return self.ask(*args, answers=answers, ok=ok, tool="tools/voice.py")
