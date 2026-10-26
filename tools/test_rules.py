@@ -2688,6 +2688,90 @@ print(json.dumps({"type": "result", "is_error": False, "result": "Round done.", 
                          "paid_beds: each is", "no place to let called 'coast_road'"):
             self.assertIn(expected, out)
 
+    def projects_world(self):
+        """The needs world with shared work: mending the nets in the harbor square (no check, a meal for it, over if the
+        nets burn), and sweeping the Gull's hall (a check too hard to pass)."""
+        self.needs_world()
+        rooms = self.dir / "games" / "dark_lighthouse" / "rooms"
+        square = rooms / "harbor_square.md"
+        square.write_text(square.read_text().replace("---\n", "---\nproject:\n  id: nets\n  name: mending the nets\n"
+                                                     "  stages: 2: nets_half; 4: nets_mended\n  until: not nets_burned\n  meal: yes\n", 1)
+                          + "\nIf the nets catch fire (`flag set nets_burned`), there's no mending them.\n")
+        gull = rooms / "gull_tavern.md"
+        gull.write_text(gull.read_text().replace("---\n", "---\nproject:\n  id: hall\n  stages: 1: hall_swept\n  stat: wits\n  dc: 30\n", 1))
+        self.rpg("newgame", seed=43)
+
+    def test_shared_work_counts_each_turn_of_effort_and_its_stages_set_their_flags(self):
+        self.projects_world()
+        self.assertIn("CONTENT OK: dark_lighthouse", self.rpg("validate"))
+        self.assertIn("SHARED WORK HERE: mending the nets (nets): 0 done; Wren has given it 0 turns", self.rpg("look", as_="wren"))
+        out = self.round_doing({"wren": [["work"]]})
+        work = [e for e in self.log_entries() if e["kind"] == "command" and e["command"] == "work"][-1]["output"]
+        self.assertIn("EFFORT on mending the nets: Wren has given it 1 turn; 1 done in all", work)
+        self.assertIn("FED: the work there comes with a meal", work)
+        self.assertNotIn("WORK ", work.split("EFFORT")[0], "no check: every turn moves it on")
+        self.assertTrue(self.save()["players"]["wren"]["needs"]["ate"])
+        self.assertIn("ROUND 1 ENDS", out)
+        order = [p.split("(")[1].rstrip(")") for p in self.rpg("round", "start").split(": ", 1)[1].strip().split(", ")]
+        for pid in order:
+            self.write("proposals/reply.txt", "DO: I mend nets.\nJOURNAL: For the town.\n")
+            self.rpg("reply", pid, "proposals/reply.txt")
+            if pid == "wren":
+                self.assertIn("STAGE: mending the nets has come to 2: flag set: nets_half", self.rpg("work", as_="wren"))
+                self.assertIn("already worked here this turn", self.rpg("work", as_="wren", ok=False))
+            self.write("proposals/story.txt", "You mend.")
+            self.rpg("narrate", pid, "proposals/story.txt")
+        self.rpg("round", "end")
+        self.assertIn("nets_half", self.save()["flags"])
+        self.assertIn("most_nets", self.rpg("look", as_="wren"))
+        self.assertNotIn("most_nets", self.rpg("look", as_="corin"))
+        self.rpg("move", "south", as_="corin")
+        for _ in range(2):
+            self.round_doing({"wren": [["work"]], "corin": [["work"]]})
+        self.assertIn("nets_mended", self.save()["flags"])
+        self.round_doing({"corin": [["work"]]})
+        self.round_doing({"corin": [["work"]]})  # Corin has caught up: four turns each
+        self.assertIn("most_nets", self.rpg("look", as_="wren"))
+        self.assertIn("most_nets", self.rpg("look", as_="corin"), "a tie: both of them")
+        self.assertIn("PROJECT nets (mending the nets, at Harbor Square): 8 done; stages 2 nets_half (reached), 4 nets_mended "
+                      "(reached); Wren 4; Corin 4", self.rpg("project", "nets"))
+        self.rpg("flag", "set", "nets_burned", as_="wren")
+        self.assertIn("mending the nets is over", self.rpg("work", as_="wren", ok=False))
+        self.assertEqual([e["stage"] for e in self.log_entries() if e["kind"] == "project"], ["nets_half", "nets_mended"])
+        audit = self.run_py("tools/audit.py", "state/log/%s.jsonl" % self.save()["run"]["id"]).stdout
+        self.assertIn("nets corin: 4 turns, 4 moved it on, 0 paid", audit)
+
+    def test_a_check_on_shared_work_moves_it_on_only_on_success_but_every_try_is_effort_and_paid_work_pays_each_turn(self):
+        self.projects_world()
+        self.round_doing({"corin": [["work"]]})
+        work = [e for e in self.log_entries() if e["kind"] == "command" and e["command"] == "work"][-1]["output"]
+        self.assertIn("WORK wits vs DC 30", work)
+        self.assertIn("-> FAILURE", work)
+        self.assertIn("0 done in all (this one moved nothing on, but it counts as their effort)", work)
+        self.assertNotIn("NOT PAID", work, "there's no pay here to miss")
+        gull = self.dir / "games" / "dark_lighthouse" / "rooms" / "gull_tavern.md"
+        gull.write_text(gull.read_text().replace("project:\n", "work:\n  stat: wits\n  pay: 1\n  dc: 1\nproject:\n", 1))
+        coins = self.save()["players"]["corin"]["stats"]["coins"]
+        for _ in range(2):
+            self.round_doing({"corin": [["work"]]})  # paid work on shared work: every turn, with its own check
+        self.assertEqual(self.save()["players"]["corin"]["stats"]["coins"], coins + 2)
+        self.assertEqual(self.save()["run"]["projects"]["hall"], {"total": 2, "by": {"corin": 3}, "stages": ["hall_swept"]})
+
+    def test_validate_holds_shared_work_to_its_shape(self):
+        self.needs_world()
+        rooms = self.dir / "games" / "dark_lighthouse" / "rooms"
+        for name, spec in (("harbor_square", "project:\n  id: nets\n  stages: half\n  stat: luck\n  dc: lots\n  meal: maybe\n  pay: 2\n"),
+                           ("gull_tavern", "project:\n  id: nets\n  stages: 2: lamp_quest_started\n"), ("coast_road", "project:\n  name: x\n")):
+            path = rooms / ("%s.md" % name)
+            path.write_text(path.read_text().replace("---\n", "---\n" + spec, 1))
+        lighthouse = rooms / "lighthouse.md"
+        lighthouse.write_text(lighthouse.read_text() + "\n## If most_roads\nA road.\n")
+        out = self.rpg("validate", "--game", "dark_lighthouse", ok=False)
+        for expected in ('stages: "<amount>: <flag>; ..."', "stat must be one of", "dc must be a number", "meal must be yes or no",
+                         "pay isn't one of id, name", "project: nets is also the shared work at", "stage flag 'lamp_quest_started' must be a shared flag",
+                         "coast_road.md: project: needs an id", "condition 'most_roads': no shared work called 'roads'"):
+            self.assertIn(expected, out)
+
     def test_a_person_strikes_what_no_longer_holds_from_what_they_learned_on_their_own_turn(self):
         self.rpg("game", "switch", "thirteenth_stroke")
         self.settings_tool("preset", "simulation")

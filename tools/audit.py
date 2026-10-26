@@ -20,6 +20,8 @@ From the run's log (state/log/<run>.jsonl; the active run's by default):
                  the line it struck from their list, or that it matched none
     NEEDS        in a world with needs: each one met (who, round, food eaten or how they slept, and whether by `eat`,
                  `sleep` or the content), and each that came due (hungry, weak, tired, worn out)
+    EFFORT       shared work: per project, each person's turns of it (and how many moved it on), paid or not, and each
+                 stage reached
     PURCHASES    each thing bought (who, from whom, for how much, how many were left) and each place let (taken,
                  renewed, ended)
     COINS        every coin that moved, with its reason
@@ -191,6 +193,21 @@ def needs(log):
         if e["kind"] == "need":
             out.append("  r%s %s %s: %s" % (e["round"], e["player"], e["need"],
                                            "met (%s, by %s)" % (e["met"], e["by"]) if "met" in e else "now " + e.get("now", "?")))
+    return out or ["  none"]
+
+
+def effort(log):
+    turns, moved, paid, out = collections.Counter(), collections.Counter(), collections.Counter(), []
+    pay_rounds = {(e["round"], e["player"]) for e in log if e["kind"] == "coins" and e.get("reason") == "work"}
+    for e in log:
+        if e["kind"] == "effort":
+            key = (e["project"], e["player"])
+            turns[key] += 1
+            moved[key] += 1 if e.get("moved") else 0
+            paid[key] += 1 if (e["round"], e["player"]) in pay_rounds else 0
+        elif e["kind"] == "project":
+            out.append("  r%s %s reached %s at %s" % (e["round"], e["project"], e["stage"], e["total"]))
+    out += ["  %s %s: %d turns, %d moved it on, %d paid" % (k[0], k[1], n, moved[k], paid[k]) for k, n in sorted(turns.items())]
     return out or ["  none"]
 
 
@@ -404,7 +421,7 @@ def main(argv):
     log = read_jsonl(path)
     sections = [("LEAKS", leaks(log) or ["  none"]), ("SIGNS OF CLAUDE CODE'S LINES", traces(log)), ("WITNESSED", witnessed(log)), ("FLAGS", flags(path.stem)),
                 ("CONTINUITY", continuity(log)),
-                ("MEMORY", memory(log)), ("NEEDS", needs(log)), ("PURCHASES", purchases(log)), ("COINS", coins(log)), ("TRADES", trades(log)), ("CONTESTS", contests(log)), ("OPTIONS", options(log)), ("ENDINGS", endings(log)),
+                ("MEMORY", memory(log)), ("NEEDS", needs(log)), ("EFFORT", effort(log)), ("PURCHASES", purchases(log)), ("COINS", coins(log)), ("TRADES", trades(log)), ("CONTESTS", contests(log)), ("OPTIONS", options(log)), ("ENDINGS", endings(log)),
                 ("VOICES", voices(log)), ("VERSIONS", versions(log)), ("SPEND", spend(log))]
     if path_t:
         cut, spawns, referee = transcript(path_t, log)

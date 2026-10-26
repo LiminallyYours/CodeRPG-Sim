@@ -562,6 +562,55 @@ def work_of(room):
     return {"stat": spec.get("stat"), "low": int(low), "high": int(high or low), "dc": resolve_dc(spec.get("dc", "normal"))}
 
 
+_STAGE = re.compile(r"^\s*(\d+)\s*:\s*([a-z][a-z0-9_]*)\s*$")
+
+
+def project_of(room):
+    """A room's shared work (`project:`) as {id, name, stages: [(amount, flag)], until, stat, dc, meal}, or None. Each
+    turn someone works there adds to their own count; the work moves on by a turn, or by a success when it gives a
+    `dc`; each stage's flag is set (shared) when the work reaches its amount; `until:` closes it."""
+    spec = room.get("project")
+    if not isinstance(spec, dict) or not spec.get("id"):
+        return None
+    stages = [(int(m.group(1)), m.group(2)) for m in (_STAGE.match(s) for s in str(spec.get("stages") or "").split(";")) if m]
+    return {"id": str(spec["id"]), "name": spec.get("name") or spec["id"], "stages": sorted(stages), "until": spec.get("until"),
+            "stat": spec.get("stat", "might"),
+            "dc": resolve_dc(spec["dc"]) if str(spec.get("dc")).isdigit() or spec.get("dc") in ("easy", "normal", "hard") else None,
+            "meal": str(spec.get("meal", "no")).lower() == "yes"}
+
+
+def project_rooms():
+    """{project id: room id} for every room with shared work."""
+    return {project_of(content.load("rooms", r))["id"]: r for r in content.ids("rooms") if project_of(content.load("rooms", r))}
+
+
+def project_state(state, ident):
+    return state["run"].setdefault("projects", {}).setdefault(ident, {"total": 0, "by": {}, "stages": []})
+
+
+def most_conditions(state, pid):
+    """most_<project> for each shared work where this person's count is the highest (ties: all of them)."""
+    out = []
+    for ident, rec in state["run"].get("projects", {}).items():
+        top = max(rec["by"].values() or [0])
+        if top and rec["by"].get(pid) == top:
+            out.append("most_" + ident)
+    return out
+
+
+def cmd_project(args):
+    """project <id>: how a shared work stands, for the referee: the total, the stages reached, each person's count."""
+    state = load_state()
+    rooms = project_rooms()
+    if args[0] not in rooms:
+        raise Refused("no shared work called %r (there is: %s)" % (args[0], ", ".join(rooms) or "none"))
+    spec, rec = project_of(ent("rooms", rooms[args[0]])), project_state(state, args[0])
+    print("PROJECT %s (%s, at %s): %d done; stages %s; %s" % (args[0], spec["name"], ent("rooms", rooms[args[0]]).get("name"), rec["total"],
+          ", ".join("%d %s%s" % (n, f, " (reached)" if f in rec["stages"] else "") for n, f in spec["stages"]) or "none",
+          "; ".join("%s %d" % (state["players"][p]["name"] if p in state["players"] else p, n) for p, n in
+                    sorted(rec["by"].items(), key=lambda kv: -kv[1])) or "nobody has helped yet"))
+
+
 ORDER_KINDS = {"craft": ("item", "crafting", "makers"), "build": ("room", "building", "builders")}
 
 
@@ -1042,7 +1091,7 @@ def condition_flags(state):
     if no_one(state):  # a world turn between rounds: the shared story flags alone, and the time
         return list(state["flags"]) + time_conditions(state)
     return (list(state["flags"]) + list(me(state).get("flags", [])) + ["has_" + i for i in me(state)["inventory"]]
-            + ["met_" + c for c in me(state).get("met", [])] + time_conditions(state))
+            + ["met_" + c for c in me(state).get("met", [])] + time_conditions(state) + most_conditions(state, actor_id(state)))
 
 
 def personal_flags():
@@ -1084,7 +1133,7 @@ def quest_view(ident, flags):
             "side": is_generated("quests", ident), "objectives": shown}
 
 
-AUTOMATIC = ("has_", "met_", "time_", "day_", "after_day_")  # condition names the code holds true, never set
+AUTOMATIC = ("has_", "met_", "time_", "day_", "after_day_", "most_")  # condition names the code holds true, never set
 
 
 def has_days():
@@ -2047,6 +2096,12 @@ def cmd_look(args):
         print("WORK HERE: %s vs DC %d, pays %s %s, once per visit%s. If the player works here: `work`." % (
             stat_label(job["stat"]), job["dc"], "%d-%d" % (job["low"], job["high"]) if job["high"] > job["low"] else job["low"],
             currency(), " (done this visit)" if me(state).get("worked") == room["id"] else ""))
+    shared = project_of(room)
+    if shared:  # for the referee: how the shared work stands, and whether this person has helped this turn
+        rec, open_ = project_state(state, shared["id"]), content.condition_holds(shared["until"], condition_flags(state))
+        print("SHARED WORK HERE: %s (%s): %d done%s; %s has given it %d turns%s. If the player works on it: `work` (once a turn)." % (
+            shared["name"], shared["id"], rec["total"], "" if open_ else ", OVER (no more to do)", me(state)["name"],
+            rec["by"].get(actor_id(state), 0), " (done this turn)" if me(state).get("helped") == [room["id"], state["run"].get("round") or state["run"]["moves"]] else ""))
     reach, taken = quests_in_reach(state), me(state).get("taken_on", [])
     if reach:
         print("QUESTS: %s. When the player sets out to work on one, or agrees to a job: `quest take <id>`; when they set "
@@ -2789,27 +2844,63 @@ def cmd_pay(args):
 
 def cmd_work(args):
     """work: the player works where they stand, if the room pays for work: a check against its stat, then coins on
-    a success. Once per visit, whatever the outcome; walking away and coming back is a new visit."""
+    a success. Once per visit, whatever the outcome; walking away and coming back is a new visit. Where the room has
+    shared work (`project:`), once each turn instead, and each turn counts as their effort on it (help_with)."""
     state = load_state()
     require_playing(state)
     room = room_here(state)
-    job = work_of(room)
-    if not job:
-        raise Refused("there's no paid work here")
-    if me(state).get("worked") == room["id"]:
+    job, shared = work_of(room), project_of(room)
+    if shared and not content.condition_holds(shared["until"], condition_flags(state)):
+        if not job:
+            raise Refused("%s is over: there's no more of it to do" % shared["name"])
+        shared = None
+    if not job and not shared:
+        raise Refused("there's no paid work here, nor shared work")
+    if shared:  # shared work: every turn there counts, so a whole day can go to it
+        turn = [room["id"], state["run"].get("round") or state["run"]["moves"]]
+        if me(state).get("helped") == turn:
+            raise Refused("they've already worked here this turn")
+        me(state)["helped"] = turn
+    elif me(state).get("worked") == room["id"]:
         raise Refused("the player has already worked here this visit; there's work again after they leave and come back")
     me(state)["worked"] = room["id"]
-    mod = attempt_mod(state, actor_id(state), job["stat"])
-    ok, nat, total, note = d20_test(mod, job["dc"])
-    print("WORK %s vs DC %d: d20 %d %+d = %d%s -> %s"
-          % (job["stat"], job["dc"], nat, mod, total, note, "SUCCESS" if ok else "FAILURE"))
-    if ok:
+    ok = True
+    test = (job["stat"], job["dc"]) if job else (shared["stat"], shared["dc"]) if shared["dc"] is not None else None
+    if test:
+        mod = attempt_mod(state, actor_id(state), test[0])
+        ok, nat, total, note = d20_test(mod, test[1])
+        print("WORK %s vs DC %d: d20 %d %+d = %d%s -> %s"
+              % (test[0], test[1], nat, mod, total, note, "SUCCESS" if ok else "FAILURE"))
+    if shared:
+        help_with(state, shared, ok)
+    if job and ok:
         pay = job["low"] + dice.roll("1d%d" % (job["high"] - job["low"] + 1))[0] - 1
         change_coins(state, pay, "work", room["id"])
         print("PAID: %d %s for the work. COINS +%d -> %d" % (pay, currency(), pay, me(state)["stats"]["coins"]))
-    else:
-        print("NOT PAID: the work went wrong this time; nothing more here until the next visit.")
+    elif job:
+        print("NOT PAID: the work went wrong this time; %s." % ("there's more to do next turn" if shared else "nothing more here until the next visit"))
     save_state(state)
+
+
+def help_with(state, shared, ok):
+    """A turn of someone's effort on shared work: it counts for them whatever came of it, moves the work on when it
+    went well, sets each stage's flag once the work reaches it, and earns a meal where the work gives one."""
+    pid, rec = actor_id(state), project_state(state, shared["id"])
+    rec["by"][pid] = rec["by"].get(pid, 0) + 1
+    if ok:
+        rec["total"] += 1
+    log(state, "effort", project=shared["id"], moved=ok, total=rec["total"], theirs=rec["by"][pid])
+    print("EFFORT on %s: %s has given it %d turn%s; %d done in all%s" % (shared["name"], me(state)["name"], rec["by"][pid],
+          "" if rec["by"][pid] == 1 else "s", rec["total"], "" if ok else " (this one moved nothing on, but it counts as their effort)"))
+    for amount, flag in shared["stages"]:
+        if rec["total"] >= amount and flag not in rec["stages"]:
+            rec["stages"].append(flag)
+            set_flag(state, flag)
+            log(state, "project", project=shared["id"], stage=flag, total=rec["total"])
+            print("STAGE: %s has come to %d: flag set: %s" % (shared["name"], amount, flag))
+    if shared["meal"] and "food" in world_needs():
+        met(state, "food", shared["id"], "work")
+        print("FED: the work there comes with a meal; they've eaten today.")
 
 
 def cmd_sell(args):
@@ -3463,6 +3554,7 @@ def validate_game(kit=False, sim=False):
     validate_days(w, problems)
     validate_needs(w, problems)
     validate_selling(w, problems)
+    validate_projects(w, problems)
     validate_scenes(problems)
     validate_cast(problems)
     validate_soundness(w, problems)
@@ -3764,6 +3856,8 @@ def settable_flags(w):
     clock = w.get("clock") or {}
     out.update(x for x in (clock.get("flag"), clock.get("also_flag")) if x)
     out.update(ev["sets"] for ev in content.timed(w["body"]) if ev.get("sets"))
+    for r in content.ids("rooms"):  # a shared work's stages
+        out.update(f for _, f in (project_of(content.load("rooms", r)) or {}).get("stages", []))
     for c in content.ids("characters"):
         meta = content.load("characters", c)
         out.update(st["sets"] for st in content.plans(meta["body"]) if st.get("sets"))
@@ -3912,6 +4006,37 @@ def validate_needs(w, problems):
         problems.append("world.md needs: food, but no item is `food: yes`, and nothing says `meet food`")
 
 
+def validate_projects(w, problems):
+    """Rooms' `project:`: an id of its own, stages, a stat, a dc, `until:` and `meal:`."""
+    seen = {}
+    for r in content.ids("rooms"):
+        spec, where = content.load("rooms", r).get("project"), "rooms/%s.md" % r
+        if spec is None:
+            continue
+        if not isinstance(spec, dict) or not re.fullmatch(r"[a-z][a-z0-9_]*", str(spec.get("id", ""))):
+            problems.append("%s: project: needs an id (lowercase letters, digits and _) on an indented line" % where)
+            continue
+        if spec["id"] in seen:
+            problems.append("%s: project: %s is also the shared work at %s" % (where, spec["id"], seen[spec["id"]]))
+        seen[spec["id"]] = r
+        unknown = set(spec) - {"id", "name", "stages", "until", "stat", "dc", "meal"}
+        if unknown:
+            problems.append("%s: project: %s isn't one of id, name, stages, until, stat, dc, meal" % (where, ", ".join(sorted(unknown))))
+        parts = [s for s in str(spec.get("stages") or "").split(";") if s.strip()]
+        if not parts or any(not _STAGE.match(s) for s in parts):
+            problems.append("%s: project: stages: \"<amount>: <flag>; ...\" (got %r)" % (where, spec.get("stages")))
+        for s in parts:
+            m = _STAGE.match(s)
+            if m and (m.group(2).startswith(AUTOMATIC) or m.group(2) in set(options_of(w.get("personal_flags") or []))):
+                problems.append("%s: project: stage flag %r must be a shared flag" % (where, m.group(2)))
+        if spec.get("stat", "might") not in STATS:
+            problems.append("%s: project: stat must be one of %s" % (where, ", ".join(STATS)))
+        if spec.get("dc") is not None and not (str(spec["dc"]).isdigit() or spec["dc"] in ("easy", "normal", "hard")):
+            problems.append("%s: project: dc must be a number or easy, normal, hard" % where)
+        if str(spec.get("meal", "no")).lower() not in ("yes", "no"):
+            problems.append("%s: project: meal must be yes or no" % where)
+
+
 def validate_selling(w, problems):
     """Sellers' `sells:`, rooms' `bed_price:`, `rent:` and `landlord:`."""
     for c in content.ids("characters"):
@@ -3956,6 +4081,9 @@ def validate_soundness(w, problems):
                 elif term.startswith("met_"):
                     if not content.exists("characters", term[4:]):
                         problems.append("%s: condition %r: no character %r" % (where, term, term[4:]))
+                elif term.startswith("most_"):
+                    if term[5:] not in project_rooms():
+                        problems.append("%s: condition %r: no shared work called %r" % (where, term, term[5:]))
                 elif term.startswith(("time_", "day_", "after_day_")):
                     problem = time_condition_problem(w, term)
                     if problem:
@@ -5868,6 +5996,7 @@ COMMANDS = {
     "work": (cmd_work, 0, "work   the player works here for pay, once per visit (a check first)"),
     "buy": (cmd_buy, 1, "buy <item> [<seller>]   buy from a seller here, at their price"),
     "rent": (cmd_rent, 1, "rent <room>   take a place to let from its landlord, who is here"),
+    "project": (cmd_project, 1, "project <id>   how a shared work stands: what's done, its stages, each person's turns of it"),
     "eat": (cmd_eat, 1, "eat <item>   eat something they carry that's food (a world with needs)"),
     "sleep": (cmd_sleep, 0, "sleep   sleep here, at the world's time for sleep, in a bed or rough (a world with needs)"),
     "meet": (cmd_meet, 1, "meet food | meet sleep [bed|rough]   a need met as the content says"),
