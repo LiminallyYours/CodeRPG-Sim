@@ -13,7 +13,7 @@ Dunn is a stooped, leathery man of seventy with a straw hat and a voice like a g
 Slow and gruff, in country words. He calls people by their names once he knows them, and thanks them in a way that sounds almost like a complaint.
 
 ## What he knows
-- Every turn of help with the cutting and stooking brings it closer. Eight good turns of work would see it in.
+- Every spell of help with the cutting and stooking brings it closer. Eight good spells of work would see it in.
 - Rain is coming. He can smell it. Three days, maybe less.
 - He can't pay wages until the barley is sold, but his wife feeds anyone who helps.
 - He sells apples from his tree, a penny each.

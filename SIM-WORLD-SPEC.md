@@ -89,11 +89,11 @@ Written by hand to the outline, re-cut to the bar for now (`PLAN.md`): no new me
 | Days that go on, four times of day, a round each | `world.md` `days: yes`, `settings.json` `rounds.time_every` 1 |
 | Timed events | the false lead (day 1, if the box isn't found), the clouds, the supper (if the harvest is in), the rain (sets `rain_fell`), market day, the bare bread stall (if not) |
 | Food: hunger, weakness, eating | bread (Bet), stew (Tom), apples (Dunn); the harvest's meal; the pots' supper and the harvest supper (`meet food`) |
-| Sleep: a bed, rough, none | the Wheatsheaf and the smithy loft (2 a night), the hayloft (free, rough), the cottage (its tenant) |
+| Sleep: a bed, rough, none | the Wheatsheaf and the smithy loft (2 a night), the hayloft (free, rough), the cottage (its tenant); out of doors (the bank by the bridge, the square, Dunn's fields, Lark Lane) rough too (`PLAN.md` step 68a) |
 | Nights paid ahead | the cast's situations (`paid_beds`) |
 | Buying at set prices, stock | Bet, Tom, Dunn; Ned's ribbon (1 in stock) and lanterns (2) on market days |
 | A place to let (scarce) | the cottage, 8 for 7 days, from Widow Mabry on Lark Lane |
-| Paid work, once a visit | the pots (wits), the bellows (might) |
+| Paid work, once a visit | the pots (wits), the bellows (might), Ida's plain sewing at Fenn's (wits, 1–2; `PLAN.md` step 68a) |
 | Shared work, paid | the bridge: 8 successes in two stages, wages every turn |
 | Shared work, unpaid, a meal, who helped most | the harvest: 8 turns, no work at night, `most_harvest` honoured at the supper |
 | Quests, taken on, endings for everyone | the wage box (completed); the harvest (completed or lost) |

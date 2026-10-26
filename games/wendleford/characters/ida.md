@@ -20,6 +20,7 @@ Precise and a little prim. She calls people by their names, and she can't help c
 Customers who appreciate good work, and someone to sit with her and sew while her eyes go.
 
 ## What she will trade or reveal
+- She pays a penny or two for a spell of plain sewing at her window, hems and seams, if it's neatly done.
 - She makes finery to order: a ribbon rosette, a lace collar, an embroidered kerchief, a velvet band for a hat. She names the price when asked.
 
 ## What she makes

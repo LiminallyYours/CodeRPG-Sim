@@ -7,11 +7,11 @@ objectives:
   - Help bring in Farmer Dunn's barley before the rain. (done when harvest_in)
 ---
 ## Summary
-Farmer Dunn's barley stands ripe on the far bank, and his hired men went home when the bridge went. It needs about eight turns of help, cutting and stooking, before the rain comes on the night of the third day. Nobody is paid, but anyone who helps is fed. If it isn't in, much of it is lost, the mill has nothing to grind, and Bet Lamb's stall has no bread from the fourth day.
+Farmer Dunn's barley stands ripe on the far bank, and his hired men went home when the bridge went. It needs about eight spells of work, cutting and stooking, before the rain comes on the night of the third day. Nobody is paid, but anyone who helps is fed. If it isn't in, much of it is lost, the mill has nothing to grind, and Bet Lamb's stall has no bread from the fourth day.
 
 ## Stages
 1. **Get across.** The ford (a check) or, once it's mended, the new bridge.
-2. **Help.** `work` in Dunn's fields: every turn counts, and each comes with a meal. Halfway sets `harvest_half`; the last sets `harvest_in`.
+2. **Help.** `work` in Dunn's fields: every spell of work counts, and each comes with a meal. Halfway sets `harvest_half`; the last sets `harvest_in`.
 
 ## Endings
 Tell the ending as soon as `harvest_in` or `rain_fell` decides it: what happens now, nothing later.
