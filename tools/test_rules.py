@@ -2457,6 +2457,120 @@ print(json.dumps({"type": "result", "is_error": False, "result": "Round done.", 
         path.write_text(path.read_text().replace("\ntimes:\n", "\ndays: yes\ntimes:\n", 1))
         self.assertIn("days: yes can't go with a clock:", self.rpg("validate", "--game", "thirteenth_stroke", ok=False))
 
+    def needs_world(self):
+        """The days world with needs: food (the honey cake) and sleep at the small hours, beds at the Gull, the
+        harbor square rough."""
+        self.days_world()
+        games = self.dir / "games" / "dark_lighthouse"
+        world = games / "world.md"
+        world.write_text(world.read_text().replace("days: yes\n", "days: yes\nneeds: food, sleep\nsleep_at: the small hours\n", 1))
+        for path, line in ((games / "rooms" / "gull_tavern.md", "sleep: bed"), (games / "rooms" / "harbor_square.md", "sleep: rough"),
+                           (games / "items" / "honey_cake.md", "food: yes")):
+            path.write_text(path.read_text().replace("---\n", "---\n%s\n" % line, 1))
+
+    def round_doing(self, doing=None):
+        """A round in which each person named runs the given commands (each a list of arguments) on their turn."""
+        for pid in [p.split("(")[1].rstrip(")") for p in self.rpg("round", "start").split(": ", 1)[1].strip().split(", ")]:
+            self.write("proposals/reply.txt", "DO: I look around.\nJOURNAL: Getting my bearings.\n")
+            self.rpg("reply", pid, "proposals/reply.txt")
+            for command in (doing or {}).get(pid, ()):
+                self.rpg(*command, as_=pid)
+            self.write("proposals/story.txt", "You look around.")
+            self.rpg("narrate", pid, "proposals/story.txt")
+        return self.rpg("round", "end")
+
+    def test_hunger_comes_with_each_day_unfed_and_eating_ends_it(self):
+        self.needs_world()
+        self.assertIn("CONTENT OK: dark_lighthouse", self.rpg("validate"))
+        self.rpg("newgame", seed=43)
+        pane = self.rpg("pane", "corin")
+        self.assertIn("## What you're working on\nWhat you need: You haven't eaten yet today. You slept well last night.", pane)
+        for _ in range(3):
+            self.round_doing()
+        end = self.round_doing()  # the small hours give way to dusk on day 2: a day gone by unfed, a night unslept
+        self.assertIn("NEED: Corin (corin) is hungry now", end)
+        self.assertIn("NEED: Corin (corin) is tired now", end)
+        self.assertIn("What you need: You're hungry: you went all yesterday without food. You're tired: you didn't sleep properly "
+                      "last night.", self.rpg("pane", "corin"))
+        self.assertIn("vs DC 10: d20 ", self.rpg("check", "wits", "10", as_="corin"))
+        self.assertIn(" +1 = ", self.rpg("check", "wits", "10", as_="corin"), "Wits 2, less 1 for being tired")
+        for _ in range(4):
+            end = self.round_doing()
+        self.assertIn("NEED: Corin (corin) is weak now", end)
+        self.assertIn("NEED: Corin (corin) is exhausted now", end)
+        pane = self.rpg("pane", "corin")
+        self.assertIn("You're weak with hunger: it's days since you ate. You're worn out: night after night without sleep.", pane)
+        self.assertIn(" -1, ", pane.split("## You\n")[1].split("\n")[0], "weak: Might shown one less")
+        self.assertIn(" -3 = ", self.rpg("check", "might", "10", as_="corin"), "Might 0, weak -1, worn out -2")
+        self.assertIn("NEEDS: food: weak; sleep: exhausted", self.rpg("look", as_="corin"))
+        self.rpg("gain", "honey_cake", as_="corin")
+        self.assertIn("FOOD CARRIED: honey_cake", self.rpg("look", as_="corin"))
+        self.assertIn("isn't food", self.rpg("eat", "healing_tonic", as_="corin", ok=False))
+        self.assertIn("ATE: Honey Cake.", self.rpg("eat", "honey_cake", as_="corin"))
+        self.assertNotIn("honey_cake", self.save()["players"]["corin"]["inventory"])
+        self.assertIn("What you need: You've eaten today.", self.rpg("pane", "corin"))
+        self.assertIn(" -2 = ", self.rpg("check", "might", "10", as_="corin"), "fed: only worn out now")
+        needs = [(e["player"], e["need"], e.get("now") or e.get("met")) for e in self.log_entries() if e["kind"] == "need"]
+        self.assertIn(("corin", "food", "honey_cake"), needs)
+        self.assertIn("corin food: met (honey_cake, by eat)", self.run_py("tools/audit.py", "state/log/%s.jsonl" % self.save()["run"]["id"]).stdout)
+
+    def test_sleep_is_chosen_at_its_time_in_a_bed_or_rough_and_a_rough_night_spares_the_worst(self):
+        self.needs_world()
+        self.rpg("newgame", seed=43)
+        self.rpg("move", "east", as_="wren")  # the coast road: nowhere to sleep
+        self.assertIn("isn't the time for sleep (that's the small hours); it's dusk", self.rpg("sleep", as_="corin", ok=False))
+        for _ in range(3):
+            self.round_doing()
+        self.assertIn("IT'S THE TIME FOR SLEEP", self.rpg("look", as_="corin"))
+        self.assertIn("nowhere to sleep here", self.rpg("sleep", as_="wren", ok=False))
+        self.rpg("move", "west", as_="wren")
+        self.assertIn("It's the time for sleep, if you mean to.", self.rpg("pane", "corin"))
+        end = self.round_doing({"corin": [["sleep"]], "wren": [["sleep"]]})  # Corin in a bed at the Gull, Wren rough in the square
+        self.assertIn("NEED: Wren (wren) is tired now", end)
+        self.assertNotIn("Corin (corin) is tired", end, "a night in a bed: rested")
+        self.assertEqual([self.save()["players"][p]["needs"]["sleep"] for p in ("corin", "wren")], ["rested", "tired"])
+        for _ in range(3):
+            self.round_doing()
+        self.round_doing({"wren": [["sleep"]]})  # rough again; Corin sits up all night
+        self.assertEqual([self.save()["players"][p]["needs"]["sleep"] for p in ("corin", "wren")], ["tired", "tired"])
+        for _ in range(3):
+            self.round_doing()
+        self.round_doing()  # a second night without sleep for Corin; Wren's first
+        self.assertEqual([self.save()["players"][p]["needs"]["sleep"] for p in ("corin", "wren")], ["exhausted", "tired"])
+        self.assertIn("You're worn out: night after night without sleep.", self.rpg("pane", "corin"))
+        for _ in range(3):
+            self.round_doing()
+        self.round_doing({"corin": [["sleep"]]})
+        self.assertEqual(self.save()["players"]["corin"]["needs"]["sleep"], "rested", "a night in a bed puts it right")
+
+    def test_content_can_meet_a_need_and_validate_holds_needs_to_what_meets_them(self):
+        self.needs_world()
+        self.rpg("newgame", seed=43)
+        self.assertIn("MET: food (content)", self.rpg("meet", "food", as_="wren"))
+        self.assertEqual(self.save()["players"]["wren"]["needs"]["ate"], True)
+        self.assertIn("isn't the time for sleep", self.rpg("meet", "sleep", as_="wren", ok=False))
+        self.assertIn("NEEDS: on (food, sleep); wants shown", self.rpg("settings"))
+        self.settings_tool("set", "needs.on", "false")
+        self.assertIn("nobody here needs to eat", self.rpg("eat", "honey_cake", as_="corin", ok=False))
+        self.assertNotIn("What you need", self.rpg("pane", "corin"))
+        self.assertNotIn("NEEDS:", self.rpg("look", as_="corin"))
+        self.settings_tool("set", "needs.on", "true")
+        games = self.dir / "games" / "dark_lighthouse"
+        world = games / "world.md"
+        world.write_text(world.read_text().replace("needs: food, sleep\nsleep_at: the small hours\n", "needs: food, sleep, warmth\n"))
+        for path, old, new in ((games / "rooms" / "gull_tavern.md", "sleep: bed", "sleep: soft"), (games / "rooms" / "harbor_square.md", "sleep: rough\n", ""),
+                               (games / "items" / "honey_cake.md", "food: yes", "food: maybe")):
+            path.write_text(path.read_text().replace(old, new))
+        room = games / "rooms" / "coast_road.md"
+        room.write_text(room.read_text() + "\nA bench here (`meet sleep soft`).\n")
+        out = self.rpg("validate", "--game", "dark_lighthouse", ok=False)
+        for expected in ("needs: 'warmth' isn't a need the kit knows", "rooms/gull_tavern.md: sleep: must be bed or rough",
+                         "items/honey_cake.md: food: must be yes or no", "needs `sleep_at:`, one of its times of day",
+                         "no item is `food: yes`, and nothing says `meet food`", "use meet food, or meet sleep [bed|rough]"):
+            self.assertIn(expected, out)
+        world.write_text(world.read_text().replace("days: yes", "days: no"))
+        self.assertIn("needs: need `days: yes`", self.rpg("validate", "--game", "dark_lighthouse", ok=False))
+
     def test_a_person_strikes_what_no_longer_holds_from_what_they_learned_on_their_own_turn(self):
         self.rpg("game", "switch", "thirteenth_stroke")
         self.settings_tool("preset", "simulation")
@@ -2716,7 +2830,8 @@ print(json.dumps({"type": "result", "is_error": False, "result": "Round done.", 
         marigold = self.rpg("brief", "marigold", as_=False)
         self.assertIn("I'm Marigold Thimble (she/her).", marigold)
         self.assertNotIn("## What I know", marigold, "no facts of her own yet, and nothing settled")
-        self.assertNotIn("## What you're working on", marigold, "the town's problem is known, but not hers until she takes it on")
+        self.assertIn("## What you're working on\nWhat you want: I want to be admired; I love fine things.\n\n", marigold, "her wants beside")
+        self.assertNotIn("What you've taken on", marigold, "the town's problem is known, but not hers until she takes it on")
         # what others see of him, for the referee and the townspeople alike (Pip, in the square, has an agent's voice)
         self.rpg("move", "south", as_="hobb")  # the Tock Tower to the square, where Marigold is
         self.assertIn("Hobb Ashcombe (hobb, he/him; a big, slow, soot-grimed man in a coal-black coat; carrying", self.rpg("look", as_="marigold"))
@@ -2726,10 +2841,17 @@ print(json.dumps({"type": "result", "is_error": False, "result": "Round done.", 
         self.assertIn("QUESTS: Before the Thirteenth Stroke (thirteenth_stroke): not taken on.", look)
         self.assertIn("TAKEN ON: Before the Thirteenth Stroke", self.rpg("quest", "take", "thirteenth_stroke", as_="marigold"))
         self.assertIn("already taken on", self.rpg("quest", "take", "thirteenth_stroke", as_="marigold", ok=False))
-        self.assertIn("## What you're working on\nBefore the Thirteenth Stroke: ", self.rpg("pane", "marigold"))
-        self.assertNotIn("## What you're working on", self.rpg("pane", "hobb"), "hers, not his")
+        self.assertIn("## What you're working on\nWhat you want: I want to be admired; I love fine things.\nWhat you've taken on:\n"
+                      "- Before the Thirteenth Stroke: ", self.rpg("pane", "marigold"))
+        self.assertNotIn("What you've taken on", self.rpg("pane", "hobb"), "hers, not his")
         self.assertIn("SET ASIDE", self.rpg("quest", "leave", "thirteenth_stroke", as_="marigold"))
+        self.assertNotIn("What you've taken on", self.rpg("pane", "marigold"))
+        self.settings_tool("set", "brief.wants", "false")  # wants not shown: what they've taken on alone, as before
+        self.rpg("quest", "take", "thirteenth_stroke", as_="marigold")
+        self.assertIn("## What you're working on\nBefore the Thirteenth Stroke: ", self.rpg("pane", "marigold"))
+        self.rpg("quest", "leave", "thirteenth_stroke", as_="marigold")
         self.assertNotIn("## What you're working on", self.rpg("pane", "marigold"))
+        self.settings_tool("set", "brief.wants", "true")
         self.assertIn("no quest 'nope'", self.rpg("quest", "take", "nope", as_="marigold", ok=False))
         # an ending: everyone keeps what the town saw of it, the one who brought it about too, and it never fades
         order = [p.split("(")[1].rstrip(")") for p in self.rpg("round", "start").split(": ", 1)[1].strip().split(", ")]

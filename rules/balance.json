@@ -123,5 +123,13 @@
   },
   "trades": {
     "offer_rounds": 2
+  },
+  "needs": {
+    "hungry_after_days": 1,
+    "weak_after_days": 2,
+    "weak_might": -1,
+    "tired_checks": -1,
+    "exhausted_after_nights": 2,
+    "exhausted_checks": -1
   }
 }

@@ -18,6 +18,8 @@ From the run's log (state/log/<run>.jsonl; the active run's by default):
                  list of what they've learned as it stood after (left as it was, or cut at the limit, flagged); a
                  stretch stored twice is flagged; and each line a person said no longer holds (NO LONGER:), with
                  the line it struck from their list, or that it matched none
+    NEEDS        in a world with needs: each one met (who, round, food eaten or how they slept, and whether by `eat`,
+                 `sleep` or the content), and each that came due (hungry, weak, tired, worn out)
     COINS        every coin that moved, with its reason
     TRADES       each offer between people: who to whom, the terms, and how it ended (accepted, declined or lapsed,
                  and when); for one accepted, whether the coins moved under its id come to nothing either way
@@ -178,6 +180,15 @@ def memory(log):
             for x in e.get("no_longer") or []:
                 out.append("  r%s %s no longer: %r -> %s" % (e["round"], e["player"], x["said"],
                                                             "struck %r" % x["struck"] if x["struck"] else "matched nothing on their list"))
+    return out or ["  none"]
+
+
+def needs(log):
+    out = []
+    for e in log:
+        if e["kind"] == "need":
+            out.append("  r%s %s %s: %s" % (e["round"], e["player"], e["need"],
+                                           "met (%s, by %s)" % (e["met"], e["by"]) if "met" in e else "now " + e.get("now", "?")))
     return out or ["  none"]
 
 
@@ -379,7 +390,7 @@ def main(argv):
     log = read_jsonl(path)
     sections = [("LEAKS", leaks(log) or ["  none"]), ("SIGNS OF CLAUDE CODE'S LINES", traces(log)), ("WITNESSED", witnessed(log)), ("FLAGS", flags(path.stem)),
                 ("CONTINUITY", continuity(log)),
-                ("MEMORY", memory(log)), ("COINS", coins(log)), ("TRADES", trades(log)), ("CONTESTS", contests(log)), ("OPTIONS", options(log)), ("ENDINGS", endings(log)),
+                ("MEMORY", memory(log)), ("NEEDS", needs(log)), ("COINS", coins(log)), ("TRADES", trades(log)), ("CONTESTS", contests(log)), ("OPTIONS", options(log)), ("ENDINGS", endings(log)),
                 ("VOICES", voices(log)), ("VERSIONS", versions(log)), ("SPEND", spend(log))]
     if path_t:
         cut, spawns, referee = transcript(path_t, log)

@@ -68,10 +68,14 @@
       "model": "sonnet"
     },
     "brief": {
-      "dice_lines": false
+      "dice_lines": false,
+      "wants": true
     },
     "dashboard": {
       "port": 8765
+    },
+    "needs": {
+      "on": true
     }
   },
   "normal": {
@@ -143,10 +147,14 @@
       "model": "sonnet"
     },
     "brief": {
-      "dice_lines": false
+      "dice_lines": false,
+      "wants": true
     },
     "dashboard": {
       "port": 8765
+    },
+    "needs": {
+      "on": true
     }
   },
   "rich": {
@@ -218,10 +226,14 @@
       "model": "sonnet"
     },
     "brief": {
-      "dice_lines": false
+      "dice_lines": false,
+      "wants": true
     },
     "dashboard": {
       "port": 8765
+    },
+    "needs": {
+      "on": true
     }
   },
   "simulation": {
@@ -293,10 +305,14 @@
       "model": "sonnet"
     },
     "brief": {
-      "dice_lines": false
+      "dice_lines": false,
+      "wants": true
     },
     "dashboard": {
       "port": 8765
+    },
+    "needs": {
+      "on": true
     }
   }
 }

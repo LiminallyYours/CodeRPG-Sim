@@ -1209,7 +1209,7 @@ def carried_weight(state):
 
 
 def carry_limit(state):
-    return BALANCE["carry_base"] + BALANCE["carry_per_might"] * me(state)["stats"]["might"]
+    return BALANCE["carry_base"] + BALANCE["carry_per_might"] * stat(state, actor_id(state), "might")
 
 
 def check_carry(state, ident):
@@ -1266,7 +1266,7 @@ def currency():
 
 
 def player_defense(state):
-    return BALANCE["player_defense_base"] + me(state)["stats"]["agility"]
+    return BALANCE["player_defense_base"] + stat(state, actor_id(state), "agility")
 
 
 def set_flag(state, name):
@@ -1445,7 +1445,10 @@ def tick_move(state):
     """Each tick passes time: the clock runs down and, every few ticks, the world takes a turn. A tick is a move,
     or a round when the owner's `rounds.clock` says so; `run.moves` counts them."""
     run, out = state["run"], []
+    before = time_steps(state)
     run["moves"] += 1
+    if time_steps(state) != before:  # a time of day has gone by: a night slept or not, a day eaten in or not
+        out += needs_tick(state, before)
     clock = run.get("clock")
     if clock and clock["left"] > 0:
         clock["left"] -= 1
@@ -1469,6 +1472,177 @@ def tick_move(state):
     if turns["on"] and run["moves"] % max(1, int(turns["every_moves"])) == 0 and can_pay("world_turn"):
         run["world_turn_due"] = True
         out.append("WORLD TURN DUE: run `tools/voice.py world turn`, then `world-turn` on what it saved (see gm-turn)")
+    return out
+
+
+NEEDS = ("food", "sleep")
+SLEEP_PLACES = ("bed", "rough")
+
+
+def world_needs():
+    """The needs people have in this world (world.md `needs:`), when the owner's `needs.on` allows: only in a world
+    with days, since food is daily and sleep nightly."""
+    if not SETTINGS["needs"]["on"] or not has_days():
+        return []
+    return [n for n in options_of(world().get("needs") or []) if n in NEEDS]
+
+
+def needs_of(pl):
+    """A person's needs as they stand: `ate` (today), `unfed` (whole days gone by without food), `slept` (how, this
+    night: bed, rough or None), `sleep` (rested, tired or exhausted) and `sleepless` (nights in a row without any)."""
+    return pl.setdefault("needs", {"ate": False, "unfed": 0, "slept": None, "sleep": "rested", "sleepless": 0})
+
+
+def food_state(pl):
+    """fed, due (not yet today), hungry or weak."""
+    n, b = needs_of(pl), BALANCE["needs"]
+    if n["unfed"] >= b["weak_after_days"]:
+        return "weak"
+    if n["unfed"] >= b["hungry_after_days"]:
+        return "hungry"
+    return "fed" if n["ate"] else "due"
+
+
+def stat(state, pid, k):
+    """A person's attribute as it stands: weak from hunger takes from their Might (balance.json needs.weak_might)."""
+    pl = state["players"][pid]
+    weak = "food" in world_needs() and k == "might" and food_state(pl) == "weak"
+    return pl["stats"][k] + (BALANCE["needs"]["weak_might"] if weak else 0)
+
+
+def attempt_mod(state, pid, k):
+    """What a person adds to a d20 for an attempt with an attribute: the attribute as it stands, and less when tired
+    (needs.tired_checks) or worn out (needs.exhausted_checks as well): everything is harder."""
+    mod = stat(state, pid, k)
+    if "sleep" in world_needs():
+        sleep, b = needs_of(state["players"][pid])["sleep"], BALANCE["needs"]
+        mod += {"tired": b["tired_checks"], "exhausted": b["tired_checks"] + b["exhausted_checks"]}.get(sleep, 0)
+    return mod
+
+
+def needs_tick(state, before):
+    """A time of day has gone by. When it was the world's time for sleep (world.md `sleep_at:`), each person slept in
+    a bed (rested), rough (tired, but spared worse) or not at all (tired, and worn out after needs.exhausted_after_nights
+    such nights in a row); when a new day begins, each who didn't eat the day before goes a day further unfed."""
+    needs, out = world_needs(), []
+    if not needs:
+        return out
+    times = world()["times"]  # a world with needs has days, so it has times of day (validate)
+    was, b = times[before % len(times)], BALANCE["needs"]
+    for pid, pl in state["players"].items():
+        if pl["status"] != "playing":
+            continue
+        n, changed = needs_of(pl), []
+        if "sleep" in needs and was == world().get("sleep_at"):
+            old = n["sleep"]
+            n["sleepless"] = 0 if n["slept"] else n["sleepless"] + 1
+            n["sleep"] = "rested" if n["slept"] == "bed" else "exhausted" if n["sleepless"] >= b["exhausted_after_nights"] else "tired"
+            n["slept"] = None
+            if n["sleep"] != old:
+                changed.append(("sleep", n["sleep"]))
+        if "food" in needs and time_steps(state) % len(times) == 0:  # a new day
+            old = food_state(pl)
+            n["unfed"] = 0 if n["ate"] else n["unfed"] + 1
+            n["ate"] = False
+            if food_state(pl) != old and food_state(pl) in ("hungry", "weak"):
+                changed.append(("food", food_state(pl)))
+        for need, now in changed:
+            with acting(pid):
+                log(state, "need", need=need, now=now)
+            out.append("NEED: %s (%s) is %s now" % (pl["name"], pid, now))
+    return out
+
+
+def met(state, need, how, by):
+    """`need` met for the acting person: food eaten (how: what), sleep had (how: bed or rough), by `eat`, `sleep` or
+    the content (`meet`)."""
+    n = needs_of(me(state))
+    if need == "food":
+        n["ate"], n["unfed"] = True, 0  # fed: hunger and weakness end at once
+    else:
+        n["slept"] = how
+    log(state, "need", need=need, met=how, by=by)
+
+
+def require_need(need):
+    if need not in world_needs():
+        raise Refused("nobody here needs %s: this world has no such need, or needs are off (needs.on)" % (
+            "to eat" if need == "food" else "to sleep"))
+
+
+def require_sleep_time(state):
+    if time_of_day(state) != world().get("sleep_at"):
+        raise Refused("it isn't the time for sleep (that's %s); it's %s" % (world().get("sleep_at"), time_of_day(state)))
+    if needs_of(me(state))["slept"]:
+        raise Refused("they've already slept this night (%s)" % needs_of(me(state))["slept"])
+
+
+def cmd_eat(args):
+    """eat <item>: the person eats something they carry that's food (`food: yes`): it's gone, and they're fed."""
+    state = load_state()
+    require_playing(state)
+    require_need("food")
+    ident = args[0]
+    if ident not in me(state)["inventory"]:
+        raise Refused("they aren't carrying %s" % ident)
+    if str(item(ident).get("food", "no")).lower() != "yes":
+        raise Refused("%s isn't food" % item(ident).get("name", ident))
+    remove_from_inventory(state, ident)
+    log_use(state, ident, "eaten")
+    met(state, "food", ident, "eat")
+    save_state(state)
+    print("ATE: %s. They're fed: hunger and weakness end now; they need food again tomorrow." % item(ident).get("name", ident))
+
+
+def cmd_sleep(args):
+    """sleep: the person sleeps where they are, at the world's time for sleep, in a place for it (a room's `sleep:`
+    bed, or rough). Logged; how they slept shows once the night has gone by."""
+    state = load_state()
+    require_playing(state)
+    require_need("sleep")
+    require_sleep_time(state)
+    place = str(room_here(state).get("sleep") or "").lower()
+    if place not in SLEEP_PLACES:
+        raise Refused("there's nowhere to sleep here (%s); somewhere with a bed, or rough" % room_here(state).get("name", ""))
+    met(state, "sleep", place, "sleep")
+    save_state(state)
+    print("SLEPT: %s, %s. When the night has gone by they'll be %s." % (
+        room_here(state).get("name", ""), "in a bed" if place == "bed" else "rough", "rested" if place == "bed" else "tired, though spared worse"))
+
+
+def cmd_meet(args):
+    """meet food | meet sleep [bed|rough]: a need met as the content says (a supper at the inn, a meal for a day's
+    help), for what `eat` and `sleep` don't cover. Run only when the content says so, as with flags."""
+    state = load_state()
+    require_playing(state)
+    need = args[0]
+    if need not in NEEDS:
+        raise Refused("meet food | meet sleep [bed|rough]")
+    require_need(need)
+    if need == "sleep":
+        how = args[1] if len(args) > 1 else "bed"
+        if how not in SLEEP_PLACES:
+            raise Refused("sleep is bed or rough")
+        require_sleep_time(state)
+    else:
+        how = "content"
+    met(state, need, how, "content")
+    save_state(state)
+    print("MET: %s (%s), as the content says." % (need, how))
+
+
+def needs_words(state, pid):
+    """Where a person's needs stand, in words (brief.md), never numbers: what they read under What you're working on."""
+    pl, needs, out = state["players"][pid], world_needs(), []
+    if "food" in needs:
+        out.append(phrase("food_" + food_state(pl)))
+    if "sleep" in needs:
+        n = needs_of(pl)
+        if n["slept"]:
+            out.append(phrase("sleep_slept"))
+        elif time_of_day(state) == world().get("sleep_at"):
+            out.append(phrase("sleep_time"))
+        out.append(phrase("sleep_" + n["sleep"]))
     return out
 
 
@@ -1674,7 +1848,7 @@ def cmd_look(args):
     room = room_here(state)
     flags = condition_flags(state)
     print("STATUS: %s | %s | %s | %s %d" % (me(state)["status"], hp_line(state), " ".join(
-        "%s %+d" % (stat_label(k), me(state)["stats"][k]) for k in STATS), currency().capitalize(), me(state)["stats"]["coins"]))
+        "%s %+d" % (stat_label(k), stat(state, actor_id(state), k)) for k in STATS), currency().capitalize(), me(state)["stats"]["coins"]))
     print("LOCATION: %s (%s)%s" % (room.get("name", room["id"]), room["id"], " [generated]" if room.get("generated") else ""))
     texture = [x for x in (when_text(state), run.get("weather")) if x]
     if texture:
@@ -1794,6 +1968,15 @@ def cmd_look(args):
     # Last, so a move or a look is one command: the room as it reads now (the `## If` sections that hold), as
     # `show rooms` prints its body. Nothing between these two lines is a status line; the end line lets the mod
     # tell a command chained after this one from the prose.
+    if world_needs():  # for the referee: where this person's needs stand, and what here meets them
+        n, place = needs_of(me(state)), room_here(state).get("sleep")
+        food = [i for i in me(state)["inventory"] if str(item(i).get("food", "no")).lower() == "yes"]
+        print("NEEDS: %s%s%s%s" % ("; ".join(x for x in (
+            "food: %s" % food_state(me(state)) if "food" in world_needs() else "",
+            "sleep: %s%s" % (n["sleep"], ", slept this night (%s)" % n["slept"] if n["slept"] else "") if "sleep" in world_needs() else "") if x),
+            "; FOOD CARRIED: %s (`eat <item>`)" % ", ".join(food) if food else "",
+            "; SLEEP HERE: %s (`sleep`, at %s)" % (place, world().get("sleep_at")) if place and "sleep" in world_needs() else "",
+            "; IT'S THE TIME FOR SLEEP" if time_of_day(state) == world().get("sleep_at") else ""))
     print("ROOM TEXT:")
     print(room_text(state, room))
     print("END OF ROOM TEXT")
@@ -1955,7 +2138,7 @@ def cmd_check(args):
     stat, dc = args[0].lower(), resolve_dc(args[1])
     if stat not in STATS:
         raise Refused("stat must be one of %s" % ", ".join(STATS))
-    mod = me(state)["stats"][stat]
+    mod = attempt_mod(state, actor_id(state), stat)  # tired or weak: it shows here, never in the story's numbers
     ok, nat, total, note = d20_test(mod, dc)
     save_state(state)  # the run's dice stream has moved on
     print("CHECK %s vs DC %d: d20 %d %+d = %d%s -> %s"
@@ -1981,7 +2164,7 @@ def cmd_attack(args):
     if weapon:
         log_use(state, weapon, "fought with")
     dmg_spec = item(weapon)["damage"] if weapon else BALANCE["unarmed_damage"]
-    mod = me(state)["stats"]["might"]
+    mod = attempt_mod(state, actor_id(state), "might")
     ok, nat, total, note = d20_test(mod, int(foe["defense"]))
     out.append("PLAYER ATTACKS %s with %s: d20 %d %+d = %d vs defense %s%s -> %s"
                % (target, weapon or "bare hands", nat, mod, total, foe["defense"], note, "HIT" if ok else "MISS"))
@@ -2460,7 +2643,7 @@ def cmd_work(args):
     if me(state).get("worked") == room["id"]:
         raise Refused("the player has already worked here this visit; there's work again after they leave and come back")
     me(state)["worked"] = room["id"]
-    mod = me(state)["stats"][job["stat"]]
+    mod = attempt_mod(state, actor_id(state), job["stat"])
     ok, nat, total, note = d20_test(mod, job["dc"])
     print("WORK %s vs DC %d: d20 %d %+d = %d%s -> %s"
           % (job["stat"], job["dc"], nat, mod, total, note, "SUCCESS" if ok else "FAILURE"))
@@ -3122,6 +3305,7 @@ def validate_game(kit=False, sim=False):
                 problems.append("%s: nothing in the game sets %r, so the curse can't be cured" % (where, term))
     validate_plans(w, flag_text, problems)
     validate_days(w, problems)
+    validate_needs(w, problems)
     validate_scenes(problems)
     validate_cast(problems)
     validate_soundness(w, problems)
@@ -3395,7 +3579,7 @@ def validate_scenes(problems):
 
 _HEADING_IF = re.compile(r"^#{2,6}\s+If\s+(.+?)\s*$", re.M)
 _CODE = re.compile(r"`([^`\n]+)`")
-ITEM_COMMANDS = ("take", "drop", "gain", "lose", "equip", "use", "sell")
+ITEM_COMMANDS = ("take", "drop", "gain", "lose", "equip", "use", "sell", "eat")
 
 
 def content_files(w):
@@ -3484,6 +3668,8 @@ def command_problem(words):
     if cmd == "scene" and (args[0] not in ("start", "end") or not content.exists("scenes", args[1])
                            or args[2:] not in ([], ["reward"])):
         return "use scene start|end <scene> [reward], naming a scene the game has"
+    if cmd == "meet" and (args[0] not in NEEDS or args[1:] not in ([], ["bed"], ["rough"]) or args[0] == "food" and args[1:]):
+        return "use meet food, or meet sleep [bed|rough]"
     if cmd == "show" and args[0] != "world" and (args[0] not in content.KINDS or len(args) < 2
                                                  or not content.exists(args[0], args[1])):
         return "use show <kind> <id>, naming something the game has, or show world"
@@ -3535,6 +3721,32 @@ def validate_days(w, problems):
         flag = ev.get("sets")
         if flag and (not re.fullmatch(r"[a-z][a-z0-9_]*", flag) or flag.startswith(AUTOMATIC) or flag in personal):
             problems.append("%s: sets: %r must be a shared flag name (not automatic, not one of personal_flags)" % (where, flag))
+
+
+def validate_needs(w, problems):
+    """world.md `needs:` and what meets them: `sleep_at:`, places to sleep (a room's `sleep:`), food (`food: yes`)."""
+    needs = options_of(w.get("needs") or [])
+    for n in needs:
+        if n not in NEEDS:
+            problems.append("world.md needs: %r isn't a need the kit knows (%s)" % (n, ", ".join(NEEDS)))
+    if needs and str(w.get("days", "no")).lower() != "yes":
+        problems.append("world.md needs: need `days: yes` (food is daily, sleep nightly)")
+    beds = [r for r in content.ids("rooms") if content.load("rooms", r).get("sleep") is not None]
+    for r in beds:
+        if str(content.load("rooms", r)["sleep"]).lower() not in SLEEP_PLACES:
+            problems.append("rooms/%s.md: sleep: must be bed or rough" % r)
+    food = [i for i in content.ids("items") if str(content.load("items", i).get("food", "no")).lower() == "yes"]
+    for i in content.ids("items"):
+        if str(content.load("items", i).get("food", "no")).lower() not in ("yes", "no"):
+            problems.append("items/%s.md: food: must be yes or no" % i)
+    text = "\n".join(path.read_text(encoding="utf-8") for path in content.game_dir().rglob("*.md"))
+    if "sleep" in needs:
+        if w.get("sleep_at") not in (w.get("times") or []):
+            problems.append("world.md: a world where people need sleep needs `sleep_at:`, one of its times of day")
+        if not beds and "`meet sleep" not in text:
+            problems.append("world.md needs: sleep, but nowhere has `sleep: bed` or `sleep: rough`, and nothing says `meet sleep`")
+    if "food" in needs and not food and "`meet food" not in text:
+        problems.append("world.md needs: food, but no item is `food: yes`, and nothing says `meet food`")
 
 
 def validate_soundness(w, problems):
@@ -4435,7 +4647,7 @@ def cmd_contest(args):
     rolls = {}
     for p, stat in ((pid, mine), (other, theirs)):
         nat = dice.roll(BALANCE["check_die"])[1][0]
-        rolls[p] = {"stat": stat, "d20": nat, "mod": state["players"][p]["stats"][stat], "total": nat + state["players"][p]["stats"][stat]}
+        rolls[p] = {"stat": stat, "d20": nat, "mod": attempt_mod(state, p, stat), "total": nat + attempt_mod(state, p, stat)}
     winner = pid if rolls[pid]["total"] > rolls[other]["total"] else other
     if winner == pid:
         with acting(other):
@@ -4667,6 +4879,8 @@ PHRASES = {
     "change_in_hand": ("things",), "change_put_away": ("things",), "change_waiting": ("things",),
     "change_building": ("things",), "change_own": ("things",), "change_met": ("people",),
     "thinkback_voice": ("voice",), "thinkback_note": (), "learned_none": (), "time_on_day": ("time", "n"),
+    "you_need": ("needs",), "you_want": ("wants",), "taken_on": (), "food_fed": (), "food_due": (), "food_hungry": (),
+    "food_weak": (), "sleep_rested": (), "sleep_tired": (), "sleep_exhausted": (), "sleep_slept": (), "sleep_time": (),
 }
 THINKBACK_GAPS = ("name", "voice", "self", "stretch", "learned", "learned_max")
 UNIVERSE_GAPS = ("currency",)
@@ -4917,7 +5131,7 @@ def pane_text(state):
     lines.append(phrase("with_you", people=", ".join(company) if company else phrase("no_one")))
     lines += ["", phrase("you"),
               phrase("health", hp=stats["hp"], max_hp=stats["max_hp"],
-                     stats=", ".join("%s %+d" % (labels.get(k, k.capitalize()), stats[k]) for k in STATS)),
+                     stats=", ".join("%s %+d" % (labels.get(k, k.capitalize()), stat(state, pid, k)) for k in STATS)),
               phrase("money", n=stats["coins"], currency=currency())]
     carried = ["%s%s%s" % (i["name"], " " + phrase("in_hand") if i["equipped"] else "", " " + phrase("made_for_you") if i["own"] else "")
                for i in v["items"]]
@@ -4941,12 +5155,23 @@ def pane_text(state):
     if by_me:
         lines += ["", phrase("you_offered")] + ["- " + x for x in by_me]
     quests = [q for q in v["quests"] if q["id"] in pl.get("taken_on", [])]  # the problem is known; caring is their own
-    if quests:
+    taken = []
+    for q in quests:
+        state_word = " " + phrase("quest_done") if q["complete"] else " " + phrase("quest_failed") if q["failed"] else ""
+        taken.append("%s%s: %s" % (q["name"], state_word, " ".join((phrase("step_done") + " " if o["done"] else "") + o["text"]
+                                                                 for o in q["objectives"])))
+    needs = needs_words(state, pid)
+    wants = "; ".join(cast_entry(pid).get("motivations") or []) if SETTINGS["brief"]["wants"] else ""
+    if needs or wants:  # needs, wants and what they've taken on, side by side
         lines += ["", phrase("working_on")]
-        for q in quests:
-            state_word = " " + phrase("quest_done") if q["complete"] else " " + phrase("quest_failed") if q["failed"] else ""
-            lines.append("%s%s: %s" % (q["name"], state_word, " ".join((phrase("step_done") + " " if o["done"] else "") + o["text"]
-                                                                      for o in q["objectives"])))
+        if needs:
+            lines.append(phrase("you_need", needs=" ".join(needs)))
+        if wants:
+            lines.append(phrase("you_want", wants=wants))
+        if taken:
+            lines += [phrase("taken_on")] + ["- " + x for x in taken]
+    elif taken:
+        lines += ["", phrase("working_on")] + taken
     if v["people"]:
         lines += ["", phrase("people_met"), ", ".join("%s%s" % (c["name"], " (%s)" % c["role"] if c["role"] else "") for c in v["people"])]
     places = [e["name"] for r, e in me(state)["map"].items() if r != pl["location"]]
@@ -5176,6 +5401,9 @@ def cmd_settings(args):
              "the whole Who I am note" if m["thinkback_sees"] == "who_i_am" else "only their voice", m["learned_max"]))
     model = SETTINGS["cast"]["model"]
     print("PEOPLE: %s" % ("each asked on their own model, as cast.json names it" if model == "own" else "everyone asked on %s" % model))
+    print("NEEDS: %s; wants %s under What you're working on" % (
+        "on (" + (", ".join(world_needs()) or "none in this world") + ")" if SETTINGS["needs"]["on"] else "off",
+        "shown" if SETTINGS["brief"]["wants"] else "not shown"))
 
 
 # ---------------------------------------------------------------- games: list, show, switch
@@ -5442,6 +5670,9 @@ COMMANDS = {
     "generate": (cmd_generate, 2, "generate <extra|room|item|character|quest|craft|build> <file>   add a world-agent proposal (a JSON file)"),
     "pay": (cmd_pay, 1, "pay <order> [material]   the player pays a maker or builder for an order"),
     "work": (cmd_work, 0, "work   the player works here for pay, once per visit (a check first)"),
+    "eat": (cmd_eat, 1, "eat <item>   eat something they carry that's food (a world with needs)"),
+    "sleep": (cmd_sleep, 0, "sleep   sleep here, at the world's time for sleep, in a bed or rough (a world with needs)"),
+    "meet": (cmd_meet, 1, "meet food | meet sleep [bed|rough]   a need met as the content says"),
     "sell": (cmd_sell, 1, "sell <item> [buyer]   the player sells something with a tier to a buyer here"),
     "say": (cmd_say, 1, "say <file>   the player's words aloud: the other players here hear them on their next turn"),
     "trade": (cmd_trade, 1, "trade offer <file> | accept <offer> | decline <offer>   the terms of an offer to another player here (a JSON file); the one it's for takes it or turns it down"),

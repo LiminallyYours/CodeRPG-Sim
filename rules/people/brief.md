@@ -85,6 +85,20 @@ and:             and
 
 # ---- the status block: what they're working on, who and what they know
 working_on:      ## What you're working on
+# ---- under it, side by side: their needs (a world with needs), their wants (brief.wants: their own words, from
+# ---- What drives me), and what they've taken on; with neither needs nor wants, what they've taken on alone, as before
+you_need:        What you need: {needs}
+you_want:        What you want: {wants}.
+taken_on:        What you've taken on:
+food_fed:        You've eaten today.
+food_due:        You haven't eaten yet today.
+food_hungry:     You're hungry: you went all yesterday without food.
+food_weak:       You're weak with hunger: it's days since you ate.
+sleep_time:      It's the time for sleep, if you mean to.
+sleep_slept:     You've settled down to sleep for the night.
+sleep_rested:    You slept well last night.
+sleep_tired:     You're tired: you didn't sleep properly last night.
+sleep_exhausted: You're worn out: night after night without sleep.
 quest_done:      (done)
 quest_failed:    (it's too late)
 step_done:       [done]

@@ -58,6 +58,14 @@ def log_entries(run_id):
 FIRST_COLUMNS = ("kind", "t", "round", "order_position", "player", "move")  # every entry has these (rpg.log)
 
 
+def needs_of(pl):
+    """Where a person's needs stand, in a world with them ("food hungry, sleep tired"), or ""."""
+    needs = rpg.world_needs()
+    parts = (["food " + rpg.food_state(pl)] if "food" in needs else []) + (
+        ["sleep " + rpg.needs_of(pl)["sleep"]] if "sleep" in needs else [])
+    return ", ".join(parts)
+
+
 def csv_of(entries):
     """The log as CSV, one row per entry: the fields every entry has, then every other field any entry has, in
     name order. Lists and objects are written as JSON; a missing field is empty."""
@@ -378,6 +386,7 @@ def live():
             "hp": pl["stats"]["hp"], "max_hp": pl["stats"]["max_hp"], "coins": pl["stats"]["coins"],
             "carrying": [i["name"] + (" (in hand)" if i.get("equipped") else "") for i in v.get("items", [])],
             "journal": turn.get("journal", ""), "journal_round": turn.get("round"),
+            "needs": needs_of(pl),
             "now": pid == nxt, "replied": pid == nxt and turn.get("round") == run.get("round"),
         })
     cap = int(rpg.SETTINGS["rounds"]["max_per_run"])
@@ -846,6 +855,7 @@ function render(d) {
       el("p", {class: "carry", text: p.carrying.length ? "Carrying " + p.carrying.join(", ") : "Carrying nothing"}),
       p.told != null ? el("p", {class: "told", text: "Last told " + count(p.told) + " characters" +
         (p.first_told !== p.told ? " (first " + count(p.first_told) + ")" : "") + (p.spend ? "; " + money(p.spend) + " on their replies and memory" : "")}) : null,
+      p.needs ? el("p", {class: "cost", text: "Needs: " + p.needs}) : null,
       p.journal ? el("p", {class: "journal"}, quote(p.journal),
                      el("small", {text: "Journal, round " + p.journal_round})) : null);
   }));

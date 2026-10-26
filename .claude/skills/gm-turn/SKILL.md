@@ -37,6 +37,8 @@ Work out what the player is trying to do, then use the matching command:
 | pay a maker or builder for an order | `pay <id>`, or `pay <id> <item>` to pay a maker in trade |
 | work for pay where they stand (`look` lists `WORK HERE`) | `work` |
 | sell something to a buyer here (`look` lists `BUYERS HERE`) | `sell <item>`, or `sell <item> <buyer>` when there are several |
+| eat something they carry that's food (`look`'s `NEEDS` line lists `FOOD CARRIED`) | `eat <item>` |
+| sleep, or turn in for the night, where there's a place for it (`SLEEP HERE`), at the time for sleep | `sleep` |
 | speak to the other people here (`look` lists `PEOPLE HERE`) | `say <file>` (see **Other people** below) |
 | wield a weapon | `equip <item>` |
 | drink or eat something with a `heal` value | `use <item>` |
@@ -49,6 +51,7 @@ Work out what the player is trying to do, then use the matching command:
 - **Moving:** use `move` only when the player's words clearly match one open exit, by direction or by the place it leads to. If they're vague ("head into town", "go somewhere warm") or could mean more than one exit, don't move them. Describe the open exits and ask where they want to go.
 - **Don't roll for certain things.** Talking, looking around and walking through an open door need no command, except `move` for walking.
 - **Work** makes its own check and pays on a success, once per visit: accept its result like any roll. There's work there again only after the player leaves and comes back.
+- **Needs** (a world with them: `look` prints `NEEDS`): eating and sleeping are a person's own choice, made in their DO line, never assumed. `eat` and `sleep` refuse what doesn't fit (not food, not the time for sleep, nowhere to sleep here): tell why in the fiction. Where content says a need is met another way (a supper at the inn, a meal for a day's help), run the `meet food` or `meet sleep` it names, as with flags. How hungry or tired they are, their pane tells them in words: the story never says how they feel.
 - **Selling:** the buyer pays the price `sell` reports, never another. Only things with a tier are bought; `sell` refuses the rest, and the buyer says so in their own way. Voice the buyer as their file and `look`'s marks direct.
 - **Talking:** `look` marks each character `[minor]` or `[agent]`. `[minor, agent resting]` means the character normally has an agent, but the owner's settings have it quiet: treat it as `[minor]`. Their memory of the player is at the end of `rpg.py show characters <id>`.
   - **[minor]:** you speak as the character yourself, in the voice their file describes. Run `show characters <id>` before you first voice them in a scene, even if you've read it before: the `## If` sections that hold change with the flags, and their file is all they know. Share only what it allows, never a hint or a fact of your own, and hold trades to the prices in it. When it says to set a flag (a story told, help agreed), set it. Once they've spoken with the player, keep what they told, promised or learned of them: `remember <id> "<line>"`, one short line in the third person about the player, as for an agent's REMEMBER ("Told her the mill burned last winter. Wants a bottle by dusk."). It's what they'll know of the player next time, since the next round may be run by someone who knows only what's kept.
@@ -96,7 +99,7 @@ Record anything the content says should change, in the same turn. Make these cal
 - **Chronicle:** when something significant happens (a quest step, a big choice, a fight won or lost, news the whole town would hear), add one line to the story so far: `python3 rules/rpg.py chronicle "<one line, past tense>"`, with no `--as`, at most 200 characters. `run status` shows it to whoever runs the next round.
 - **Details:** every detail you establish that anyone could come back to is kept, every time: a name, the look of a thing, where something was put, a price or a promise not in a file. `python3 rules/rpg.py note "<the detail>"` keeps it in this room (`look` shows it back as `ESTABLISHED HERE`). The next round may be run by someone who knows only the save: a detail not kept is one the world forgets.
 
-`take`, `move`, `attack`, `use`, `check`, `work`, `sell`, `say`, `witnessed` and `trade` have already written their results. Don't repeat them.
+`take`, `move`, `attack`, `use`, `check`, `work`, `sell`, `eat`, `sleep`, `say`, `witnessed` and `trade` have already written their results. Don't repeat them.
 
 Never edit `state/save.json` or anything in `games/` directly.
 
