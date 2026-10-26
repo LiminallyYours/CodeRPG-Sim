@@ -3413,6 +3413,44 @@ print(json.dumps({"type": "result", "is_error": False, "result": "Round done.", 
         self.assertIn("cast.json %s: knows must be a list" % second, out)
         self.assertIn('cast.json %s: people must be a list of at most 8 {"who", "how"}' % second, out)
 
+    def test_a_blank_person_has_a_name_a_place_and_money_and_nothing_of_their_own(self):
+        d = "games/dark_lighthouse/cast.json"
+        cast = json.loads((self.dir / d).read_text())
+        other, home = cast[0]["id"], cast[1]["home"]
+        cast[1] = {"id": "entity1", "name": "Entity1", "home": home, "coins": 5, "blank": True}
+        self.write(d, json.dumps(cast + [{"id": "entity2", "name": "Entity2", "home": home, "blank": True, "voice": "Slow."},
+                                         {"id": "entity3", "name": "Entity3", "home": home, "blank": False}]))
+        out = self.rpg("validate", "--game", "dark_lighthouse", ok=False)
+        self.assertIn("cast.json entity2: a blank person has no voice", out)
+        self.assertIn("cast.json entity3: blank is true, or left out", out)
+        self.assertNotIn("cast.json entity1", out)
+        self.write(d, json.dumps(cast))
+        self.rpg("validate", "--game", "dark_lighthouse")
+        self.rpg("game", "switch", "dark_lighthouse")
+        self.settings_tool("preset", "simulation")
+        self.settings_tool("set", "memory.recent_rounds", "1")
+        self.settings_tool("set", "memory.condense_every", "1")
+        self.rpg("newgame", seed=43)
+        order = [p.split("(")[1].rstrip(")") for p in self.rpg("round", "start").split(": ", 1)[1].strip().split(", ")]
+        brief = self.rpg("brief", "entity1", as_=False)
+        self.assertTrue(brief.startswith("## What everyone around here knows\n"), "no Who I am note")
+        self.assertNotIn("## How it begins", brief)
+        self.assertIn("## You\nYou're Entity1.\nHealth", brief)
+        self.assertIn("Money: 5 ", brief)
+        self.assertIsNone(self.FORBIDDEN.search(brief))
+        theirs = self.rpg("brief", other, as_=False)
+        self.assertTrue(theirs.startswith("## Who I am"))
+        self.assertIn("## How it begins", theirs)
+        self.assertIn("## You\nHealth", theirs, "only a blank person is named under You")
+        for pid in order:
+            self.take_turn(pid)
+        self.rpg("round", "end")
+        self.play_round()
+        thinkback = self.rpg("memory", "condense", "entity1", as_=False)
+        self.assertIn("You are Entity1. \n", thinkback)
+        self.assertNotIn("This is the note you keep about yourself", thinkback)
+        self.assertIsNone(self.FORBIDDEN.search(thinkback))
+
     def test_validate_checks_the_cast(self):
         d = "games/dark_lighthouse/cast.json"
         cast = json.loads((self.dir / d).read_text())

@@ -3784,6 +3784,9 @@ CAST_ID = re.compile(r"^[a-z][a-z0-9_]{0,23}$")
 CAST_TEXT = ("name", "personality", "voice", "opening")  # a hand-written entry; one made from an archetype has these:
 MADE_TEXT = ("name", "voice", "opening", "backstory", "how_i_am")
 MADE_LISTS = ("wants_and_needs", "avoids_and_dislikes", "wont_do", "priorities")
+# a blank person (`"blank": true`): a name, a place, money and what everyone knows; no note, no wants, no history
+BLANK_LEAVES_OUT = ("personality", "voice", "opening", "motivations", "backstory", "how_i_am", "knows", "people", "look",
+                    "archetype", "made_with", "situation") + MADE_LISTS
 ARCHETYPES = ROOT / "cast"  # the people anywhere (PERSON-STRUCTURE-PROPOSAL.md 5.2): ratings never shown to them
 
 
@@ -3867,7 +3870,7 @@ def validate_cast(problems):
         problems.append("cast.json: at most %d players (has %d)" % (int(limits["max_players"]), len(data)))
     seen_ids, seen_names = set(), set()
     known = {"id", "model", "pronouns", "motivations", "attributes", "hp", "coins", "inventory", "equipped", "home",
-             "knows", "people", "look", "paid_beds", "archetype", "made_with", "situation"} | set(CAST_TEXT) | set(MADE_TEXT) | set(MADE_LISTS)
+             "knows", "people", "look", "paid_beds", "archetype", "made_with", "situation", "blank"} | set(CAST_TEXT) | set(MADE_TEXT) | set(MADE_LISTS)
     cast_ids = {e.get("id") for e in data if isinstance(e, dict)}
     for n, e in enumerate(data, 1):
         if not isinstance(e, dict):
@@ -3888,10 +3891,17 @@ def validate_cast(problems):
             problems.append("%s: the id is also a character's in this world" % where)
         seen_ids.add(ident)
         made = "archetype" in e  # made from an archetype by tools/cast.py, or written by hand
-        for k in MADE_TEXT if made else CAST_TEXT:
+        blank = e.get("blank") is True
+        if "blank" in e and not blank:
+            problems.append("%s: blank is true, or left out" % where)
+        for k in ("name",) if blank else MADE_TEXT if made else CAST_TEXT:
             if not isinstance(e.get(k), str) or not e[k].strip():
                 problems.append("%s: %s must be some text" % (where, k))
-        if made:
+        if blank:
+            for k in BLANK_LEAVES_OUT:
+                if k in e:
+                    problems.append("%s: a blank person has no %s" % (where, k))
+        elif made:
             problems += made_entry_problems(e, where)
         if isinstance(e.get("name"), str):
             if e["name"].lower() in seen_names:
@@ -3900,7 +3910,7 @@ def validate_cast(problems):
         if "pronouns" in e and not (isinstance(e["pronouns"], str) and re.fullmatch(r"[a-z]+(/[a-z]+)+", e["pronouns"])):
             problems.append("%s: pronouns are written like she/her, he/him or they/them" % where)
         motives = e.get("motivations")
-        if not made and (not isinstance(motives, list) or not motives or not all(isinstance(m, str) and m.strip() for m in motives)):
+        if not made and not blank and (not isinstance(motives, list) or not motives or not all(isinstance(m, str) and m.strip() for m in motives)):
             problems.append("%s: motivations must be a list of short lines" % where)
         lines = e.get("knows", [])
         if not isinstance(lines, list) or len(lines) > int(limits["knows_max"]) or not all(
@@ -5355,7 +5365,7 @@ PHRASES = {
     "people_i_know": ("people",), "person_i_know": ("who", "how"), "i_know": (), "everyone_knows": (),
     "begins": (), "remember": (), "lately": (), "moment": ("n",), "did": (), "why": (), "happened": (), "told": (),
     "stood": (), "where_you_are": (), "place": ("place",), "ways_on": ("ways",), "way": ("direction", "place"),
-    "with_you": ("people",), "no_one": (), "you": (), "health": ("hp", "max_hp", "stats"), "money": ("n", "currency"),
+    "with_you": ("people",), "no_one": (), "you": (), "you_are_named": ("name",), "health": ("hp", "max_hp", "stats"), "money": ("n", "currency"),
     "carrying": ("things", "load", "limit"), "nothing": (), "in_hand": (), "made_for_you": (),
     "own_places": ("places",), "being_built": ("name",),
     "waiting": ("thing", "maker", "price", "currency", "in_trade"), "in_trade": ("things",), "or": (),
@@ -5610,7 +5620,9 @@ def thinkback_prompt(state, pid, stretch):
     of a stretch kept from a run.)"""
     pl = state["players"][pid]
     voice = cast_entry(pid).get("voice", "")
-    if SETTINGS["memory"]["thinkback_sees"] == "voice":
+    if is_blank(pid):  # no note and no voice: only their name, in the think-back's own first line
+        self_text = ""
+    elif SETTINGS["memory"]["thinkback_sees"] == "voice":
         self_text = phrase("thinkback_voice", voice=voice)
     else:
         self_text = "\n\n".join([phrase("thinkback_note"), "\n".join(who_i_am(state, pid))])
@@ -5645,7 +5657,7 @@ def pane_text(state):
                                                     for d, r in exits.items())))
     company = [c["name"] for c in v["characters_here"]] + [state["players"][o]["name"] for o in players_here(state)[1:]]
     lines.append(phrase("with_you", people=", ".join(company) if company else phrase("no_one")))
-    lines += ["", phrase("you"),
+    lines += ["", phrase("you")] + ([phrase("you_are_named", name=pl["name"])] if is_blank(pid) else []) + [
               phrase("health", hp=stats["hp"], max_hp=stats["max_hp"],
                      stats=", ".join("%s %+d" % (labels.get(k, k.capitalize()), stat(state, pid, k)) for k in STATS)),
               phrase("money", n=stats["coins"], currency=currency())]
@@ -5728,7 +5740,7 @@ def cmd_brief(args):
     pl = player_arg(state, args[0])
     mem = pl.setdefault("memory", {"recent": [], "condensed": []})
     entry = cast_entry(args[0])
-    out = who_i_am(state, args[0]) + [""]
+    out = [] if is_blank(args[0]) else who_i_am(state, args[0]) + [""]  # a blank person has no note (their name is under You)
     # what they knew when the night began, what they've kept as learned since (theirs to revise at each think-back),
     # and what this run has settled for good (never fading)
     known = list(entry.get("knows") or []) + list(pl.get("learned", [])) + [k["text"] for k in pl.get("kept", [])]
@@ -5736,8 +5748,8 @@ def cmd_brief(args):
         out += [phrase("i_know")] + ["- " + k for k in known] + [""]
     everyone = ["- " + l for l in universe_lines()] + [l for l in public_knowledge().splitlines() if l.strip()]
     out += [phrase("everyone_knows")] + everyone + [""]
-    if not mem["condensed"] and not any(e["kind"] == "did" for e in mem["recent"]):  # words heard before a first turn
-        out += [phrase("begins"), entry.get("opening", ""), ""]
+    if entry.get("opening") and not mem["condensed"] and not any(e["kind"] == "did" for e in mem["recent"]):  # words heard before a first turn
+        out += [phrase("begins"), entry["opening"], ""]
     if mem["condensed"]:
         out += [phrase("remember"), "\n\n".join(c["text"] for c in mem["condensed"]), ""]  # a paragraph a stretch
     if mem["recent"]:
@@ -5801,6 +5813,11 @@ def keep(pl, text, number):
 def cast_entry(pid):
     """The player's entry in the game's cast: who they are, and what they know at the start (`opening`)."""
     return next((e for e in content.cast() if e.get("id") == pid), {})
+
+
+def is_blank(pid):
+    """A blank person (`"blank": true` in the cast): no Who I am note, no opening, their name under You."""
+    return cast_entry(pid).get("blank") is True
 
 
 def cmd_log(args):

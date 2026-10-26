@@ -67,6 +67,7 @@ no_one:          no one
 
 # ---- the status block: themselves
 you:             ## You
+you_are_named:   You're {name}.
 health:          Health {hp} of {max_hp}. {stats}.
 money:           Money: {n} {currency}.
 carrying:        Carrying: {things} (load {load} of {limit}).
