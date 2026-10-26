@@ -458,6 +458,12 @@ def hooks(save, entries, names, name, shared, projects):
             flags_of[pid] = rpg.condition_flags(save)
     ended, taken, timeline = {}, {}, []
     quest_names = {q: rpg.ent("quests", q).get("name", q) for q in rpg.ent_ids("quests")}
+    decided_by = {}  # quest: whose command first printed its ENDING (an ending may be told for no one, after)
+    for e in entries:
+        if e["kind"] == "command" and not e.get("refused") and e.get("player") and e.get("command") != "ending":
+            for q, qname in quest_names.items():
+                if "ENDING: %s" % qname in (e.get("output") or ""):
+                    decided_by.setdefault(q, names.get(e["player"]))
     for e in entries:
         who = names.get(e.get("player")) or "no one"
         if e["kind"] == "command" and not e.get("refused") and e.get("command") == "quest" and len(e.get("args", [])) > 1:
@@ -466,7 +472,8 @@ def hooks(save, entries, names, name, shared, projects):
             timeline.append("r%s %s %s %s" % (e.get("round"), who, "took on" if e["args"][0] == "take" else "set aside", quest_names.get(q, q)))
         if e["kind"] == "ending":  # told once a quest is decided: by the turn's person, or for no one after a world turn or event
             for q, how in (e.get("quests") or {}).items():
-                ended.setdefault(q, {"round": e.get("round"), "how": how, "by": names.get(e.get("player")) or "the world (a turn or a timed event)"})
+                ended.setdefault(q, {"round": e.get("round"), "how": how, "by": names.get(e.get("player")) or decided_by.get(q)
+                                     or "the world (a turn or a timed event)"})
                 timeline.append("r%s %s %s (%s)" % (e.get("round"), quest_names.get(q, q), how, ended[q]["by"]))
         if e["kind"] == "project":
             timeline.append("r%s %s reached %s" % (e.get("round"), e.get("project"), e.get("stage")))
