@@ -16,7 +16,8 @@ From the run's log (state/log/<run>.jsonl; the active run's by default):
                  before they're voiced) with nothing remembered of that turn
     MEMORY       each condensing: whose, which rounds, how many entries folded, what the think-back saw, and the
                  list of what they've learned as it stood after (left as it was, or cut at the limit, flagged); a
-                 stretch stored twice is flagged
+                 stretch stored twice is flagged; and each line a person said no longer holds (NO LONGER:), with
+                 the line it struck from their list, or that it matched none
     COINS        every coin that moved, with its reason
     TRADES       each offer between people: who to whom, the terms, and how it ended (accepted, declined or lapsed,
                  and when); for one accepted, whether the coins moved under its id come to nothing either way
@@ -80,7 +81,7 @@ def leaks(log):
     return out
 
 
-WROTE = {"action": ("do", "journal", "options"), "memory": ("text", "learned"), "speech": ("text",)}  # what the people wrote themselves
+WROTE = {"action": ("do", "journal", "options", "no_longer"), "memory": ("text", "learned"), "speech": ("text",)}  # what the people wrote themselves
 
 
 def traces(log):
@@ -96,6 +97,8 @@ def traces(log):
                 text = "\n".join("%s (for: %s)" % (o.get("text", ""), o.get("for") or "") for o in text)
             elif field == "learned":  # what they've learned, one a line
                 text = "\n".join(text)
+            elif field == "no_longer":  # what they said no longer holds
+                text = "\n".join(x.get("said", "") for x in text)
             for m in pattern.finditer(text):
                 ctx = text[max(0, m.start() - 60):m.end() + 60].replace("\n", " ")
                 if (e["kind"], field, m.group(0), ctx) in seen:  # a memory may repeat a journal line
@@ -171,6 +174,10 @@ def memory(log):
                 out.append("    learned, %d%s%s" % (len(e["learned"]), " (left as it was)" if not e.get("learned_given", True) else "",
                                                      "  <<< cut at the limit" if e.get("learned_cut") else ""))
                 out += ["      - " + x for x in e["learned"]]
+        elif e["kind"] == "action":
+            for x in e.get("no_longer") or []:
+                out.append("  r%s %s no longer: %r -> %s" % (e["round"], e["player"], x["said"],
+                                                            "struck %r" % x["struck"] if x["struck"] else "matched nothing on their list"))
     return out or ["  none"]
 
 

@@ -15,7 +15,7 @@ Some time has passed. Think back over this stretch of your days and say what you
 ## What you've learned so far
 {learned}
 
-Then go over what you've learned: things you know now that could matter to you later, such as who makes or builds what, where something is, what something costs, or what someone promised. Write the list as it should stand now, at most {learned_max} lines: keep what still holds, change what turned out otherwise, add what this stretch taught you, and leave out what no longer matters.
+Then go over what you've learned: things you know now that will still hold later and could matter to you, such as who makes or builds what, where a place or a thing is, what something costs, or what someone promised. Leave out where people were, what was about to happen, and what you meant to do then: those belong in what you remember. Write the list as it should stand now, at most {learned_max} lines: keep what still holds, change what turned out otherwise, add what this stretch taught you, and leave out what no longer matters.
 
 Reply exactly in this form, with one LEARNED line for each thing on the list:
 MEMORY: <what you remember of that time>

@@ -15,6 +15,7 @@ are swapped in by `game switch`, so switching loses nothing.
 """
 import contextlib
 import datetime
+import difflib
 import hashlib
 import io
 import itertools
@@ -3763,17 +3764,23 @@ def text_arg(path, what, limit):
     return text
 
 
-_REPLY = re.compile(r"^\s*(OPTIONS|DO|JOURNAL)\s*:\s*", re.M)
+_REPLY = re.compile(r"^\s*(OPTIONS|DO|JOURNAL|NO LONGER)\s*:\s*", re.M)
 _OPTION = re.compile(r"^\s*([-*•])\s*(.*?)\s*(?:\(for:\s*(.*?)\s*\))?\s*$")
 
 
 def parse_reply(text):
-    """{"do": ..., "journal": ..., "options": [...], "options_cut": bool} from a player's reply, or Refused. The
-    options they weighed before choosing (OPTIONS:, one a line, `* ` marking the one chosen, "(for: ...)" what each
-    serves) are kept up to turns.options_chars, then cut: private notes never refuse a reply."""
+    """{"do": ..., "journal": ..., "options": [...], "options_cut": bool, "no_longer": [...]} from a player's reply,
+    or Refused. The options they weighed before choosing (OPTIONS:, one a line, `* ` marking the one chosen,
+    "(for: ...)" what each serves) are kept up to turns.options_chars, then cut: private notes never refuse a reply.
+    NO LONGER: lines name things on their What I know list that no longer hold (strike_learned)."""
     parts = _REPLY.split(text)
-    found = {}
+    found, no_longer = {}, []
     for label, body in zip(parts[1::2], parts[2::2]):
+        if label == "NO LONGER":
+            said = " ".join(body.split())[:BALANCE["turns"]["learned_chars"]]
+            if said and said not in no_longer:
+                no_longer.append(said)
+            continue
         found[label.lower()] = body if label == "OPTIONS" else " ".join(body.split())
     if not found.get("do"):
         raise Refused("the reply has no DO: line")
@@ -3787,7 +3794,26 @@ def parse_reply(text):
             cut = True
             break
         options.append({"text": m.group(2), "for": m.group(3), "chosen": m.group(1) == "*"})
-    return {"do": found["do"], "journal": found.get("journal", ""), "options": options, "options_cut": cut}
+    return {"do": found["do"], "journal": found.get("journal", ""), "options": options, "options_cut": cut,
+            "no_longer": no_longer[:int(SETTINGS["memory"]["learned_max"])]}
+
+
+def strike_learned(pl, said):
+    """Their own NO LONGER: lines against what they've learned (pl["learned"]): each takes off the line it names, as
+    written or nearly (a few words' difference), or nothing. Only what they learned is theirs to strike: their
+    starting facts and what the run has settled stay. [{"said", "struck"}], `struck` None when nothing matched."""
+    def norm(s):
+        return " ".join(re.sub(r"[^\w\s']", " ", s.casefold()).split())
+    out = []
+    for words in said:
+        lines = pl.get("learned", [])
+        keyed = {norm(x): x for x in lines}
+        key = norm(words) if norm(words) in keyed else next(iter(difflib.get_close_matches(norm(words), list(keyed), n=1, cutoff=0.8)), None)
+        line = keyed.get(key)
+        if line:
+            pl["learned"] = [x for x in lines if x != line]
+        out.append({"said": words, "struck": line})
+    return out
 
 
 def remember(pl, kind, text, number):
@@ -3849,7 +3875,8 @@ def cmd_reply(args):
         raise Refused("usage: reply <player> <file>")
     limits = BALANCE["turns"]
     # room for a long list of options too, which parse_reply cuts rather than refuse the reply for
-    reply = parse_reply(text_arg(args[1], "reply", limits["do_chars"] + limits["journal_chars"] + 4 * limits["options_chars"] + 40))
+    reply = parse_reply(text_arg(args[1], "reply", limits["do_chars"] + limits["journal_chars"] + 4 * limits["options_chars"] + 40
+                                 + int(SETTINGS["memory"]["learned_max"]) * (limits["learned_chars"] + 20)))
     for k in ("do", "journal"):
         if len(reply[k]) > limits[k + "_chars"]:
             raise Refused("the %s line is at most %d characters" % (k.upper(), limits[k + "_chars"]))
@@ -3861,6 +3888,8 @@ def cmd_reply(args):
     weighed = {"options": reply["options"]} if reply["options"] else {}  # in the log only: never in memory or a brief
     if reply["options_cut"]:
         weighed["options_cut"] = True
+    if reply["no_longer"]:  # what they say no longer holds goes from what they've learned, by their own word
+        weighed["no_longer"] = strike_learned(pl, reply["no_longer"])
     log(state, "action", do=reply["do"], journal=reply["journal"], model=model_for(state, args[0]), **exact(exact_model),
         versions=versions(state, args[0], instructions), **weighed, **spent(usd))
     save_state(state)
@@ -3869,6 +3898,9 @@ def cmd_reply(args):
         print("JOURNAL: %s" % reply["journal"])
     if reply["options"]:  # what they weighed stays theirs: the turn is run from the DO line alone
         print("OPTIONS: %d, kept in the log%s" % (len(reply["options"]), " (cut at the limit)" if reply["options_cut"] else ""))
+    if reply["no_longer"]:  # their own memory, kept up by them: nothing for the turn to act on
+        print("NO LONGER: %d struck from what they've learned (of %d named)" % (
+            sum(1 for x in weighed["no_longer"] if x["struck"]), len(reply["no_longer"])))
     print("Now run the turn for it with --as %s, then `narrate %s <file>`." % (args[0], args[0]))
 
 
@@ -4693,10 +4725,16 @@ def memory_text(entries):
 
 
 def condensing_brief(state, pid, rounds):
-    """What the player is asked to do to remember a stretch: in their own voice, first person, seeing their whole
-    "Who I am" note or only their voice (memory.thinkback_sees), and the list of what they've learned, to rewrite."""
+    """What the player is asked to do to remember a stretch: their moments in those rounds, as the brief shows them."""
+    entries = [e for e in state["players"][pid]["memory"]["recent"] if e["round"] in rounds]
+    return thinkback_prompt(state, pid, memory_text(entries))
+
+
+def thinkback_prompt(state, pid, stretch):
+    """The think-back for a stretch: in their own voice, first person, seeing their whole "Who I am" note or only
+    their voice (memory.thinkback_sees), and the list of what they've learned, to rewrite. (tools/bench.py asks it
+    of a stretch kept from a run.)"""
     pl = state["players"][pid]
-    entries = [e for e in pl["memory"]["recent"] if e["round"] in rounds]
     voice = cast_entry(pid).get("voice", "")
     if SETTINGS["memory"]["thinkback_sees"] == "voice":
         self_text = phrase("thinkback_voice", voice=voice)
@@ -4704,7 +4742,7 @@ def condensing_brief(state, pid, rounds):
         self_text = "\n\n".join([phrase("thinkback_note"), "\n".join(who_i_am(state, pid))])
     learned = "\n".join("- " + x for x in pl.get("learned", [])) or phrase("learned_none")
     try:  # rules/people/thinkback.md, its gaps filled
-        return thinkback_text().format(name=pl["name"], voice=voice, self=self_text, stretch=memory_text(entries),
+        return thinkback_text().format(name=pl["name"], voice=voice, self=self_text, stretch=stretch,
                                        learned=learned, learned_max=SETTINGS["memory"]["learned_max"])
     except (KeyError, IndexError, ValueError):
         raise Refused("rules/people/thinkback.md has a gap the code doesn't fill (`rpg.py validate`)")

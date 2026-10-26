@@ -197,7 +197,7 @@ def build_feed(entries, names, name, currency="coins"):
         if kind == "action":
             turn = turn if fresh else new_turn(e)
             turn.update(model=e.get("model"), exact_model=e.get("exact_model"), do=e.get("do", ""),
-                        journal=e.get("journal", ""), options=e.get("options"))
+                        journal=e.get("journal", ""), options=e.get("options"), no_longer=e.get("no_longer"))
             turn["spend"] += e.get("spend") or 0
             continue
         if kind == "round" and e.get("phase") in ("start", "end"):
@@ -735,6 +735,8 @@ function renderTurn(item) {
     options,
     item.do ? el("p", {class: "do", text: item.do}) : null,
     item.journal ? el("p", {class: "why", text: item.journal}) : null,
+    ...(item.no_longer || []).map(x => el("p", {class: "cost", text: "No longer holds, they say: " + x.said +
+      (x.struck ? " (struck from what they've learned)" : " (not on their list)")})),
     item.heard_by.length ? el("p", {class: "heard", text: "Heard by " + item.heard_by.join(" and ")}) : null,
     ...voices,
     ...(item.trades || []).map(t => el("p", {class: "trade", text: t})),

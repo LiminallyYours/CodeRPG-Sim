@@ -1988,10 +1988,14 @@ print(json.dumps({"type": "result", "is_error": False, "result": answer, "total_
         bench = lambda *a, answers=(), ok=True: self.ask(*a, answers=list(answers), ok=ok, tool="tools/bench.py")  # noqa: E731
         bench("add", "tb", log, "wren", "1", "--thinkback", ok=False)  # nothing was folded in round 1
         bench("add", "tb", log, "wren", "2", "--thinkback")
-        self.assertEqual(json.loads((self.dir / "bench/moments/tb.json").read_text())["brief"], think.rstrip("\n"))
-        self.assertIn("thinking back", bench("list")[0])
+        stretch = json.loads((self.dir / "bench/moments/tb.json").read_text())["stretch"]
+        self.assertTrue(stretch.startswith("### Moment 1") and stretch in think and "Reply" not in stretch, stretch)
+        self.assertIn("think", bench("list")[0])
         out, asked, _ = bench("run", "tb", "--times", "2", answers=["MEMORY: I looked about.\nLEARNED: Morwen keeps the lamp.\nLEARNED: x", "I forgot the form."])
-        self.assertEqual(asked, [think.rstrip("\n")] * 2)
+        self.assertEqual(asked, [think.rstrip("\n")] * 2, "the stretch kept, the rest built afresh: as asked in the run")
+        think_md = self.dir / "rules" / "people" / "thinkback.md"
+        think_md.write_text(think_md.read_text().replace("Some time has passed.", "Days have gone by."))
+        self.assertIn("Days have gone by. Think back", bench("run", "tb", "--dry")[0], "the current wording")
         self.assertIn("\n  tb, today: a memory in 2 of 2; things learned in each: ", out)
         self.assertTrue(re.search(r"things learned in each: (2, -|-, 2)\n", out), out)
 
@@ -2363,6 +2367,38 @@ print(json.dumps({"type": "result", "is_error": False, "result": "Round done.", 
         self.assertIn("learned, 2  <<< cut at the limit", audit)
         self.assertIn("learned, 2 (left as it was)", audit)
         self.assertIn("      - Ambrose builds sheds, for five buttons.", audit)
+
+    def test_a_person_strikes_what_no_longer_holds_from_what_they_learned_on_their_own_turn(self):
+        self.rpg("game", "switch", "thirteenth_stroke")
+        self.settings_tool("preset", "simulation")
+        self.rpg("newgame", seed=44)
+        s = self.save()
+        s["players"]["hobb"]["learned"] = ["Ambrose builds sheds, for five buttons.", "I still need to fetch a poker.",
+                                           "The peddler will trade the jar for a tin whistle."]
+        s["players"]["hobb"]["kept"] = [{"round": 1, "text": "The clock stopped."}]
+        self.write("state/save.json", json.dumps(s))
+        order = [p.split("(")[1].rstrip(")") for p in self.rpg("round", "start").split(": ", 1)[1].strip().split(", ")]
+        for pid in order[:order.index("hobb")]:
+            self.take_turn(pid)
+        self.write("proposals/reply.txt", "DO: I climb to the gearloft.\nJOURNAL: The clock's stopped.\n"
+                   "NO LONGER: I still need to fetch the poker\nNO LONGER: the peddler will trade the jar for a tin whistle.\n"
+                   "NO LONGER: The clock stopped.\n")
+        out = self.rpg("reply", "hobb", "proposals/reply.txt")
+        self.assertIn("NO LONGER: 2 struck from what they've learned (of 3 named)", out)
+        self.assertNotIn("fetch", out, "the referee is told how many, not what")
+        pl = self.save()["players"]["hobb"]
+        self.assertEqual(pl["learned"], ["Ambrose builds sheds, for five buttons."])
+        self.assertEqual(pl["kept"], [{"round": 1, "text": "The clock stopped."}], "what the run settled isn't theirs to strike")
+        self.assertEqual(pl["turn"]["journal"], "The clock's stopped.")
+        self.assertNotIn("NO LONGER", json.dumps(pl["memory"]))
+        action = [e for e in self.log_entries() if e["kind"] == "action"][-1]
+        self.assertEqual(action["no_longer"], [
+            {"said": "I still need to fetch the poker", "struck": "I still need to fetch a poker."},
+            {"said": "the peddler will trade the jar for a tin whistle.", "struck": "The peddler will trade the jar for a tin whistle."},
+            {"said": "The clock stopped.", "struck": None}])
+        audit = self.run_py("tools/audit.py", "state/log/%s.jsonl" % self.save()["run"]["id"]).stdout
+        self.assertIn("hobb no longer: 'The clock stopped.' -> matched nothing on their list", audit)
+        self.assertIn("## What I know\n- Ambrose builds sheds, for five buttons.\n- The clock stopped.\n", self.rpg("brief", "hobb"))
 
     def test_the_think_back_sees_their_whole_note_or_only_their_voice(self):
         self.rpg("game", "switch", "thirteenth_stroke")

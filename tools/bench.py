@@ -6,8 +6,10 @@
         round (the last one, if there were several), or, with --edited, a copy of it changed by hand (the Hobb
         test's added "What I know"), kept as such. Only the instructions can vary for it: the page is frozen as
         it was, so changes to the brief itself (new sections, other wording) don't show on it. With --thinkback,
-        the moment is their thinking back instead: what `memory condense` printed for them in that round, asked
-        as tools/ask.py --memory asks it
+        the moment is their thinking back instead: the stretch of moments `memory condense` showed them in that
+        round (or, with --edited, a stretch changed by hand), kept as it was, while the rest of the think-back
+        (who they are, the wording of rules/people/thinkback.md) is built afresh each run, with nothing learned
+        yet; asked as tools/ask.py --memory asks it
     bench.py save <name> <person> [--from <save.json>] [--note <why>]
         keep a moment as a saved game: the save as it stands (this folder's, or another's with --from) and whose
         turn it is. Its brief is rebuilt with the current code and wording every time it's run, so it shows every
@@ -31,6 +33,7 @@ CODERPG_CLAUDE names another program in place of `claude` (the tests use a stand
 import concurrent.futures
 import datetime
 import json
+import re
 import shutil
 import subprocess
 import sys
@@ -85,18 +88,25 @@ def cmd_add(args):
         sys.exit("usage: bench.py add <name> <log> <person> <round> [--thinkback] [--edited <file>] [--game <id>] [--note <why>]")
     name, log, person, number = args[0], Path(args[1]), args[2], int(args[3])
     entries = audit.read_jsonl(log)
-    if thinkback:  # what `memory condense <person>` printed, when it had a stretch to fold
-        briefs = [e["output"] for e in entries if e["kind"] == "command" and e.get("command") == "memory" and not e.get("refused")
+    if thinkback:  # the stretch `memory condense <person>` showed them, when it had one to fold
+        briefs = [stretch_of(e["output"]) for e in entries if e["kind"] == "command" and e.get("command") == "memory" and not e.get("refused")
                   and e.get("args", [])[:2] == ["condense", person] and e.get("round") == number and "### Moment" in e.get("output", "")]
     else:
         briefs = [e["text"] for e in entries if e["kind"] == "brief" and e.get("player") == person and e.get("round") == number]
     if not briefs:
         sys.exit("%s has no %s for %s in round %d" % (log, "think-back" if thinkback else "brief", person, number))
     game = game or rpg.read_json(rpg.ACTIVE).get("game")
-    text = Path(edited).read_text(encoding="utf-8") if edited else briefs[-1].rstrip("\n")
-    write_moment(name, dict({"kind": "brief", "person": person, "game": game, "note": note or "", "brief": text,
-                             "from": "%s, round %d%s" % (log.stem, number, ", edited by hand" if edited else "")},
-                            **({"asks": "thinkback"} if thinkback else {})))
+    text = Path(edited).read_text(encoding="utf-8").rstrip("\n") if edited else briefs[-1]
+    write_moment(name, {"kind": "thinkback" if thinkback else "brief", "person": person, "game": game, "note": note or "",
+                        "stretch" if thinkback else "brief": text,
+                        "from": "%s, round %d%s" % (log.stem, number, ", edited by hand" if edited else "")})
+
+
+def stretch_of(prompt):
+    """The moments in a think-back as printed: what follows "## That stretch", up to the next section."""
+    if "## That stretch\n" not in prompt:
+        sys.exit("that think-back has no stretch of moments")
+    return re.split(r"\n\n(?:## |Reply with)", prompt.split("## That stretch\n", 1)[1], maxsplit=1)[0]
 
 
 def cmd_save(args):
@@ -125,8 +135,18 @@ def moments(names):
 
 def cmd_list(args):
     for name, m in moments([]):
-        print("%-24s %-6s %-10s %s%s%s" % (name, "frozen" if m["kind"] == "brief" else "saved", m["person"], m["from"],
-                                           ", thinking back" if m.get("asks") == "thinkback" else "", " (%s)" % m["note"] if m["note"] else ""))
+        print("%-24s %-6s %-10s %s%s" % (name, KINDS[m["kind"]], m["person"], m["from"], " (%s)" % m["note"] if m["note"] else ""))
+
+
+KINDS = {"brief": "frozen", "save": "saved", "thinkback": "think"}
+
+
+def thinkback_brief(m):
+    """A kept stretch's think-back, built afresh around it: who they are now, the current wording, nothing learned."""
+    rpg.choose_game(m["game"])
+    state = {"players": {e["id"]: {"name": e["name"], "learned": list(m.get("learned", [])) if e["id"] == m["person"] else []}
+                         for e in rpg.content.cast()}}
+    return rpg.thinkback_prompt(state, m["person"], m["stretch"])
 
 
 def rebuilt_brief(m):
@@ -163,7 +183,7 @@ def reply_forms(chosen, files, label, replies):
     for name, m in chosen:
         for f in files:
             mine = [r for r in replies if r["moment"] == name and r["variant"] == label[f]]
-            if m.get("asks") == "thinkback":  # as `memory store` would read it: a MEMORY line, and what they learned
+            if m["kind"] == "thinkback":  # as `memory store` would read it: a MEMORY line, and what they learned
                 read = [rpg.parse_thinkback(r["reply"]) for r in mine]
                 out.append("  %s, %s: a memory in %d of %d; things learned in each: %s" % (
                     name, label[f], sum(1 for x in read if x[0]), len(mine),
@@ -176,9 +196,11 @@ def reply_forms(chosen, files, label, replies):
                 except rpg.Refused:
                     pass
             weighed = [x for x in read if x["options"]]
-            out.append("  %s, %s: %d of %d taken; options in %d (%s); one marked chosen in %d" % (
+            out.append("  %s, %s: %d of %d taken; options in %d (%s); one marked chosen in %d%s" % (
                 name, label[f], len(read), len(mine), len(weighed), ", ".join(str(len(x["options"])) for x in weighed) or "-",
-                sum(1 for x in weighed if sum(o["chosen"] for o in x["options"]) == 1)))
+                sum(1 for x in weighed if sum(o["chosen"] for o in x["options"]) == 1),
+                "; no longer holds, in %d (%s)" % (sum(1 for x in read if x["no_longer"]), ", ".join(str(len(x["no_longer"])) for x in read))
+                if any(x["no_longer"] for x in read) else ""))
     return out
 
 
@@ -195,7 +217,8 @@ def cmd_run(args):
     chosen = moments(args)
     if not chosen:
         sys.exit("no moments kept yet (bench.py add, bench.py save)")
-    briefs = {name: (m["brief"] if m["kind"] == "brief" else rebuilt_brief(m)) for name, m in chosen}
+    build = {"brief": lambda m: m["brief"], "save": rebuilt_brief, "thinkback": thinkback_brief}
+    briefs = {name: build[m["kind"]](m) for name, m in chosen}
     if dry:
         for name, m in chosen:
             print("===== %s (%s, %s)\n%s\n" % (name, m["person"], "frozen" if m["kind"] == "brief" else "rebuilt now", briefs[name]))
@@ -224,7 +247,8 @@ def cmd_run(args):
     out = RESULTS / ("%s.json" % when.replace(":", "-"))
     out.write_text(json.dumps(record, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
     for name, m in chosen:
-        print("===== %s: %s, %s (%s; %s)" % (name, m["person"], m["from"], "frozen brief" if m["kind"] == "brief" else "brief rebuilt now",
+        print("===== %s: %s, %s (%s; %s)" % (name, m["person"], m["from"], {"brief": "frozen brief", "save": "brief rebuilt now",
+                                                                         "thinkback": "think-back rebuilt now"}[m["kind"]],
                                             record["moments"][name]["model"]))
         for f in files:
             mine = [r for r in replies if r["moment"] == name and r["variant"] == label[f]]

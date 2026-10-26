@@ -15,4 +15,7 @@ OPTIONS:
 DO: <what you do>
 JOURNAL: <why this one over the others, and what you are working toward>
 
+After your journal you may add one more kind of line: if something under What I know has turned out wrong or no longer holds, say so, a line for each, as it is written there:
+NO LONGER: <what no longer holds>
+
 If you are asked instead to think back and say what you remember, reply in the form that asks for.
