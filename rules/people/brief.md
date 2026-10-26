@@ -59,6 +59,7 @@ change_met:      you met {people}
 where_you_are:   ## Where you are
 place:           {place}.
 time_on_day:     {time} on day {n}
+since_last:      Since you last acted: it was {then}; now it's {now}.
 ways_on:         Ways on: {ways}.
 way:             {direction} to {place}
 with_you:        With you: {people}.

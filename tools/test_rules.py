@@ -1677,6 +1677,22 @@ class Engine(unittest.TestCase):
         self.rpg("newgame", seed=47)
         self.assertNotIn("FOR THE REFEREE", self.rpg("run", "status"), "a world without notes shows none")
 
+    def test_a_page_says_how_far_the_worlds_time_has_moved_since_they_last_acted(self):
+        self.rpg("game", "switch", "wendleford")
+        self.rpg("newgame", seed=48)
+        self.assertNotIn("Since you last acted", self.rpg("brief", "hobb"), "nothing before they've acted")
+        order = [p.split("(")[1].rstrip(")") for p in self.rpg("round", "start").split(": ", 1)[1].strip().split(", ")]
+        for pid in order:
+            self.write("proposals/reply.txt", "DO: I wait.\nJOURNAL: Busy.\n")
+            self.rpg("reply", pid, "proposals/reply.txt")
+            self.write("proposals/story.txt", "The morning goes by.")
+            self.rpg("narrate", pid, "proposals/story.txt")
+        self.rpg("round", "end")
+        brief = self.rpg("brief", "hobb")
+        self.assertIn("Since you last acted: it was morning on day 1; now it's afternoon on day 1.", brief)
+        self.assertNotIn("turn", brief.split("## Where you are")[1].split("\n")[3].lower(), "no talk of turns")
+        self.assertIsNone(self.FORBIDDEN.search(brief.split("## Where you are")[1]))
+
     def test_the_log_exports_as_csv_one_row_per_entry(self):
         self.rpg("game", "switch", "dark_lighthouse")
         self.rpg("newgame", seed=43)

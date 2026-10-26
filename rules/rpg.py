@@ -4764,6 +4764,7 @@ def cmd_narrate(args):
     if line:
         remember(pl, "changed", line, run["round"])
     pl["snapshot"] = now
+    pl["acted_at"] = when_text(state)  # the world's time when they last acted: their next page says how far it has moved
     unrecorded = args[0] not in run["round_state"].get("outcomes", {})
     run["round_state"]["done"].append(args[0])
     log(state, "narration", text=text, changed=line or None)  # the line their memory keeps, for the owner's dashboard too
@@ -5367,7 +5368,7 @@ PHRASES = {
     "change_health": ("before", "after"), "change_got": ("things",), "change_lost": ("things",),
     "change_in_hand": ("things",), "change_put_away": ("things",), "change_waiting": ("things",),
     "change_building": ("things",), "change_own": ("things",), "change_met": ("people",),
-    "thinkback_voice": ("voice",), "thinkback_note": (), "learned_none": (), "time_on_day": ("time", "n"),
+    "thinkback_voice": ("voice",), "thinkback_note": (), "learned_none": (), "time_on_day": ("time", "n"), "since_last": ("then", "now"),
     "rented": ("place", "n"), "paid_bed": ("place", "nights"), "tonight": (), "nights": ("n",), "let_ended": ("place",),
     "you_need": ("needs",), "you_want": ("wants",), "taken_on": (), "food_fed": (), "food_due": (), "food_hungry": (),
     "food_weak": (), "sleep_rested": (), "sleep_tired": (), "sleep_exhausted": (), "sleep_slept": (), "sleep_time": (),
@@ -5636,6 +5637,8 @@ def pane_text(state):
     labels = look_cfg["stat_labels"]
     lines = [phrase("where_you_are"), phrase("place", place=v["location_name"] + "".join(
         ", " + x for x in (when_text(state), state["view"]["weather"]) if x))]
+    if pl.get("acted_at") and when_text(state) and pl["acted_at"] != when_text(state):  # time passed, in the world's own words
+        lines.append(phrase("since_last", then=pl["acted_at"], now=when_text(state)))
     exits = me(state)["map"].get(pl["location"], {}).get("exits", {})
     if exits:
         lines.append(phrase("ways_on", ways="; ".join(phrase("way", direction=d, place=ent("rooms", r).get("name", r) if ent_exists("rooms", r) else r)
