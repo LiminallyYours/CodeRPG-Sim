@@ -3048,6 +3048,31 @@ def cmd_quest(args):
                          if args[0] == "take" else "no longer shows in what %s is working on" % pl["name"]))
 
 
+OUTCOMES = {"done": "done", "partly": "partly done", "failed": "failed a check", "refused": "refused by someone",
+            "out_of_reach": "out of reach", "not_there": "reached for something that isn't there"}
+
+
+def cmd_outcome(args):
+    """outcome <done|partly|failed|refused|out_of_reach|not_there> [<what>]: what the turn came to, for the record only
+    (never told, never acted on): the referee's own word on the person's turn, which the audit counts. Out of reach
+    and not there name what was reached for. Run again in the same turn, the last one stands."""
+    state = load_state()
+    require_playing(state)
+    pid, rs = actor_id(state), state["run"].get("round_state")
+    if not rs or whose_turn(state) != pid:
+        raise Refused("an outcome is for the turn being played; it's no one's turn now" if not rs else "it isn't %s's turn" % me(state)["name"])
+    if args[0] not in OUTCOMES:
+        raise Refused("outcome %s [<what>]" % "|".join(OUTCOMES))
+    what = " ".join(args[1:]).strip()
+    if args[0] in ("out_of_reach", "not_there") and not what:
+        raise Refused("say what was reached for: outcome %s <what>" % args[0])
+    what = short_line(what, "outcome") if what else None
+    rs.setdefault("outcomes", {})[pid] = args[0]
+    log(state, "outcome", result=args[0], what=what)
+    save_state(state)
+    print("OUTCOME for %s: %s%s" % (me(state)["name"], OUTCOMES[args[0]], ": %s" % what if what else ""))
+
+
 def cmd_chronicle(args):
     """chronicle <text>: one line for the story so far."""
     state = load_state()
@@ -4736,11 +4761,13 @@ def cmd_narrate(args):
     if line:
         remember(pl, "changed", line, run["round"])
     pl["snapshot"] = now
+    unrecorded = args[0] not in run["round_state"].get("outcomes", {})
     run["round_state"]["done"].append(args[0])
     log(state, "narration", text=text)
     save_state(state)
-    print("NARRATED for %s (round %d). %s" % (pl["name"], run["round"],
-          "Next: %s." % whose_turn(state) if whose_turn(state) else "Everyone has had their turn: `round end`."))
+    print("NARRATED for %s (round %d). %s%s" % (pl["name"], run["round"],
+          "Next: %s." % whose_turn(state) if whose_turn(state) else "Everyone has had their turn: `round end`.",
+          " (No outcome was recorded for this turn: `outcome` comes before `narrate`.)" if unrecorded else ""))
 
 
 def cmd_say(args):
@@ -6194,6 +6221,7 @@ COMMANDS = {
     "library": (cmd_library, 1, "library suggest <id> <why>   tell the owner a generated or player-made thing deserves keeping"),
     "note": (cmd_note, 1, "note <text>   keep a detail you established about this room"),
     "quest": (cmd_quest, 2, "quest take|leave <quest>   the person takes a quest on (it shows in what they're working on), or sets it aside"),
+    "outcome": (cmd_outcome, 1, "outcome <%s> [<what>]   what this turn came to, for the record only (never told)" % "|".join(OUTCOMES)),
     "chronicle": (cmd_chronicle, 1, "chronicle <text>   add a line to the story so far"),
     "round": (cmd_round, 1, "round start | round end   open the next round (draws its order) or close it (the world's clock moves)"),
     "run": (cmd_run, 1, "run status | pause | resume | end   the owner's say over a run: a pause or end waits for the round in progress"),

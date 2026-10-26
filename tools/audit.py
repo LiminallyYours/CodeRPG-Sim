@@ -328,6 +328,136 @@ def spend(log):
     return ["  %s: %d replies, $%.2f" % (m, n[m], total[m]) for m in sorted(n)] + ["  all: $%.2f" % sum(total.values())]
 
 
+def ran(e, name, *first):
+    """A rules command that ran (wasn't refused), by name and, if given, its first argument."""
+    return e["kind"] == "command" and not e.get("refused") and e.get("command") == name and (
+        not first or (e.get("args") or [None])[0] in first)
+
+
+def printed(e, name, text):
+    return ran(e, name) and text in (e.get("output") or "")
+
+
+# Every mechanic the kit has, as (what it is, which log entries show it happening): world-agnostic, so any run can be
+# read against a world's own list of what it means to exercise. Shared with the dashboard's coverage strip.
+MECHANICS = [
+    ("moving", lambda e: ran(e, "move")),
+    ("an encounter on arriving", lambda e: printed(e, "move", "ENCOUNTER:")),
+    ("a check written in content", lambda e: ran(e, "check")),
+    ("picking something up", lambda e: ran(e, "take")),
+    ("putting something down", lambda e: ran(e, "drop")),
+    ("given or taken in the story (gain, lose)", lambda e: ran(e, "gain") or ran(e, "lose")),
+    ("money changed by content (coins)", lambda e: ran(e, "coins")),
+    ("paid work, paid", lambda e: printed(e, "work", "PAID:")),
+    ("paid work, not paid", lambda e: printed(e, "work", "NOT PAID:")),
+    ("shared work, a turn of it", lambda e: e["kind"] == "effort"),
+    ("shared work, a stage reached", lambda e: e["kind"] == "project"),
+    ("buying at a set price", lambda e: e["kind"] == "purchase"),
+    ("selling to a buyer", lambda e: ran(e, "sell")),
+    ("a place let, taken or renewed", lambda e: e["kind"] == "let" and e.get("step") in ("taken", "renewed")),
+    ("a let running out", lambda e: e["kind"] == "let" and e.get("step") == "ended"),
+    ("a bed paid at bedtime", lambda e: printed(e, "sleep", "COINS -")),
+    ("a night paid ahead", lambda e: printed(e, "sleep", "already paid for")),
+    ("a night in a place let", lambda e: printed(e, "sleep", "while the let lasts")),
+    ("a night rough", lambda e: printed(e, "sleep", ", rough")),
+    ("eating", lambda e: ran(e, "eat")),
+    ("a need met as content says", lambda e: ran(e, "meet")),
+    ("a need come due (hungry, weak, tired, worn out)", lambda e: e["kind"] == "need" and e.get("now") in ("hungry", "weak", "tired", "exhausted")),
+    ("an order asked", lambda e: e["kind"] == "order" and e.get("step") == "asked"),
+    ("an order paid", lambda e: e["kind"] == "order" and e.get("step") == "paid"),
+    ("a thing made, handed over", lambda e: e["kind"] == "order" and e.get("step") == "delivered" and e.get("made") == "item"),
+    ("a place built, finished", lambda e: e["kind"] == "order" and e.get("step") == "delivered" and e.get("made") == "place"),
+    ("a trade offered", lambda e: e["kind"] == "trade" and e.get("step") == "offered"),
+    ("a trade accepted", lambda e: e["kind"] == "trade" and e.get("step") == "accepted"),
+    ("a grab", lambda e: e["kind"] == "contest"),
+    ("words said aloud", lambda e: e["kind"] == "speech"),
+    ("an onlookers' note", lambda e: e["kind"] == "witnessed"),
+    ("a quest taken on", lambda e: ran(e, "quest", "take")),
+    ("a quest set aside", lambda e: ran(e, "quest", "leave")),
+    ("a flag set by content", lambda e: ran(e, "flag", "set")),
+    ("a townsperson with their own voice", lambda e: e["kind"] == "voice" and e.get("agent") == "npc"),
+    ("the world agent asked", lambda e: e["kind"] == "voice" and e.get("agent") == "world"),
+    ("a world turn", lambda e: ran(e, "world-turn")),
+    ("something generated", lambda e: ran(e, "generate", "extra", "character", "quest", "room", "item")),
+    ("a timed event", lambda e: e["kind"] == "event" and e.get("happened")),
+    ("an ending", lambda e: e["kind"] == "ending"),
+    ("a memory condensed", lambda e: e["kind"] == "memory"),
+    ("options weighed", lambda e: e["kind"] == "action" and e.get("options")),
+    ("a line struck (NO LONGER)", lambda e: e["kind"] == "action" and any(x.get("struck") for x in e.get("no_longer") or [])),
+    ("a place note kept", lambda e: ran(e, "note")),
+    ("a townsperson remembering", lambda e: ran(e, "remember")),
+    ("the story so far, a line", lambda e: ran(e, "chronicle")),
+] + [("a turn's outcome: %s" % word, (lambda w: lambda e: e["kind"] == "outcome" and e.get("result") == w)(key))
+     for key, word in (("done", "done"), ("partly", "partly done"), ("failed", "failed a check"), ("refused", "refused by someone"),
+                       ("out_of_reach", "out of reach"), ("not_there", "reached for something that isn't there"))]
+SEEN_BY_MECHANICS = {"move", "check", "work", "sell", "sleep", "eat", "meet", "quest", "flag", "world-turn", "generate", "note",
+                     "remember", "chronicle", "buy", "rent", "trade", "contest", "say", "witnessed", "pay", "outcome", "ending",
+                     "take", "drop", "gain", "lose", "coins"}
+NOT_MECHANICS = {"look", "show", "npc-brief", "world-brief", "brief", "pane", "reply", "narrate", "round", "run", "memory",
+                 "voiced", "project", "log", "newgame"}  # reading, and the referee's own frame for a turn
+
+
+def coverage(log):
+    """[(mechanic, times it happened)] for every mechanic the kit has, then any other command, by name, from the first
+    time it was run (a mechanic added later shows before it's on the list)."""
+    made = {e.get("order"): ("place" if e.get("what") == "build" else "item") for e in log if e["kind"] == "order" and e.get("step") == "asked"}
+    log = [dict(e, made=made.get(e.get("order"))) if e["kind"] == "order" else e for e in log]
+    last = {(e["round"], e["player"]): e for e in log if e["kind"] == "outcome"}  # a turn's last word on it stands
+    log = [e for e in log if e["kind"] != "outcome" or last[(e["round"], e["player"])] is e]
+    out = [(name, sum(1 for e in log if test(e))) for name, test in MECHANICS]
+    others = collections.Counter(e["command"] for e in log if e["kind"] == "command" and not e.get("refused")
+                                 and e["command"] not in SEEN_BY_MECHANICS | NOT_MECHANICS)
+    return out + [("other command: %s" % c, n) for c, n in sorted(others.items())]
+
+
+def coverage_lines(log):
+    return ["  %-56s %s" % (name, n if n else "never") for name, n in coverage(log)]
+
+
+def outcomes(log):
+    """What each turn came to, in the referee's word, and every turn narrated without one."""
+    last = collections.OrderedDict()
+    for e in log:
+        if e["kind"] == "outcome":
+            last[(e["round"], e["player"])] = e
+    out, per = [], collections.defaultdict(collections.Counter)
+    for (r, pid), e in last.items():
+        per[pid][e["result"]] += 1
+        if e.get("what"):
+            out.append("  r%s %s %s: %s" % (r, pid, e["result"], e["what"]))
+    out = ["  %s: %s" % (pid, ", ".join("%s %d" % kv for kv in sorted(c.items()))) for pid, c in sorted(per.items())] + out
+    missing = ["r%s %s" % (e["round"], e["player"]) for e in log if e["kind"] == "narration" and (e["round"], e["player"]) not in last]
+    if missing:
+        out.append("  NO OUTCOME RECORDED: %s" % ", ".join(missing))
+    return out or ["  none"]
+
+
+def headline(log, leak_lines):
+    """The run in a few lines: how long, what it cost and for whom, a round's cost at its lowest and highest, what was
+    refused, leaks, and the mechanics it never used."""
+    parts = {"referee": "referee", "action": "people", "memory": "memories", "voice": "townspeople and the world"}
+    spent, per_round = collections.Counter(), collections.Counter()
+    for e in log:
+        if e["kind"] in parts and e.get("spend"):
+            spent[parts[e["kind"]]] += e["spend"]
+            per_round[e.get("round")] += e["spend"]
+    times = [e["t"] for e in log if e.get("t")]
+    span = ""
+    if len(times) > 1:
+        import datetime
+        secs = (datetime.datetime.fromisoformat(times[-1]) - datetime.datetime.fromisoformat(times[0])).total_seconds()
+        span = "%dm %02ds" % (secs // 60, secs % 60)
+    rounds = [r for r in per_round if isinstance(r, int)]
+    refused = sum(1 for e in log if e["kind"] == "command" and e.get("refused"))
+    never = [name for name, n in coverage(log) if not n and not name.startswith("a turn's outcome")]
+    hits = sum(1 for line in leak_lines if line.strip() and line.strip() != "none")
+    return ["  rounds %d, %s" % (max([e["round"] for e in log if isinstance(e.get("round"), int)] or [0]), span or "no time logged"),
+            "  spent $%.2f: %s" % (sum(spent.values()), ", ".join("%s $%.2f" % (k, v) for k, v in spent.most_common()) or "nothing logged"),
+            "  a round cost $%.2f to $%.2f" % (min(per_round[r] for r in rounds), max(per_round[r] for r in rounds)) if rounds else "  no round's cost logged",
+            "  refused commands %d; leak hits %d (read each)" % (refused, hits),
+            "  never used: %s" % ("; ".join(never) or "nothing")]
+
+
 def flags(run_id):
     try:
         state = json.loads((ROOT / "state" / "save.json").read_text())
@@ -419,7 +549,8 @@ def main(argv):
         except (OSError, ValueError, KeyError):
             sys.exit("no active run: name a log")
     log = read_jsonl(path)
-    sections = [("LEAKS", leaks(log) or ["  none"]), ("SIGNS OF CLAUDE CODE'S LINES", traces(log)), ("WITNESSED", witnessed(log)), ("FLAGS", flags(path.stem)),
+    leak_lines = leaks(log) or ["  none"]
+    sections = [("HEADLINE", headline(log, leak_lines)), ("COVERAGE", coverage_lines(log)), ("OUTCOMES", outcomes(log)), ("LEAKS", leak_lines), ("SIGNS OF CLAUDE CODE'S LINES", traces(log)), ("WITNESSED", witnessed(log)), ("FLAGS", flags(path.stem)),
                 ("CONTINUITY", continuity(log)),
                 ("MEMORY", memory(log)), ("NEEDS", needs(log)), ("EFFORT", effort(log)), ("PURCHASES", purchases(log)), ("COINS", coins(log)), ("TRADES", trades(log)), ("CONTESTS", contests(log)), ("OPTIONS", options(log)), ("ENDINGS", endings(log)),
                 ("VOICES", voices(log)), ("VERSIONS", versions(log)), ("SPEND", spend(log))]

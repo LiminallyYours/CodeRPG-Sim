@@ -2684,6 +2684,40 @@ print(json.dumps({"type": "result", "is_error": False, "result": "Round done.", 
             self.rpg("narrate", pid, "proposals/story.txt")
         self.rpg("round", "end")
 
+    def test_the_referee_records_what_each_turn_came_to_and_the_audit_counts_it_with_every_mechanic(self):
+        self.rpg("newgame", seed=45)
+        self.assertIn("no one's turn now", self.rpg("outcome", "done", as_="corin", ok=False))
+        order = [p.split("(")[1].rstrip(")") for p in self.rpg("round", "start").split(": ", 1)[1].strip().split(", ")]
+        first, second = order[0], order[1]
+        self.write("proposals/reply.txt", "DO: I ask the fisherman for a boat.\nJOURNAL: To get across.\n")
+        self.rpg("reply", first, "proposals/reply.txt")
+        self.assertIn("it's %s's turn" % first, self.rpg("outcome", "done", as_=second, ok=False))
+        self.assertIn("outcome done|partly|failed|refused|out_of_reach|not_there", self.rpg("outcome", "maybe", as_=first, ok=False))
+        self.assertIn("say what was reached for", self.rpg("outcome", "not_there", as_=first, ok=False))
+        self.rpg("outcome", "done", as_=first)
+        self.assertIn("OUTCOME for", self.rpg("outcome", "not_there", "a", "boat", "for", "hire", as_=first))
+        self.rpg("move", "south", as_=first)
+        self.write("proposals/story.txt", "Nobody here hires boats.")
+        self.assertNotIn("No outcome was recorded", self.rpg("narrate", first, "proposals/story.txt"))
+        self.write("proposals/reply.txt", "DO: I look about.\nJOURNAL: Getting my bearings.\n")
+        self.rpg("reply", second, "proposals/reply.txt")
+        self.write("proposals/story.txt", "You look about.")
+        self.assertIn("No outcome was recorded for this turn", self.rpg("narrate", second, "proposals/story.txt"))
+        self.rpg("round", "end")
+        self.assertEqual([(e["player"], e["result"], e["what"]) for e in self.log_entries() if e["kind"] == "outcome"],
+                         [(first, "done", None), (first, "not_there", "a boat for hire")])
+        audit = self.run_py("tools/audit.py", "state/log/%s.jsonl" % self.save()["run"]["id"]).stdout
+        self.assertIn("== HEADLINE\n  rounds 1, ", audit)
+        self.assertIn("never used: a check written in content; ", audit)
+        self.assertRegex(audit, r"\n  moving +1\n")
+        self.assertRegex(audit, r"\n  a turn's outcome: reached for something that isn't there +1\n")
+        self.assertRegex(audit, r"\n  a turn's outcome: done +never\n", "the last word in a turn stands")
+        self.assertIn("  %s: not_there 1\n  r1 %s not_there: a boat for hire\n  NO OUTCOME RECORDED: r1 %s" % (first, first, second), audit)
+        sys.path.insert(0, str(ROOT / "tools"))
+        import audit as audit_module
+        names = [name for name, _ in audit_module.coverage([])]
+        self.assertEqual(len(names), len(set(names)), "each mechanic counted once")
+
     def test_a_place_to_let_with_no_bed_price_is_only_its_tenants_to_sleep_in(self):
         self.selling_world(coins=6)
         gull = self.dir / "games" / "dark_lighthouse" / "rooms" / "gull_tavern.md"
