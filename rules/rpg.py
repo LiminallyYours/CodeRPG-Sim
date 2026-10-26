@@ -1444,8 +1444,9 @@ def finish_building(state, ident, com):
     name, where = record["meta"]["name"], ent("rooms", com["room"]).get("name", com["room"])
     maker = ent("characters", com["maker"]).get("name", com["maker"])
     if owner in state["players"]:  # they hear of it, whether or not the story tells them (as signals go to memory)
-        remember(state["players"][owner], "seen", phrase("finished", place=name, direction=com["direction"], where=where, builder=maker),
-                 run.get("round") or 0)
+        line = phrase("finished", place=name, direction=com["direction"], where=where, builder=maker)
+        remember(state["players"][owner], "seen", line, run.get("round") or 0)
+        keep(state["players"][owner], line, run.get("round") or 0)
     run["rumors"].append(phrase("finished_rumor", place=name, direction=com["direction"], where=where))
     del run["rumors"][:-BALANCE["world"]["rumors_kept"]]
     data = lib()
@@ -1526,6 +1527,13 @@ def cmd_newgame(args):
         cmd_look([])
 
 
+def looks(pid):
+    """What anyone sees of a person in the cast (their entry's `look`), for the referee's and the townspeople's
+    lines, so everyone describes them the same way; empty when the entry gives none."""
+    look = cast_entry(pid).get("look")
+    return "; " + look if look else ""
+
+
 def pronouns(pid):
     """How to speak of a person in the cast: their entry's `pronouns`, or they/them when it gives none."""
     return cast_entry(pid).get("pronouns") or "they/them"
@@ -1564,9 +1572,10 @@ def cast_player(entry, w, run):
     stats["coins"] = int(entry.get("coins", w.get("coins", 0)))
     inventory = list(entry.get("inventory", w.get("inventory") or []))
     equipped = entry.get("equipped", w.get("equipped") if "inventory" not in entry else None)
+    known = [k["who"] for k in entry.get("people") or [] if content.exists("characters", k["who"])]  # people they know already
     return {"name": entry["name"], "model": entry.get("model"), "status": "playing", "location": entry["home"],
             "stats": stats, "inventory": inventory, "equipped": equipped if equipped in inventory else None,
-            "map": {}, "met": [], "present": None, "worked": None}
+            "map": {}, "met": known, "present": None, "worked": None, "taken_on": []}
 
 
 def cmd_look(args):
@@ -1620,7 +1629,7 @@ def cmd_look(args):
         print("PEOPLE HERE: %s. Each acts on their own turn: never speak or decide for them. What the player says "
               "aloud, they hear: `say <file>`; what they see and hear of the turn: `witnessed <file>`. What they carry is "
               "theirs: the story shows only what anyone could plainly see of it." % ", ".join(
-            "%s (%s, %s; carrying %s)" % (state["players"][p]["name"], p, pronouns(p), ", ".join(
+            "%s (%s, %s%s; carrying %s)" % (state["players"][p]["name"], p, pronouns(p), looks(p), ", ".join(
                 i + (" (in hand)" if i == state["players"][p]["equipped"] else "") for i in state["players"][p]["inventory"]) or "nothing")
             for p in others))
     offers = open_trades(state, actor_id(state))
@@ -1645,6 +1654,11 @@ def cmd_look(args):
         print("WORK HERE: %s vs DC %d, pays %s %s, once per visit%s. If the player works here: `work`." % (
             stat_label(job["stat"]), job["dc"], "%d-%d" % (job["low"], job["high"]) if job["high"] > job["low"] else job["low"],
             currency(), " (done this visit)" if me(state).get("worked") == room["id"] else ""))
+    reach, taken = quests_in_reach(state), me(state).get("taken_on", [])
+    if reach:
+        print("QUESTS: %s. When the player sets out to work on one, or agrees to a job: `quest take <id>`; when they set "
+              "one aside: `quest leave <id>`." % "; ".join("%s (%s): %s" % (ent("quests", q).get("name", q), q, "taken on" if q in taken
+                                                                             else "not taken on") for q in reach))
     buyers = [c for c in here if buys(c)]
     if buyers:
         print("BUYERS HERE: %s. If the player sells something: `sell <item>`." % "; ".join(
@@ -2010,7 +2024,7 @@ def cmd_npc_brief(args):
     # each person with how to speak of them, so the world's people do it the same way every time (step 41: Dilly was
     # "young miss" one round and "young sir" the next)
     lines += ["## The scene", "You are at %s. Present: %s." % (
-        room.get("name", room["id"]), ", ".join(["%s (%s)" % (state["players"][pid]["name"], pronouns(pid)) for pid in people] + others)),
+        room.get("name", room["id"]), ", ".join(["%s (%s%s)" % (state["players"][pid]["name"], pronouns(pid), looks(pid)) for pid in people] + others)),
         "%s is the one talking to you." % me(state)["name"], ""]
     if leaving:
         lines += ["This is your parting line: what just happened takes you out of this scene.", ""]
@@ -2474,6 +2488,39 @@ def cmd_note(args):
     del notes[:-BALANCE["world"]["notes_per_room"]]
     save_state(state)
     print("NOTED for %s: %s" % (me(state)["location"], text))
+
+
+def quests_in_reach(state):
+    """The quests the acting person could take on: the world's own, and side jobs from someone they've met."""
+    return [q for q in ent_ids("quests") if not is_generated("quests", q) or ent("quests", q).get("giver") in me(state).get("met", [])]
+
+
+def cmd_quest(args):
+    """quest take|leave <quest>: the person has taken a quest on (they mean to work on it, or agreed to the job), so
+    it shows in their "What you're working on"; or they've set it aside. Everyone knows the world's problem; caring
+    about it is their own."""
+    state = load_state()
+    require_playing(state)
+    if len(args) != 2 or args[0] not in ("take", "leave"):
+        raise Refused("usage: quest take|leave <quest>")
+    q, pl = args[1], me(state)
+    if not ent_exists("quests", q):
+        raise Refused("no quest %r" % q)
+    taken = pl.setdefault("taken_on", [])
+    name = ent("quests", q).get("name", q)
+    if args[0] == "take":
+        if q not in quests_in_reach(state):
+            raise Refused("%s hasn't met whoever gives %s" % (pl["name"], q))
+        if q in taken:
+            raise Refused("%s has already taken on %s" % (pl["name"], name))
+        taken.append(q)
+    else:
+        if q not in taken:
+            raise Refused("%s hasn't taken on %s" % (pl["name"], name))
+        taken.remove(q)
+    save_state(state)
+    print("%s: %s %s" % ("TAKEN ON" if args[0] == "take" else "SET ASIDE", name, "now shows in what %s is working on" % pl["name"]
+                         if args[0] == "take" else "no longer shows in what %s is working on" % pl["name"]))
 
 
 def cmd_chronicle(args):
@@ -3130,7 +3177,9 @@ def validate_cast(problems):
     if len(data) > int(limits["max_players"]):
         problems.append("cast.json: at most %d players (has %d)" % (int(limits["max_players"]), len(data)))
     seen_ids, seen_names = set(), set()
-    known = {"id", "model", "pronouns", "motivations", "attributes", "hp", "coins", "inventory", "equipped", "home"} | set(CAST_TEXT)
+    known = {"id", "model", "pronouns", "motivations", "attributes", "hp", "coins", "inventory", "equipped", "home",
+             "knows", "people", "look"} | set(CAST_TEXT)
+    cast_ids = {e.get("id") for e in data if isinstance(e, dict)}
     for n, e in enumerate(data, 1):
         if not isinstance(e, dict):
             problems.append("cast.json entry %d is not an object" % n)
@@ -3158,6 +3207,23 @@ def validate_cast(problems):
         motives = e.get("motivations")
         if not isinstance(motives, list) or not motives or not all(isinstance(m, str) and m.strip() for m in motives):
             problems.append("%s: motivations must be a list of short lines" % where)
+        lines = e.get("knows", [])
+        if not isinstance(lines, list) or len(lines) > int(limits["knows_max"]) or not all(
+                isinstance(k, str) and k.strip() and len(k) <= int(limits["line_chars"]) for k in lines):
+            problems.append("%s: knows must be a list of at most %d facts, each a line of at most %d characters"
+                            % (where, int(limits["knows_max"]), int(limits["line_chars"])))
+        known_people = e.get("people", [])
+        if not isinstance(known_people, list) or len(known_people) > int(limits["people_max"]) or not all(
+                isinstance(k, dict) and set(k) == {"who", "how"} and isinstance(k["how"], str) and k["how"].strip()
+                and len(k["how"]) <= int(limits["line_chars"]) for k in known_people):
+            problems.append("%s: people must be a list of at most %d {\"who\", \"how\"}, how a line of at most %d characters"
+                            % (where, int(limits["people_max"]), int(limits["line_chars"])))
+        else:
+            for k in known_people:
+                if k["who"] == ident or not (k["who"] in cast_ids or content.exists("characters", str(k["who"]))):
+                    problems.append("%s: people: %r is neither another of the cast nor a character in this world" % (where, k["who"]))
+        if "look" in e and not (isinstance(e["look"], str) and e["look"].strip() and len(e["look"]) <= int(limits["look_chars"])):
+            problems.append("%s: look must be a line of at most %d characters" % (where, int(limits["look_chars"])))
         if "model" in e and e["model"] not in limits["models"]:
             problems.append("%s: model must be one of %s" % (where, ", ".join(limits["models"])))
         elif "model" not in e and SETTINGS["cast"]["model"] == "own":
@@ -4255,6 +4321,8 @@ def cmd_ending(args):
     hearers = [p for p in playing(state) if p != teller]
     for p in hearers:
         remember(state["players"][p], "seen", text, state["run"].get("round", 0))
+    for p in playing(state):  # the teller lives it in their story; everyone keeps what the town saw of it
+        keep(state["players"][p], text, state["run"].get("round", 0))
     told = state["run"].setdefault("endings", {})
     for q, o in waiting.items():
         told[q] = {"outcome": o, "round": state["run"].get("round", 0), "by": teller}
@@ -4357,7 +4425,8 @@ def cmd_memory(args):
 
 PEOPLE = ROOT / "rules" / "people"
 PHRASES = {
-    "who_i_am": (), "i_am": ("name", "personality"), "how_i_talk": ("voice",), "drives": ("motivations",),
+    "who_i_am": (), "i_am": ("name", "pronouns", "personality"), "how_i_talk": ("voice",), "drives": ("motivations",),
+    "people_i_know": ("people",), "person_i_know": ("who", "how"), "i_know": (), "everyone_knows": (),
     "begins": (), "remember": (), "lately": (), "moment": ("n",), "did": (), "why": (), "happened": (), "told": (),
     "stood": (), "where_you_are": (), "place": ("place",), "ways_on": ("ways",), "way": ("direction", "place"),
     "with_you": ("people",), "no_one": (), "you": (), "health": ("hp", "max_hp", "stats"), "money": ("n", "currency"),
@@ -4371,6 +4440,7 @@ PHRASES = {
     "finished": ("place", "direction", "where", "builder"), "finished_rumor": ("place", "direction", "where"),
 }
 THINKBACK_GAPS = ("name", "voice", "stretch")
+UNIVERSE_GAPS = ("currency",)
 _WORDS = {}
 
 
@@ -4410,6 +4480,20 @@ def thinkback_text():
     return text[:-1] if text.endswith("\n") else text
 
 
+def universe_lines():
+    """universe.md's sentences, how life goes anywhere, with the world's money filled in."""
+    lines = [l.strip() for l in people_file("universe.md").splitlines() if l.strip() and not l.startswith("#")]
+    try:
+        return [l.format(currency=currency()) for l in lines]
+    except (KeyError, IndexError, ValueError):
+        raise Refused("rules/people/universe.md has a gap the code doesn't fill (`rpg.py validate`)")
+
+
+def public_knowledge():
+    """The world's `## Public knowledge` (world.md), as written: what everyone around here knows."""
+    return _section(world()["body"], "Public knowledge").strip()
+
+
 def people_problems():
     """What's wrong with the words in rules/people/: a phrase missing, unknown or with a gap the code doesn't fill."""
     try:
@@ -4422,6 +4506,12 @@ def people_problems():
     out += ["brief.md: %s isn't a phrase the code uses" % k for k in phrases if k not in PHRASES]
     out += ["brief.md: %s has a gap the code doesn't fill: %s" % (k, ", ".join(sorted(gaps(v) - set(PHRASES[k]))))
             for k, v in phrases.items() if k in PHRASES and gaps(v) - set(PHRASES[k])]
+    try:
+        universe = people_file("universe.md")
+    except Refused as e:
+        return out + [str(e)]
+    if gaps(universe) - set(UNIVERSE_GAPS):
+        out.append("universe.md has a gap the code doesn't fill: %s" % ", ".join(sorted(gaps(universe) - set(UNIVERSE_GAPS))))
     if gaps(think) - set(THINKBACK_GAPS):
         out.append("thinkback.md has a gap the code doesn't fill: %s" % ", ".join(sorted(gaps(think) - set(THINKBACK_GAPS))))
     return out
@@ -4486,6 +4576,7 @@ def record_texts(state, texts):
 def versions(state, pid, instructions=None):
     """The tags of what shaped what `pid` read or answered, for their log entry."""
     texts = {"brief": people_file("brief.md"), "thinkback": people_file("thinkback.md"),
+             "universe": people_file("universe.md"), "public:" + content.game_id(): public_knowledge(),
              "cast:" + pid: json.dumps(cast_entry(pid), sort_keys=True, ensure_ascii=False)}
     if instructions:
         texts["instructions:" + Path(instructions).stem] = agent_instructions(instructions)
@@ -4567,7 +4658,7 @@ def pane_text(state):
         lines += ["", phrase("offered_to_you")] + ["- " + x for x in to_me]
     if by_me:
         lines += ["", phrase("you_offered")] + ["- " + x for x in by_me]
-    quests =[q for q in v["quests"] if not q["side"] or ent("quests", q["id"]).get("giver") in pl.get("met", [])]
+    quests = [q for q in v["quests"] if q["id"] in pl.get("taken_on", [])]  # the problem is known; caring is their own
     if quests:
         lines += ["", phrase("working_on")]
         for q in quests:
@@ -4609,9 +4700,19 @@ def cmd_brief(args):
     mem = pl.setdefault("memory", {"recent": [], "condensed": []})
     entry = cast_entry(args[0])
     # the cast writes who they are in their own first person: a note to themselves, like their journal and memories
-    out = [phrase("who_i_am"), phrase("i_am", name=pl["name"], personality=entry.get("personality", "")),
+    out = [phrase("who_i_am"), phrase("i_am", name=pl["name"], pronouns=pronouns(args[0]), personality=entry.get("personality", "")),
            phrase("how_i_talk", voice=entry.get("voice", "")),
-           phrase("drives", motivations="; ".join(entry.get("motivations") or [])), ""]
+           phrase("drives", motivations="; ".join(entry.get("motivations") or []))]
+    if entry.get("people"):
+        out.append(phrase("people_i_know", people="; ".join(phrase("person_i_know", who=person_name(state, k["who"]), how=k["how"])
+                                                            for k in entry["people"])))
+    out.append("")
+    # what they knew when the night began, and what this run has settled for good: theirs every turn, never fading
+    known = list(entry.get("knows") or []) + [k["text"] for k in pl.get("kept", [])]
+    if known:
+        out += [phrase("i_know")] + ["- " + k for k in known] + [""]
+    everyone = ["- " + l for l in universe_lines()] + [l for l in public_knowledge().splitlines() if l.strip()]
+    out += [phrase("everyone_knows")] + everyone + [""]
     if not mem["condensed"] and not any(e["kind"] == "did" for e in mem["recent"]):  # words heard before a first turn
         out += [phrase("begins"), entry.get("opening", ""), ""]
     if mem["condensed"]:
@@ -4631,6 +4732,19 @@ def cmd_brief(args):
     log(state, "brief", text=text, versions=versions(state, args[0], instructions))
     save_state(state)
     print(text)
+
+
+def person_name(state, ident):
+    """Someone a cast entry's `people` names: another of the cast, or one of the world's characters."""
+    if ident in state["players"]:
+        return state["players"][ident]["name"]
+    return ent("characters", ident).get("name", ident) if ent_exists("characters", ident) else ident
+
+
+def keep(pl, text, number):
+    """Something this run has settled that a person never forgets (an ending, a place finished for them): shown
+    under "What I know" every turn from now on."""
+    pl.setdefault("kept", []).append({"round": number, "text": text})
 
 
 def cast_entry(pid):
@@ -5050,6 +5164,7 @@ COMMANDS = {
     "talk": (cmd_talk, 1, "talk <generated person>   before voicing a generated person: counts conversations, may promote them"),
     "library": (cmd_library, 1, "library suggest <id> <why>   tell the owner a generated or player-made thing deserves keeping"),
     "note": (cmd_note, 1, "note <text>   keep a detail you established about this room"),
+    "quest": (cmd_quest, 2, "quest take|leave <quest>   the person takes a quest on (it shows in what they're working on), or sets it aside"),
     "chronicle": (cmd_chronicle, 1, "chronicle <text>   add a line to the story so far"),
     "round": (cmd_round, 1, "round start | round end   open the next round (draws its order) or close it (the world's clock moves)"),
     "run": (cmd_run, 1, "run status | pause | resume | end   the owner's say over a run: a pause or end waits for the round in progress"),

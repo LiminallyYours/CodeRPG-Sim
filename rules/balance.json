@@ -100,6 +100,10 @@
     "stat_max": 3,
     "hp_max": 30,
     "coins_max": 50,
+    "knows_max": 8,
+    "line_chars": 240,
+    "people_max": 8,
+    "look_chars": 240,
     "models": [
       "haiku",
       "sonnet",

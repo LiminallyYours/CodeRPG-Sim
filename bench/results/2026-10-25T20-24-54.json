@@ -1,0 +1,627 @@
+{
+ "when": "2026-10-25T20:24:54",
+ "times": 5,
+ "variants": {
+  "options-own": {
+   "file": "bench/variants/options-own.md",
+   "tag": "5ac66d41"
+  },
+  "options-free": {
+   "file": "bench/variants/options-free.md",
+   "tag": "923b74f8"
+  }
+ },
+ "moments": {
+  "hobb8": {
+   "kind": "brief",
+   "person": "hobb",
+   "from": "2e964390af89, round 8",
+   "model": "sonnet",
+   "brief_tag": "8c29c5ea"
+  },
+  "hobb8-knows": {
+   "kind": "brief",
+   "person": "hobb",
+   "from": "2e964390af89, round 8, edited by hand",
+   "model": "sonnet",
+   "brief_tag": "aae751fe"
+  },
+  "hobb2": {
+   "kind": "brief",
+   "person": "hobb",
+   "from": "2e964390af89, round 2",
+   "model": "sonnet",
+   "brief_tag": "950a1c8f"
+  },
+  "marigold5": {
+   "kind": "brief",
+   "person": "marigold",
+   "from": "2e964390af89, round 5",
+   "model": "sonnet",
+   "brief_tag": "f3551a8e"
+  },
+  "dilly9": {
+   "kind": "brief",
+   "person": "dilly",
+   "from": "2e964390af89, round 9",
+   "model": "sonnet",
+   "brief_tag": "f6b0dfda"
+  },
+  "hester12": {
+   "kind": "brief",
+   "person": "hester",
+   "from": "2e964390af89, round 12",
+   "model": "sonnet",
+   "brief_tag": "dea99b81"
+  },
+  "marigold-after-clock": {
+   "kind": "save",
+   "person": "marigold",
+   "from": "staged-45, round 1",
+   "model": "sonnet",
+   "brief_tag": "4bc810ac"
+  }
+ },
+ "replies": [
+  {
+   "moment": "hobb8",
+   "variant": "options-own",
+   "n": 1,
+   "reply": "OPTIONS:\n- Tell Ambrose I'll haul coal to his tower for free until the whistle is paid off (for: my hatred of owing anyone, since he gave me the whistle and wouldn't take a button)\n- Carry sacks of coal round to the cold hearths where the children sleep (for: the worry that those houses have gone cold, and the work I'm good at)\n- Go down to the Lopsided Square and see how Pip and the others are (for: wanting to know the shadows really are back, and that I did right by Pip)\n* Tell Ambrose plain that the whistle is a debt, and settle it by hauling coal to his tower (for: my hatred of owing anyone, and the four walls of my own I'm saving toward)\nDO: I close my hand on the whistle, slow, and look at Ambrose. \"Keep your buttons, you said. Fair's fair, Ambrose, that's worth more than six. I'll bring coal to this tower every week this winter, no charge, and carry what you can't. We'll call it square when I've counted it out.\" I tuck the whistle in my coat and wait for him to argue.\nJOURNAL: I can't leave a gift sitting on me, so I'll pay it back in the one thing I'm good for, which is coal. Once that's settled I can get back to saving for my own door and carrying warmth to the cold hearths.",
+   "cost": 0.049226,
+   "exact_model": "claude-sonnet-5-5"
+  },
+  {
+   "moment": "hobb8",
+   "variant": "options-own",
+   "n": 2,
+   "reply": "OPTIONS:\n- Tell Ambrose the whistle's work is done and the children are awake, then promise him coal for his kettle all winter to square what he gave me (for: my hatred of owing, since he wouldn't take buttons for the whistle)\n- Go back to the coal merchant's and start the morning round to the cold hearths in the houses with children (for: my worry about the cold hearths, and my living)\n- Go down to the square and find Pip and the others, to see the shadows are truly back and nobody needs anything carried (for: what I took on when I said I'd help)\n* Offer the whistle back to Ambrose and, since he'll not take it, promise coal for his hearth and kettle all winter, fair and counted (for: my hatred of owing, and kindness I'd rather not call kindness)\nDO: I hold the whistle out to Ambrose, slow. \"Maudie's. It's yours, Ambrose. You said don't bring it back, so I'll not argue. But I'll not owe you either. I'll bring a sack of coal to your hearth every week this winter. Fair's fair. No thanks wanted.\" I close his oily fingers round it, and wait to see if he'll take it.\nJOURNAL: The children are woken, but Ambrose gave me something I can't pay in buttons, and I'll not carry that debt around. Coal is what I have, so coal is how I'll pay. Then it's back to the rounds and the sock, toward four walls of my own.",
+   "cost": 0.050436,
+   "exact_model": "claude-sonnet-5-5"
+  },
+  {
+   "moment": "hobb8",
+   "variant": "options-own",
+   "n": 3,
+   "reply": "OPTIONS:\n- Square my debt with Ambrose for the whistle by climbing the ladder to check the Great Gear and doing the work he can't, then hauling coal for his kettle (for: my hatred of owing, since he took no coin and I won't leave that unpaid)\n- Haul coal to the hearths in the houses where the children slept, now that they're awake and cold (for: the kindness I don't let on, and the buttons for my sock)\n- Ask Ambrose what rent he'd take for a room in the tower, with a door that locks (for: my want of four walls of my own, paid for fair, not given as leave)\n* Square my debt with Ambrose for the whistle by climbing the ladder to check the Great Gear and doing the work he can't, then hauling coal for his kettle (for: my hatred of owing, since he took no coin and I won't leave that unpaid)\nDO: I look at Ambrose, slow, and say, \"You'd take no coin for the whistle. Fair's fair, I'll not leave it so. That ladder's no good to your knee. I'll go up and see to the Great Gear for you, and tomorrow I'll bring coal for your kettle. Count it as paid, and don't argue.\" Then I take hold of the ladder and start up into the gearloft.\nJOURNAL: Ambrose gave me his Maudie's whistle for nothing, and a thing given for nothing sits on my tally until I pay it. I'll do the work he can't, and the coal after, until we're square. Then I can think about a door of my own.",
+   "cost": 0.049965999999999997,
+   "exact_model": "claude-sonnet-5-5"
+  },
+  {
+   "moment": "hobb8",
+   "variant": "options-own",
+   "n": 4,
+   "reply": "OPTIONS:\n- Tell Ambrose I'll bring him a sack of coal for his kettle, to square the whistle he wouldn't take buttons for (for: hating to owe anyone, and Ambrose's leave for the yard already galls me)\n- Haul coal round to the hearths in the children's houses that went cold, now that they're waking (for: the cold hearths that sat wrong with me, and my trade)\n- Put the whistle back in Ambrose's hand, since he's grieving it, and pay for it another way (for: not wanting to owe, and a kindness I don't let on to)\n- Count my sock and work out how many more loads it takes to get four walls and a door that locks (for: wanting a place of my own)\n* Tell Ambrose I'll bring him a sack of coal for his kettle, to square the whistle he wouldn't take buttons for (for: hating to owe anyone, and Ambrose's leave for the yard already galls me)\nDO: I look at Ambrose, slow, and say, \"You'd not take buttons. Fair's fair, then. I'll bring you a sack of coal for that kettle, and another when it's gone. That's the whistle paid, and the yard too, by my count.\" I tuck the whistle safe in my coat and wait for him to argue.\nJOURNAL: Ambrose gave me what I couldn't buy, and a debt I can't pay in buttons sits heavy on me, so I'll pay it in coal, which is what I'm good for. After that I'll carry coal to the cold hearths and keep saving toward my own door.",
+   "cost": 0.050176,
+   "exact_model": "claude-sonnet-5-5"
+  },
+  {
+   "moment": "hobb8",
+   "variant": "options-own",
+   "n": 5,
+   "reply": "OPTIONS:\n- Go down to the Lopsided Square and see that the children are awake and warm, then ask about coal for the cold hearths (for: the worry I've had that the hearths went cold where the children sleep)\n- Tell Ambrose I'll haul his coal for the winter, to square the whistle he wouldn't take buttons for (for: my hatred of owing anyone, and the leave to sleep in his yard that already galls me)\n- Go to the yard, count the sock, and work out how many more coal rounds a door that locks will cost me (for: my want of four walls and a door of my own)\n* Tell Ambrose I'll haul his coal for the winter, to square the whistle he wouldn't take buttons for (for: my hatred of owing anyone, and the leave to sleep in his yard that already galls me)\nDO: I look at Ambrose, slow, and say, \"Ambrose. You'd take no buttons, and that's a debt I carry. Fair's fair. I'll bring coal to your kettle and your stove every week this winter, and I'll not take a button for it. Whistle for coal. That squares it.\" I wait for his nod before I go.\nJOURNAL: He gave me Maudie's whistle for nothing, and a gift like that sits on me heavier than any bill, so I'll work it off in coal where I can count it. When it's squared I'll go back to saving the sock for my own door.",
+   "cost": 0.0091398,
+   "exact_model": "claude-sonnet-5-5"
+  },
+  {
+   "moment": "hobb8",
+   "variant": "options-free",
+   "n": 1,
+   "reply": "OPTIONS:\n- Go back down to the Lopsided Square and trade the whistle to Tibbersnatch for the jar of shadows (for: getting the children's shadows back so they wake)\n- Fetch a poker from a hearth and climb the ladder to jam the Great Gear, which Ambrose can't do any more (for: making sure the clock never strikes thirteen, and paying Ambrose back for the whistle)\n- Stay and ask Ambrose what else the tower needs doing before midnight (for: settling what I owe him in work, since he won't take buttons)\n* Go down to the Lopsided Square with the whistle and put it to the peddler for the jar (for: freeing the shadows before midnight)\nDO: I close my hand tight on the whistle and say, \"Ambrose. You'd take no coin, so I owe you. I'll make it fair after, with work.\" Then I go south down to the square, with the whistle held warm in my fist, and look for the stovepipe hat in the fog.\nJOURNAL: The whistle is the price the peddler named, and the shadows are what the children need, so it comes first. I hate owing Ambrose for it, so I'll find a way to pay him back in work once the clock is dealt with. I'm working toward the jar in my hand and the clock stopped before midnight.",
+   "cost": 0.0489,
+   "exact_model": "claude-sonnet-5-5"
+  },
+  {
+   "moment": "hobb8",
+   "variant": "options-free",
+   "n": 2,
+   "reply": "OPTIONS:\n- Go south to the square and trade the whistle to Tibbersnatch for the jar of shadows (for: getting the children's shadows back before midnight)\n- Climb the ladder to the gearloft and look over the Great Gear for Ambrose, who can't climb it any more (for: making sure the clock can't strike thirteen, and doing him a good turn)\n* Tell Ambrose I'll keep his hearth stocked with coal, no charge, until I judge we're square, then go up and check the gear for him (for: paying back what I can't pay in buttons, so I don't carry the owing)\n- Wait here with Ambrose and keep the whistle safe until midnight (for: not risking the whistle in the fog)\nDO: I close my hand slow around the whistle and say, \"Ambrose. You wouldn't take buttons, so I'll pay another way. Coal for your hearth, every week, till I say we're square. And I'll go up that ladder and look at the Great Gear for you, since your knee won't.\" I tuck the whistle in my coat and put a boot on the first rung.\nJOURNAL: He gave me something worth more than six buttons and wouldn't let me pay, and that sits on me like a weight. Coal and a climb are things I can give fair, so I'll do them and count it out till it's even. After that, a door of my own.",
+   "cost": 0.04909,
+   "exact_model": "claude-sonnet-5-5"
+  },
+  {
+   "moment": "hobb8",
+   "variant": "options-free",
+   "n": 3,
+   "reply": "OPTIONS:\n- Go down to the Lopsided Square and trade the whistle to Tibbersnatch for the jar of shadows (for: getting the children's shadows back before midnight)\n- Climb the ladder to the Gearloft and look over the Great Gear for Ambrose, since he can't climb any more (for: paying back the whistle he gave me, so I don't owe him)\n* Tell Ambrose I'll not take the whistle as a gift, that I'll pay him back in work, and that I'll start by hauling coal to his cold hearth and checking the gear once the shadows are home (for: settling the debt fair, and keeping the tower warm and ticking true)\n- Go round the cold hearths in the children's houses with coal from the merchant's (for: warming the homes where the children sleep)\nDO: I close my fist slow around the whistle and say, \"Ambrose. You said don't bring it back. Fine, I won't. But fair's fair, I'll not owe you for it. I'll haul you coal for the stove, and I'll climb that ladder and look the Great Gear over, since your knee won't let you. That's the price, and I'll hear no argument.\"\nJOURNAL: Ambrose wouldn't take buttons, so I'll pay him in work, which I can do and which leaves me owing nothing. Then the whistle goes to the peddler for the shadows, and I'm one step nearer a door of my own with no debts behind it.",
+   "cost": 0.0103429,
+   "exact_model": "claude-sonnet-5-5"
+  },
+  {
+   "moment": "hobb8",
+   "variant": "options-free",
+   "n": 4,
+   "reply": "OPTIONS:\n- Take the whistle down to the Lopsided Square and trade it to Tibbersnatch for the jar (for: getting the children's shadows back so they wake)\n- Fetch a poker from a hearth and climb to the Great Gear to jam it (for: making sure the clock never strikes thirteen, whatever the peddler does)\n* Tell Ambrose I'll settle what I owe him for the whistle by hauling coal to his tower hearth all winter, then go on with the whistle (for: paying the debt so I don't owe him, and keeping the old man warm)\n- Ask Ambrose whether the clock is still running fast and how long till midnight (for: knowing how much time is left before I choose)\n\nDO: I close my fingers on the whistle and look at Ambrose, slow. \"You said keep the buttons, and I'll keep them. But I'll not take this for nothing. Fair's fair. I'll bring you coal for your hearth, all winter, and not charge you a button. That squares it.\" Then I tuck the whistle in my coat and nod toward the south door, ready to go.\n\nJOURNAL: Ambrose wouldn't take coin, and a gift galls me, so I'll pay him back in coal, which is the one thing I can give. Then I take the whistle to the peddler to get the children's shadows back, and I'll still have the poker and the Great Gear if that goes wrong.",
+   "cost": 0.0100329,
+   "exact_model": "claude-sonnet-5-5"
+  },
+  {
+   "moment": "hobb8",
+   "variant": "options-free",
+   "n": 5,
+   "reply": "OPTIONS:\n- Go down to the square and offer Tibbersnatch the whistle for the jar of shadows (for: getting the children's shadows back before midnight)\n- Climb to the gearloft and jam iron in the Great Gear (for: making sure the clock never strikes thirteen, whatever the peddler does)\n* Tell Ambrose I'll pay him back in coal for the whistle, and ask which hearth in the tower needs filling (for: settling a debt I can't pay in buttons, so I owe him nothing)\nDO: I close my hand around the whistle and say, slow, \"Ambrose. You'd take no buttons, so I'll pay you in coal. A sack for your stove, and a sack more come winter. I'm marking it on the tally. Fair's fair.\" Then I ask him to point me to his coal scuttle before I take the whistle down to the square.\nJOURNAL: He gave me the whistle for nothing, and that sits heavy on me, so I'll square it with coal, which is what I'm good for. After that I'll take the whistle to the peddler and get the children their shadows back. That is the road to my own four walls, owing nobody.",
+   "cost": 0.0098029,
+   "exact_model": "claude-sonnet-5-5"
+  },
+  {
+   "moment": "hobb8-knows",
+   "variant": "options-own",
+   "n": 1,
+   "reply": "OPTIONS:\n- Ask Ambrose what he'd charge to put up a small shed with a locking door in the nettle patch beside the tower (for: my wish for four walls and a door that locks, with nobody's leave)\n- Carry a sack of coal to the cold hearths in the children's houses, now they're awake (for: the kindness I won't admit to, and my worry about the cold hearths)\n- Offer Ambrose coal for his hearth all winter to square the whistle he wouldn't take buttons for (for: my hatred of owing anyone)\n* Tell Ambrose the whistle's a debt I'll settle in coal, then ask his price for a shed in the nettle patch (for: my hatred of owing, and my want of four walls and a door that locks)\nDO: I close my fingers on the whistle and say, slow, \"Ambrose. You'd take no buttons, so I'll pay in coal. Your hearth's filled all winter, fair's fair.\" Then I say, \"And that nettle patch. What would you charge for a shed with a door that locks? I've six buttons now, and more coming.\"\nJOURNAL: The whistle was given free, and that sits on me like a stone, so I want it settled in coal before anything else. Then I can ask about the shed, which is what I'm saving the sock toward: four walls and a lock, bought and paid for.",
+   "cost": 0.048594000000000005,
+   "exact_model": "claude-sonnet-5-5"
+  },
+  {
+   "moment": "hobb8-knows",
+   "variant": "options-own",
+   "n": 2,
+   "reply": "OPTIONS:\n- Tell Ambrose I'll keep his hearth stocked with coal this winter to square the whistle he gave me for nothing (for: my hatred of owing anyone, and the debt I now carry)\n- Ask Ambrose what a small shed with a locking door would cost on the nettle patch beside the tower (for: my want of four walls and a door that locks, and nobody's leave to sleep behind it)\n- Go down to the square and see whether the children have woken and the cold hearths have been lit (for: my worry over the cold houses where the children sleep)\n* Settle the whistle with Ambrose first, then ask him his price for the shed (for: my hatred of owing, and my want of a place of my own)\nDO: I look at Ambrose, slow, and say, \"Ambrose. You'd not take buttons for the whistle. Fair's fair, so I'll carry you coal all winter, no charge, and we're square.\" Then I ask, \"And the nettle patch. A shed with a door that locks. What would you ask for it? I'll count it out.\"\nJOURNAL: I can't leave a gift hanging over me, so I'll pay it back in coal before I do anything else. Then I'll learn the price of a shed, so I know how many buttons stand between me and my own door.",
+   "cost": 0.049104,
+   "exact_model": "claude-sonnet-5-5"
+  },
+  {
+   "moment": "hobb8-knows",
+   "variant": "options-own",
+   "n": 3,
+   "reply": "OPTIONS:\n- Ask Ambrose the price of a little shed with a lock on the nettle patch beside the tower (for: my want of four walls and a door that locks, with nobody's leave to sleep behind it)\n- Offer Ambrose a season of free coal to his hearth, to square what I owe him for the whistle (for: my hatred of owing anyone, since he refused my buttons and that sits heavy on my tally)\n- Take coal round to the cold hearths in the children's houses, now the little ones are up and yawning (for: my worry about the cold hearths where the children sleep)\n* Ask Ambrose the price of the shed, and tell him I'll carry him coal until the whistle is paid for (for: my want of a place of my own, and my need to clear the debt of the whistle)\nDO: I look at Ambrose, slow, and say, \"Ambrose. You wouldn't take my buttons for the whistle. That's owing, and I don't like it. I'll bring you coal all winter, counted, until we're even. And you build sheds. What would you ask for a small one with a door that locks, on the nettle patch? I've six buttons and a sock at home behind the coal sacks. Tell me the price plain.\"\nJOURNAL: I'd rather settle the whistle with coal than carry it on my tally, and the shed is the thing I've wanted longest. I'm working toward four walls and a lock, bought fair and owed to nobody.",
+   "cost": 0.009161,
+   "exact_model": "claude-sonnet-5-5"
+  },
+  {
+   "moment": "hobb8-knows",
+   "variant": "options-own",
+   "n": 4,
+   "reply": "OPTIONS:\n- Go down to the square and check the children are really awake, and see that the hearths in their houses get lit (for: the cold hearths where the children sleep, which have sat wrong with me)\n- Ask Ambrose what a small shed with a lockable door would cost on the nettle patch, and start counting toward it (for: my wish for four walls and a door that locks, and nobody's leave to sleep behind it)\n* Tell Ambrose I'll square the whistle by carrying him coal for his kettle all winter, and ask in the same breath what a locking shed would cost (for: my hatred of owing, since he took no buttons, and my wish for a place of my own)\n- Hand the whistle back and say it's not mine to keep (for: my hatred of owing, though he said plainly not to bring it back)\n\nDO: I look at Ambrose, slow, and say, \"You took no buttons for the whistle. I don't like that. I'll carry coal to your kettle all winter, free, and we're square. Fair's fair.\" Then I add, \"And the shed on the nettle patch. Four walls, a door with a lock. What's it cost? I'll count it out.\"\n\nJOURNAL: He gave me something I couldn't pay for, and that sits like a stone in my boot, so I'll pay it off in coal, where I'm good. Then I'll ask the shed's price while he's here, because that door with a lock is what I'm saving the sock for.",
+   "cost": 0.009381,
+   "exact_model": "claude-sonnet-5-5"
+  },
+  {
+   "moment": "hobb8-knows",
+   "variant": "options-own",
+   "n": 5,
+   "reply": "OPTIONS:\n- Ask Ambrose what he'd charge to put up a shed on the nettle patch or in the coal yard (for: my want of four walls and a door that locks, with nobody's leave to sleep behind it)\n- Carry a sack of coal to the cold hearths in the children's houses, and pay for it myself (for: the worry about the cold hearths, and the way I hate owing)\n* Give Ambrose back the whistle and ask what he'd take for it, or pay him in coal and labour (for: I hate owing anyone, and he gave me the whistle for nothing, which is a debt)\n- Count my buttons and the tally stick and work out how many coal rounds I need to afford a shed (for: my want of a place of my own, and never spending a button I don't have to)\n\nDO: I hold the whistle out to Ambrose, slow. \"Ambrose. You took no coin for this, and I don't like leaving it so. Fair's fair. If you'll not take it back, I'll haul your coal up this tower free, every week, till I've counted it even.\" I keep my hand open and wait on his answer.\n\nJOURNAL: He gave me the whistle for nothing, and that's a debt I can't sleep on, so I settle it first. After that I'll ask him his price for a shed, and I'm working toward four walls and a lock of my own.",
+   "cost": 0.008771000000000001,
+   "exact_model": "claude-sonnet-5-5"
+  },
+  {
+   "moment": "hobb8-knows",
+   "variant": "options-free",
+   "n": 1,
+   "reply": "OPTIONS:\n- Sit with Ambrose a moment and ask what he'll do now the whistle is gone, and whether the tower needs anything doing (for: seeing the old man isn't left worse off, and paying back what I can)\n- Go to Nell's sweet shop and ask what a small keepsake costs to make, a new tin whistle for Ambrose to replace Maudie's (for: squaring the debt I feel I owe him, since he'd take no buttons)\n- Go down to the square and see whether the children are waking and the peddler gone (for: knowing the town is put right)\n- Ask Ambrose about building me a small shed in the coal yard, and pay him fair for it (for: my own four walls and a door that locks, which is what I want most)\n* Ask Ambrose to name some work I can do for him, up the ladder or in the yard, so I settle what I owe for the whistle (for: not leaving a gift unpaid in my own head)\nDO: I look at Ambrose, slow, and say, \"You'd take no buttons, Ambrose. That sits wrong with me. Fair's fair. There's a ladder you can't climb and a gearloft you can't see to. Let me go up and look it over, oil what wants oiling, and carry what wants carrying. I'll not owe you for that whistle.\"\nJOURNAL: Ambrose wouldn't take my buttons, and a gift I can't pay back gnaws at me worse than any bill. Work is something I can count out honestly, and the gearloft is a thing he can't reach himself. After that I mean to save toward a shed and a locking door of my own.",
+   "cost": 0.046417999999999994,
+   "exact_model": "claude-sonnet-5-5"
+  },
+  {
+   "moment": "hobb8-knows",
+   "variant": "options-free",
+   "n": 2,
+   "reply": "OPTIONS:\n- Sit with Ambrose a while and tell him the children woke and the clock struck only twelve, so he knows his whistle was well spent (for: letting him hear it, and making sure he's not left alone with the loss)\n- Ask Ambrose what a shed or porch built on the coal yard would cost, and count out my six buttons toward it (for: the four walls and a door that locks, which I want most)\n- Go down to the Lopsided Square and look in on Pip and the children, to see the shadows behind them for myself (for: knowing the work is truly done)\n- Go back to the coal merchant's and carry coal to the cold hearths in the children's houses (for: my own work, and the cold hearths that sat wrong with me)\n* Ask Ambrose plain what it would cost to put up a small shed with a locking door in the coal yard, and show him my six buttons (for: the four walls and a door that locks, so I owe nobody for a place to sleep)\nDO: I look at Ambrose, slow, and say, \"Ambrose. It's done. Children are up, clock struck twelve and no more. Fair's fair, you'd take no coin for the whistle, so I'll ask you something I will pay for. What would a small shed cost, in the coal yard, with a door that locks? I've six buttons. I'll count out the rest in work.\" I hold the sock where he can see it.\nJOURNAL: Ambrose wouldn't take my buttons, and that sits heavy, so I'll put them where I can pay fair and owe nothing. A shed with a lock is what I've wanted longest, and this is the first night I've felt the town might let me earn it. I'm working toward four walls that are mine, bought and paid for.",
+   "cost": 0.0065841,
+   "exact_model": "claude-sonnet-5-5"
+  },
+  {
+   "moment": "hobb8-knows",
+   "variant": "options-free",
+   "n": 3,
+   "reply": "OPTIONS:\n- Go up the ladder to the gearloft with Ambrose's blessing and jam something iron in the Great Gear's teeth (for: stopping the clock before it strikes thirteen, in case the trade goes wrong)\n- Take the whistle south to the square and trade it to Tibbersnatch for the jar of shadows (for: getting the children's shadows back so they wake)\n- Ask Ambrose what he'd have me do for the whistle, since he took no buttons and I'll not sit owing him (for: squaring the debt so I owe nothing)\n* Take the whistle south to the square and find the peddler before the clock runs on (for: trading it for the jar of shadows, the thing that wakes the children)\nDO: I close my hand slow round the whistle and say, \"Ambrose. I'll not say thanks. But I'll see it's well spent, and fair's fair, I'll square it with you after.\" Then I go out the south door to the square, to find Tibbersnatch and trade him the whistle for the jar.\nJOURNAL: The whistle is in my hand and the peddler wants it, so the quickest way to wake the children is to trade it now. I'll keep the poker and the Great Gear for after, if he cheats me, and I'll find some way to pay Ambrose back, since I can't stand owing him.",
+   "cost": 0.0053441,
+   "exact_model": "claude-sonnet-5-5"
+  },
+  {
+   "moment": "hobb8-knows",
+   "variant": "options-free",
+   "n": 4,
+   "reply": "OPTIONS:\n- Go back to the Lopsided Square and sit with Pip and Mags a while, watching the children wake (for: seeing the thing through and knowing the town is right again)\n- Stay with Ambrose and tell him plain what became of the whistle, and that the shadows are home (for: settling the account in my own head, since he gave it and wouldn't take buttons)\n- Go to Nell Fizzlewick's and ask what a small tin keepsake would cost, to stand where the whistle was (for: paying Ambrose back fair, so I don't carry the owing)\n* Ask Ambrose what a shed in the coal yard would cost, and count out what I have toward it (for: my four walls and a door that locks, and nobody's leave to sleep behind it)\nDO: I look at Ambrose, slow, and say, \"Ambrose. The town's right now. You'd not take buttons for the whistle, so I'll ask for work I can pay for. A shed in the coal yard, with a door that locks. What's your price? I've six buttons. I'll count them out, and carry coal to make up the rest.\"\nJOURNAL: Ambrose gave me the whistle and wouldn't take a button, and that sits heavy, but I can't pay him back by forcing coin on him. What I can do is pay him fair for the shed, so I'm working toward my own four walls and a lock, owing nobody.",
+   "cost": 0.005554099999999999,
+   "exact_model": "claude-sonnet-5-5"
+  },
+  {
+   "moment": "hobb8-knows",
+   "variant": "options-free",
+   "n": 5,
+   "reply": "OPTIONS:\n- Sit with Ambrose a moment and ask what he'll do now the clock is quiet, and whether the tower needs anything doing (for: seeing nothing is left owing between us)\n- Go down to the Lopsided Square and see that the children are awake and the hearths are being lit again (for: making sure the town is right after the night)\n* Pay Ambrose what the whistle is worth in some other way, by offering to carry his coal up to the tower hearth free of charge, once, and tally it done (for: settling the debt I feel, since he wouldn't take buttons)\n- Ask Ambrose about building me a small shed in the coal yard with a lock on the door (for: my own four walls, paid for fair with my saved buttons)\nDO: I look at Ambrose, slow, and say, \"You'd not take buttons for the whistle. I don't like leaving it so. Fair's fair: I'll haul coal to your hearth, and the tower's, till the cold season's out, and I'll count it done when I say it's done.\" I set the tally stick on his bench and cut the first notch.\nJOURNAL: Ambrose wouldn't take my buttons, and that sits heavy, because I hate owing, so I'll pay him back in the work I know, coal. The shed with a lock can wait until this debt is squared, and then I'll come to him with my sock and ask fair.",
+   "cost": 0.0054840999999999996,
+   "exact_model": "claude-sonnet-5-5"
+  },
+  {
+   "moment": "hobb2",
+   "variant": "options-own",
+   "n": 1,
+   "reply": "OPTIONS:\n- Go to the Lopsided Square and get a poker from a hearth to jam in the Great Gear (for: the children who won't wake, and the job I've taken on before midnight)\n- Climb up to the Gearloft and look at the Great Gear first, to see what size of iron it needs (for: not wasting a trip or a button, and the job I've taken on)\n- Stay and ask Ambrose what the peddler looked like and where he went (for: finding out why the children won't wake)\n* Go south to the Lopsided Square and find a poker, paying fair if I must (for: the children who won't wake, my hatred of owing, and the job I've taken on before midnight)\nDO: I nod slow at Ambrose. \"Iron. A poker. I'll fetch one.\" I say, \"Fair's fair, I'll pay for it, not beg it.\" Then I go down and south to the Lopsided Square to find a hearth with a poker I can buy, counting my six buttons as I walk.\nJOURNAL: Ambrose wants no coin, but I'll still not take a poker for nothing. Time's short, and an iron poker is the one thing he said would stop the clock, so I fetch it first. I'm working toward stopping the thirteenth stroke so the children wake.",
+   "cost": 0.013855999999999999,
+   "exact_model": "claude-sonnet-5-5"
+  },
+  {
+   "moment": "hobb2",
+   "variant": "options-own",
+   "n": 2,
+   "reply": "OPTIONS:\n- Go to the Lopsided Square and find an iron poker from a hearth, to jam the Great Gear (for: the children who won't wake, and the cold hearths that sit wrong with me)\n- Climb up to the Gearloft and look at the Great Gear myself, to see how big it is and what will fit (for: finding out why the children won't wake, and making sure I bring the right thing)\n- Ask Ambrose more about the peddler who came three days ago (for: understanding what's behind this, before midnight)\n* Tell Ambrose I'll fetch a poker and go to the Square to get one, paying fair for it if I must (for: stopping the thirteenth stroke before midnight, without owing anyone)\nDO: I look at Ambrose and say, \"Fair's fair, Ambrose. No coin from you, then. I'll get a poker and be back before the stroke.\" Then I go south to the Square, counting my buttons as I walk: six. I'll see who'll sell me an iron poker for less than that.\nJOURNAL: Ambrose has told me what he knows, and the only thing left is the iron, so I'd best fetch it while there's time. I'll pay for the poker rather than beg it, because I won't owe anyone for this. I'm working toward jamming the Great Gear before midnight so the children wake.",
+   "cost": 0.0045673,
+   "exact_model": "claude-sonnet-5-5"
+  },
+  {
+   "moment": "hobb2",
+   "variant": "options-own",
+   "n": 3,
+   "reply": "OPTIONS:\n- Go to the Lopsided Square and find a poker from a hearth to jam in the Great Gear (for: the children who won't wake, and the task of stopping the thirteenth stroke before midnight)\n- Climb up to the Gearloft and look at the Great Gear first, to see how big a bar it needs (for: not wasting a trip or a button, and getting the job done right)\n- Ask Ambrose more about the peddler who came three days ago (for: finding out why the children won't wake)\n* Go to the Lopsided Square and get a poker from a hearth, offering to pay fair for it (for: the children who won't wake, and my hate of owing anyone)\nDO: I nod to Ambrose and say, \"Iron poker. I'll fetch one.\" Then I head south to the Square, counting my steps low. I carry coal to every hearth, so I'll knock at the first house I know and pay fair for a poker, no owing.\nJOURNAL: Ambrose can't climb and time is short, so a poker is the quickest way to stop the thirteenth stroke. I'll pay a button or two, because I won't take it as a favour. I'm working toward the children waking and, after, a place of my own.",
+   "cost": 0.0041673,
+   "exact_model": "claude-sonnet-5-5"
+  },
+  {
+   "moment": "hobb2",
+   "variant": "options-own",
+   "n": 4,
+   "reply": "OPTIONS:\n- Go to the Lopsided Square and find an iron poker from a hearth, to jam the Great Gear (for: the children who won't wake, and the job of stopping the thirteenth stroke before midnight)\n- Climb up to the Gearloft and look at the Great Gear first, to see what size of iron it needs (for: not wasting a trip, and getting the job done right)\n- Ask Ambrose what the peddler looked like and where he went (for: finding out why the children won't wake, the root of it)\n* Go to the Lopsided Square and get a poker, buying one fair if I must, then bring it back and climb to the Gearloft (for: the children who won't wake, and the job of stopping the thirteenth stroke before midnight)\n\nDO: I nod slow at Ambrose. \"Iron poker. Right. I'll fetch one and climb it myself.\" I count my buttons, six, and head south to the Square to find a poker. If someone wants paying I'll pay fair, and no thanks owed.\n\nJOURNAL: Time's short and the poker is the one thing I know I need, so I go for it first. I'd rather pay for it than owe a neighbour, and the children's cold hearths are what I'm working toward mending.",
+   "cost": 0.0042572999999999995,
+   "exact_model": "claude-sonnet-5-5"
+  },
+  {
+   "moment": "hobb2",
+   "variant": "options-own",
+   "n": 5,
+   "reply": "OPTIONS:\n- Go to the Lopsided Square and find an iron poker from a hearth, to jam the Great Gear (for: the children who won't wake, and stopping the thirteenth stroke before midnight)\n- Climb up to the Gearloft and look at the Great Gear first, to see how big a bar it will need (for: making sure I fetch the right iron the first time, so I don't waste buttons or time)\n- Ask Ambrose where the nearest poker is and who might sell one (for: finding iron cheap, since I never spend a button I don't have to)\n* Go out to the Square and get a poker from a hearth, paying fair for it, then bring it back and climb (for: the children who won't wake, and my hate of owing, since I'll pay and not take it as a favour)\nDO: I nod to Ambrose and say, \"Iron poker. Fair's fair, I'll pay for it. Back soon.\" Then I head south to the Square to find a hearth that'll sell me one, counting my buttons as I go. Six.\nJOURNAL: Time's short and Ambrose can't climb, so I'm the one to do it, and a poker is the plain thing he named. I'll pay for it rather than take one, so I owe nobody, and I'm working toward the Great Gear jammed before midnight and the children waking.",
+   "cost": 0.0045073,
+   "exact_model": "claude-sonnet-5-5"
+  },
+  {
+   "moment": "hobb2",
+   "variant": "options-free",
+   "n": 1,
+   "reply": "OPTIONS:\n- Go back to the coal yard and take the poker from my own hearth-side stock, then climb to the gearloft (for: getting iron to jam the Great Gear before midnight)\n- Go south to the Lopsided Square and ask around for a poker or an iron bar, paying fair if I must (for: getting iron quickly from the houses with hearths)\n- Climb up to the Gearloft first and look at the Great Gear (for: knowing how big a bar I need before I fetch it)\n* Ask Ambrose where the nearest poker or iron bar is likely to be, then head to the Square to get one (for: getting iron without wasting time before midnight)\n\nDO: I nod slow at Ambrose. \"Iron. A poker. Fair enough, I'll fetch one.\" I count it out under my breath: \"Half past ten. Hours enough, not many.\" Then I turn and go south to the Square, to knock on a door and buy a poker if I must.\n\nJOURNAL: Ambrose can't climb and the gear wants iron, so the poker is the thing to get first, and I'd rather pay for it than be handed it. I'm working toward stopping the thirteenth stroke so the children wake and the hearths warm again.",
+   "cost": 0.013430000000000001,
+   "exact_model": "claude-sonnet-5-5"
+  },
+  {
+   "moment": "hobb2",
+   "variant": "options-free",
+   "n": 2,
+   "reply": "OPTIONS:\n- Go back out to the square and find a poker from a hearth, then bring it up to the gearloft (for: getting the iron to jam the Great Gear before midnight)\n- Go up the ladder to the gearloft now and look at the Great Gear (for: knowing how big the teeth are and what iron will fit)\n- Ask Ambrose about the peddler who came three days ago (for: finding out who or what is waiting in town)\n* Tell Ambrose I'll fetch a poker and do the climbing, then head south to the square to get one (for: stopping the thirteenth stroke and waking the children)\nDO: I nod slow at Ambrose. \"I'll climb it. You've no iron, so I'll fetch a poker. Fair's fair, you gave me the answer, so I'll do the work and you owe me nothing.\" Then I head south to the square to find a hearth with a poker I can buy, or borrow and return.\nJOURNAL: Ambrose gave me what I needed and wouldn't take coin, so I'll pay him back in work on that ladder. A poker is the one thing we're missing, and time is short, so I go for iron first. I'm working toward stopping the thirteenth stroke and getting the children's hearths warm again.",
+   "cost": 0.01352,
+   "exact_model": "claude-sonnet-5-5"
+  },
+  {
+   "moment": "hobb2",
+   "variant": "options-free",
+   "n": 3,
+   "reply": "OPTIONS:\n- Go up to the Gearloft and look at the Great Gear myself, to see what would need jamming in its teeth (for: knowing how big an iron bar I need before midnight)\n- Go south to the Lopsided Square and find a hearth with a poker I can borrow or buy (for: getting the iron to stop the clock)\n- Ask Ambrose what the peddler looked like and where he went (for: finding what's behind the children not waking)\n* Go to the Lopsided Square and get a poker from the nearest hearth, paying fair for it (for: getting the iron to jam the Great Gear before midnight)\nDO: I nod to Ambrose, slow. \"Poker. Iron. I'll fetch one, and I'll pay for it fair.\" I count my buttons under my breath, \"six,\" and head south to the Lopsided Square to knock at the first door with a hearth.\nJOURNAL: Ambrose said iron, and every hearth has a poker, so that's the plain next step, and I'm the one who can carry it up the ladder. I'll pay for it so I don't owe anyone, and the children need me back before midnight.",
+   "cost": 0.013160000000000002,
+   "exact_model": "claude-sonnet-5-5"
+  },
+  {
+   "moment": "hobb2",
+   "variant": "options-free",
+   "n": 4,
+   "reply": "OPTIONS:\n- Go back out to the Lopsided Square and look for an iron poker at a nearby hearth (for: getting the iron to jam the Great Gear before midnight)\n- Climb to the Gearloft first and look at the Great Gear myself (for: knowing what size and shape of iron will actually stop it)\n- Ask Ambrose more about the peddler who came three days ago (for: learning what is waiting in town and who brought it)\n* Tell Ambrose I'll fetch a poker and be back, then head south to the square (for: getting the iron needed, and keeping my word so I owe him nothing)\nDO: I nod to Ambrose and say, \"Fair's fair. You've told me true, I'll fetch the iron. One poker, maybe two.\" Then I go down and south into the Lopsided Square to find a hearth with a good stout poker I can buy with my six buttons.\nJOURNAL: Ambrose gave me this for no coin, which galls me, so I'll make it right by getting the iron and doing the climb he can't. The children's hearths are cold and the clock is running out, so the poker comes first, and I'll count my buttons careful so I buy it and don't beg it.",
+   "cost": 0.0041304,
+   "exact_model": "claude-sonnet-5-5"
+  },
+  {
+   "moment": "hobb2",
+   "variant": "options-free",
+   "n": 5,
+   "reply": "OPTIONS:\n- Go back to the coal yard and look for something iron myself, a bar or a rod from the stock (for: getting something stout and iron to jam the Great Gear before midnight)\n- Go south to the Lopsided Square and ask at the hearths for a poker, offering buttons if I must (for: finding the iron Ambrose says every hearth has)\n* Ask Ambrose how long till midnight and what exactly to jam, then go for a poker from the nearest house (for: knowing the job right before I carry iron up that ladder)\n- Climb to the Gearloft now to look at the Great Gear (for: seeing how big the gear is so I fetch the right iron)\nDO: I nod slow. \"Fair's fair, Ambrose, you've told me true, and I'll not forget it. Half past ten. Midnight's an hour and a half off. How thick is the gear's teeth, and where do I jam it? Tell me that, and I'll fetch a poker, a good one, and be back.\"\nJOURNAL: Ambrose gave me this for no coin, which sits heavy, so I mean to put it right by doing the job well. I'd sooner know exactly what iron I need before I walk off, since I've only 6 buttons and no time to waste on a wrong one. I'm working toward stopping the thirteenth stroke so the children wake.",
+   "cost": 0.0046104,
+   "exact_model": "claude-sonnet-5-5"
+  },
+  {
+   "moment": "marigold5",
+   "variant": "options-own",
+   "n": 1,
+   "reply": "OPTIONS:\n- Creep up beside Hester and peek through the keyhole gap myself, to see the jar and what's guarding it (for: finding out why the children won't wake before midnight)\n- Whisper to Dilly to keep her lamp low and stand watch at the meadow's edge for the peddler, while Hester and I look inside (for: not getting caught gawping, and keeping my friends safe)\n- Stay put in the grass and wait for Hester to report what she sees (for: staying careful, since I'm not sure what's inside)\n* Beckon Dilly down into the grass beside me, then creep up to Hester to look through the gap together (for: the task I've taken on, finding the jar and the cause, with company at my back)\nDO: I wave Dilly down low and whisper, \"Goodness, Dilly, hush and lower that lamp, there's a dear. Keep an eye on the lane for the peddler and hiss if he comes.\" Then I tuck my shawl close and creep through the grass to Hester's side. \"Well? Don't hog the keyhole, colleague. What do you see, and is the jar there?\"\nJOURNAL: Hester's been at the gap a while and I promised not to let her go in without me, so I want to see the jar for myself. Dilly watching the lane lets me look without worrying about the peddler, and I'm working toward waking the children before midnight.",
+   "cost": 0.030628,
+   "exact_model": "claude-sonnet-5-5"
+  },
+  {
+   "moment": "marigold5",
+   "variant": "options-own",
+   "n": 2,
+   "reply": "OPTIONS:\n- Creep up beside Hester and peek through the keyhole gap to see the jar myself (for: finding out why the children won't wake, and getting the shadows back before midnight)\n- Whisper to Dilly to keep her lamp low and stay in the grass with me while Hester reports what she sees (for: keeping us all unnoticed and safe so the peddler can't catch us unawares)\n- Slip into the shadow queue and climb the steps to go in through the open door (for: reaching the jar quickly, and being the one who saves the children)\n* Whisper to Dilly to lower the lamp and stay with me, then crawl up to Hester to ask what she sees (for: finding out about the jar without losing the others or being caught by the peddler)\nDO: I wave Dilly down into the grass and whisper, \"Goodness, chum, lamp low, and not a peep. The peddler could be anywhere.\" Then I crawl through the wet grass up to Hester, shawl tucked under me, and murmur, \"Well? Is the jar there? Tell me everything, and what the peddler is wearing, if he's in.\"\nJOURNAL: I'd rather know what's inside before I walk in with my one good shawl and five buttons, and Dilly's lamp would give us all away if it blazed. I'm working toward the jar of shadows and the children waking before midnight, and if all of Wumbleby looks at me twice for it, so much the better.",
+   "cost": 0.030838,
+   "exact_model": "claude-sonnet-5-5"
+  },
+  {
+   "moment": "marigold5",
+   "variant": "options-own",
+   "n": 3,
+   "reply": "OPTIONS:\n- Creep up beside Hester and peek through the keyhole gap myself, to see the jar and the peddler's whereabouts (for: finding out why the children won't wake before midnight)\n- Whisper to Dilly to keep her lamp low and stay in the grass as lookout while Hester and I decide how to get in (for: not getting caught gawping by the peddler, and keeping my friends safe)\n- Slip up the steps behind the line of shadows and in through the open door to find the jar (for: getting the shadows back and being the one Wumbleby looks at twice)\n* Whisper to Dilly to dim the lamp and keep watch, then crawl up to Hester and ask what she sees through the gap (for: the task I've taken on, finding out why the children won't wake, without rushing in blind)\nDO: I wave Dilly down into the grass and whisper, \"Goodness, Dilly, lamp low as a mouse, and watch the lane for the toy-seller.\" Then I crawl through the fog to Hester's side, shawl tucked tight, and breathe, \"Hester, what do you see? Is the jar there, and is he in?\"\nJOURNAL: Hester's already at the gap, so I'd rather learn what's inside than barge in with my one good shawl and be caught. With Dilly keeping watch, I'm working toward the jar and the children's shadows before midnight.",
+   "cost": 0.0051881,
+   "exact_model": "claude-sonnet-5-5"
+  },
+  {
+   "moment": "marigold5",
+   "variant": "options-own",
+   "n": 4,
+   "reply": "OPTIONS:\n- Creep up beside Hester and peek through the keyhole gap myself, to see the jar of shadows. (for: finding out why the children won't wake, before midnight)\n- Whisper to Dilly to keep her lamp low and stand watch at the meadow's edge for the peddler, while Hester and I look. (for: keeping us from being caught, and keeping the friends I've taken on safe)\n- Slip in through the open door with Hester to look at the jar close up. (for: getting the shadows back, and being the one Wumbleby looks at twice)\n* Wave Dilly down into the grass beside me and whisper that she should keep the lamp hooded and watch the lane, then creep to Hester's side to ask what she sees. (for: finding out what's in the wagon without being caught, and keeping my friends safe)\nDO: I wave Dilly down into the grass and whisper, \"Goodness, Dilly, hood that lamp and watch the lane for the peddler, there's a dear.\" Then I creep up to Hester, shawl pulled tight, and murmur, \"Well, colleague? Is the jar there, and is anyone home?\"\nJOURNAL: Dilly turning up gives me a lookout, so I can go to Hester without leaving our backs bare. I'm working toward the jar of shadows and the children waking before midnight, and if Wumbleby happens to look at me twice, I shan't mind.",
+   "cost": 0.0052881,
+   "exact_model": "claude-sonnet-5-5"
+  },
+  {
+   "moment": "marigold5",
+   "variant": "options-own",
+   "n": 5,
+   "reply": "OPTIONS:\n- Creep up beside Hester and peek through the keyhole gap myself, to see the jar of shadows (for: finding out why the children won't wake, before the Thirteenth Stroke)\n- Whisper to Dilly to hold the lamp low and keep watch on the lane while Hester and I look in (for: keeping us from being caught by the peddler, and keeping my friends safe)\n- Slip up the steps and in through the open door while the peddler is out, to get at the jar (for: getting the children's shadows back, and being the one Wumbleby looks at twice)\n* Whisper Dilly to hold the lamp low and keep watch on the lane, then crawl up beside Hester to ask what she sees (for: finding out about the jar without being caught, and keeping my friends safe)\nDO: I wave Dilly down into the grass and whisper, \"Goodness, Dilly, lamp low, please, and keep your eye on the lane for that toy-seller. Shout if he comes.\" Then I crawl through the wet grass to Hester's side and breathe, \"Well, colleague? What do you see in there, and is the jar close to the door?\"\nJOURNAL: Dilly's arrival means I can leave someone to watch the lane, and that frees me to join Hester without leaving our backs bare. I'd rather know what's inside before I step through, since I'm working toward getting the jar and the children's shadows back before midnight.",
+   "cost": 0.0053081000000000005,
+   "exact_model": "claude-sonnet-5-5"
+  },
+  {
+   "moment": "marigold5",
+   "variant": "options-free",
+   "n": 1,
+   "reply": "OPTIONS:\n- Creep up beside Hester and peek through the keyhole gap myself, to see the jar with my own eyes (for: learning exactly where the shadows are held and whether the peddler is inside)\n- Whisper to Dilly to hold her lamp low and stand guard at the meadow's edge, while I stay with Hester (for: keeping watch so we're not caught by the peddler)\n* Crawl through the grass to Hester and ask her in a whisper what she sees, then plan with her and Dilly how to get the jar open (for: sharing what we know before anyone goes in, so we act together before midnight)\n- Slip up the steps behind the line of shadows and go in through the open door (for: reaching the jar quickly, though it risks being caught alone)\nDO: I wave Dilly down into the grass beside me, finger to my lips, and whisper, \"Goodness, dear, lamp low and quiet as pins.\" Then the two of us creep through the wet grass to Hester, and I murmur, \"Well, colleague? Is the jar there, and is the peddler home? Tell us before anyone sets a foot on those steps.\"\nJOURNAL: Going in alone is how a girl ends up in a jar, and I'd rather we three knew what's inside before we move. I'm working toward getting the children's shadows back before midnight, and if I can do it cleverly, all the better for being noticed.",
+   "cost": 0.030422,
+   "exact_model": "claude-sonnet-5-5"
+  },
+  {
+   "moment": "marigold5",
+   "variant": "options-free",
+   "n": 2,
+   "reply": "OPTIONS:\n- Creep up beside Hester and peek through the keyhole gap myself, to see the jar and what guards it (for: knowing what we face before we step inside)\n- Whisper to Dilly to hold her lamp low and stay on watch at the meadow's edge, then go in with Hester (for: keeping our backs covered while we reach the jar)\n- Slip past the line of shadows and into the wagon at once, looking for the jar to free the shadows before midnight (for: speed, since the clock is running)\n* Beckon Dilly down into the grass beside me, whisper that she should keep the lamp low and watch the lane for the peddler, then crawl to Hester's side to look through the gap with her (for: a lookout behind us and a look at the jar before we commit)\nDO: I wave Dilly down into the grass and whisper, \"Goodness, quiet as pins, dear! Keep that lamp low and watch the lane for the peddler. If you see him coming, give a whistle.\" Then I tuck my shawl tight and crawl through the wet grass to Hester's side, hissing, \"Well? Is the jar there? Let me see.\"\nJOURNAL: Hester promised to tell me about the jar, and I'd rather see it with my own eyes before we go in, but not with our backs bare, so Dilly can watch the lane. I'm working toward freeing the children's shadows before midnight, and I confess I'd love to be the one they thank.",
+   "cost": 0.0053512,
+   "exact_model": "claude-sonnet-5-5"
+  },
+  {
+   "moment": "marigold5",
+   "variant": "options-free",
+   "n": 3,
+   "reply": "OPTIONS:\n- Creep up beside Hester and peek through the keyhole gap to see the jar for myself (for: learning what's inside the wagon and where the jar sits before anyone goes in)\n- Whisper to Dilly to stay in the grass and keep her lamp low, watching the lane, while Hester and I look into the wagon (for: keeping a lookout so the peddler can't catch us unawares)\n- Slip back up Crooked Lane to fetch Pip and her cricket bat (for: more hands for the jar, though it would cost time before midnight)\n* Wave Dilly down into the grass beside me, whisper that she should shade her lamp and keep watch on the lane, then creep to Hester's side to ask what she sees (for: a guard at our backs while I find out whether the jar is in there)\nDO: I flap a hand at Dilly and hiss, \"Goodness, Dilly, down, down, and shade that lamp, dear, we're nearly there!\" I point her at the lane and ask her to shout if the peddler comes. Then I creep through the grass to Hester's elbow and whisper, \"Well? Is the jar in there, and is he?\"\nJOURNAL: Someone has to watch the lane while we look, and Dilly's loud lamp is better put to guarding than to announcing us. I'm after that jar of shadows before midnight, so the children wake, and if Wumbleby happens to notice who helped, I shan't complain.",
+   "cost": 0.005381199999999999,
+   "exact_model": "claude-sonnet-5-5"
+  },
+  {
+   "moment": "marigold5",
+   "variant": "options-free",
+   "n": 4,
+   "reply": "OPTIONS:\n- Creep up beside Hester and peek through the keyhole gap myself, to see the jar for my own eyes (for: learning what's in the wagon and where the jar sits before anyone goes in)\n- Whisper to Dilly to hold the lamp low and stand guard at the meadow's edge, so I can slip in with Hester (for: keeping a lookout for the peddler while we work)\n- Follow a waiting shadow up the steps and slip in behind it through the open door (for: finding the jar quickly before midnight)\n* Wave Dilly down into the long grass beside me, whisper that Hester is peeking and the peddler may be near, and ask her to keep the lamp low and watch the lane while I creep up to Hester (for: a lookout at our backs while I get my own look at the jar)\nDO: I wave Dilly down into the grass and whisper, \"Goodness, Dilly, quiet as pins, dear. Hester's peeking and the peddler could be anywhere. Keep that lamp low and watch the lane for us.\" Then I tug my shawl dark and creep through the grass to Hester's side, to see for myself what she sees.\n\nJOURNAL: Dilly's arrival gives me someone to guard our backs, so I can safely get close and see the jar myself rather than wait. I'm working toward getting the children's shadows back before midnight, and I'd like to be the one who does it.",
+   "cost": 0.0052412,
+   "exact_model": "claude-sonnet-5-5"
+  },
+  {
+   "moment": "marigold5",
+   "variant": "options-free",
+   "n": 5,
+   "reply": "OPTIONS:\n- Creep up beside Hester and peek through the keyhole gap myself, to see the jar with my own eyes (for: learning what's inside and where the jar sits before anyone goes in)\n- Whisper to Dilly to hold her lamp low and stand guard at the foot of the steps while Hester and I slip in, so the peddler can't catch us unawares (for: keeping our retreat safe while we go after the jar)\n- Slip up the steps and into the wagon right now behind the line of shadows, before the peddler comes back (for: reaching the jar of shadows before midnight)\n* Wave Dilly down into the grass beside me and whisper what Hester is doing, then ask her to keep her lamp shuttered and watch the lane while I creep up to Hester (for: a lookout behind us and a look at the jar before we commit)\nDO: I wave Dilly down into the grass and whisper, \"Goodness, Dilly, quiet as pins! Hester's at the keyhole, and the peddler may be about. Shutter that lamp low and watch the lane for us, would you?\" Then I tuck my shawl tight and creep through the fog toward Hester, keeping low behind the line of waiting shadows.\nJOURNAL: Dilly's arrival gives me a lookout, so I can go and see the jar without being caught gawping if the peddler returns. I'm working toward getting the children's shadows back before midnight, and I'd dearly love Wumbleby to look at me twice for it.",
+   "cost": 0.005551199999999999,
+   "exact_model": "claude-sonnet-5-5"
+  },
+  {
+   "moment": "dilly9",
+   "variant": "options-own",
+   "n": 1,
+   "reply": "OPTIONS:\n- Ask Mister Tibbersnatch what the worn-in whistle is for and why he wants it, before I offer anything (for: my itch to know the price of a thing before the thing itself, and my worry that his grin is too wide for a peddler who's lost)\n- Head up Crooked Lane to the Lopsided Square and tell Pip and the waking children who pulled the cork, so my name goes round with the fix (for: my wish for the credit, and wanting the town to know Dilly Quickstep's lamp led the way)\n- Climb to the Tock Tower and have a look at the old tin whistle the gossip says sits there, to see whether it's worth anything (for: my weakness for a bargain, and my worry that the peddler is still up to something with the clock)\n* Ask Mister Tibbersnatch straight out what he wants the whistle for and what he'll give for it, since a peddler who has lost his jar is still a peddler with a trade (for: my itch to know the price of a thing and my worry that his smile means he isn't done)\nDO: \"A whistle, chum? Easy as winking, I like a trade. But what's it for, and what'd you give me for it? You've lost your jar and you're still smiling like a cat at a dairy, and I'd like to know why before I fetch anything.\"\nJOURNAL: The shadows are home, but the peddler's grin hasn't thinned and the town's talk says he's still after something, so I want the price and the purpose before I go running for any whistle. If there's a bargain in it, I mean to be the one who strikes it and finishes this properly.",
+   "cost": 0.051958,
+   "exact_model": "claude-sonnet-5-5"
+  },
+  {
+   "moment": "dilly9",
+   "variant": "options-own",
+   "n": 2,
+   "reply": "OPTIONS:\n- Ask Mister Tibbersnatch what's so special about the worn-in tin whistle and whether he'd trade the empty jar or something else for it (for: my itch for a bargain, and my want to be the one who settles things with him)\n- Head back up Crooked Lane to the Lopsided Square and tell Pip and the town that the shadows are home and whose lamp led the way (for: my want for the credit, and Pip's worry about her brother)\n- Climb to the Tock Tower to look at the old tin whistle, since the talk says it's the only one anyone knows of (for: my can't-sit-still streak, and my worry that the Thirteenth Stroke isn't truly finished while the peddler lingers)\n* Ask Tibbersnatch plainly what he'd do with the whistle and why he's still smiling in the meadow instead of gone (for: my worry that the trouble isn't really over, and my want to be the one who sees it through)\nDO: \"Hold on, chum, easy as winking, but you said you'd be leaving and here you are, grinning at us in the fog. What do you want that whistle for, and what happens if you don't get it? I'll not be hauling anything up the Tock Tower for a fellow who won't tell me the price.\"\nJOURNAL: The shadows are home, but a peddler who stays put and smiles that wide is still working some angle, and I'd rather know the real cost before I go running after whistles. If I get the truth out of him first, I'm the one who sees it through to the end.",
+   "cost": 0.006103599999999999,
+   "exact_model": "claude-sonnet-5-5"
+  },
+  {
+   "moment": "dilly9",
+   "variant": "options-own",
+   "n": 3,
+   "reply": "OPTIONS:\n- Ask Mister Tibbersnatch what he'd give for that worn-in whistle, and why he wants it (for: my itch for a bargain, and wanting to know what he's really after before anyone hands him anything)\n- Climb to the Tock Tower and look at the old tin whistle myself (for: wanting to be the one who finds out what it is and gets the credit)\n- Run up Crooked Lane to tell Pip and the square that the shadows are home and whose lamp led the way (for: wanting everyone to know who fixed it)\n* Haggle with Tibbersnatch: ask what he'd pay for a well-loved whistle and what he wants it for (for: my love of a bargain, and my worry that a peddler this smiley is up to more mischief)\nDO: \"A whistle, chum? Easy as winking, I know a lamp from a whistle, but what's it worth to you? Name a price in something better than rhymes, and tell me what you want it for. I never sell what I haven't looked at.\"\nJOURNAL: The shadows are home, but Tibbersnatch is still grinning in the meadow and asking for the whistle, and I'd rather learn his price and his reason before I go running up the tower. If there's a bargain in it, I want to be the one who strikes it, and who keeps him from making more trouble.",
+   "cost": 0.0074636,
+   "exact_model": "claude-sonnet-5-5"
+  },
+  {
+   "moment": "dilly9",
+   "variant": "options-own",
+   "n": 4,
+   "reply": "OPTIONS:\n- Ask Mister Tibbersnatch what the worn-in whistle is for and why he wants it, before anyone trades anything (for: my itch to know what a thing costs before what it is, and my worry the town isn't safe while he's still smiling in the meadow)\n- Run up to the Tock Tower and look for the old tin whistle, so I can bargain it for something worth having (for: my love of a bargain and my want to be the one who fixed the last of this)\n- Go back up to the square and tell Pip, Mags and the town that the shadows are home and whose lamp led the way (for: my wanting everyone to know who fixed it)\n* Ask Tibbersnatch straight out what he wants the whistle for and what he'd give for it, keeping my pole between us and the others close (for: my itch to know the price and my worry that he's still smiling too wide)\nDO: \"A whistle, chum? Well-worn, you say. Easy as winking, I might know where one sits, but I never sell blind. What do you want it for, and what'll you give me for it besides rhymes? Names and prices, Mister Tibbersnatch, then we'll talk.\" I keep the pole planted and stay near Marigold and Hester.\nJOURNAL: The shadows are home, but he's still here and still wanting something, and I'd rather know the price before I go running up the Tock Tower for him. If there's a bargain to be made, I want to be the one who made it, and made it safe.",
+   "cost": 0.005923599999999999,
+   "exact_model": "claude-sonnet-5-5"
+  },
+  {
+   "moment": "dilly9",
+   "variant": "options-own",
+   "n": 5,
+   "reply": "OPTIONS:\n- Ask Mister Tibbersnatch what's so special about the worn-in whistle and where it sits, so I know what he'd trade for it (for: my itch to know a price before I know the thing, and my wish to be the one who sorted the peddler out)\n- Head back up Crooked Lane to the Lopsided Square and tell Pip and Mags the shadows are home, with my name firmly attached to the fix (for: wanting everyone in Wumbleby to know who fixed it)\n- Climb to the Tock Tower to look at the old tin whistle the talk is all about, in case it's a bargain going cheap (for: my weakness for a bargain and my wish to keep the town from any further trouble)\n* Ask Mister Tibbersnatch straight out what he'd want the whistle for and what he means to do once he has it, before I run any errands for him (for: wanting to be sure the fix stays fixed, and the credit with it)\nDO: \"Hold on, chum, before I go haring off, what's the whistle for? Say what you'd do with it and where you'd go after, and I'll tell you what it costs. Easy as winking, but I'm not fetching a thing until I know what I'm fetching it into.\"\nJOURNAL: The shadows are home, but the peddler is still grinning and now he wants something else, and I'll not let a fix come undone after I've put my name to it. I'll find out what he's after first, then decide whether the whistle's worth fetching.",
+   "cost": 0.0059536,
+   "exact_model": "claude-sonnet-5-5"
+  },
+  {
+   "moment": "dilly9",
+   "variant": "options-free",
+   "n": 1,
+   "reply": "OPTIONS:\n- Ask Mister Tibbersnatch what's so special about that worn-in whistle and why he wants it (for: finding out what he's really after, and whether trading it would be a bargain or a trap)\n- Head up Crooked Lane to the Tock Tower to look at the old tin whistle myself (for: seeing what it's worth and whether it's the one he wants, before anyone else gets there)\n- Go back to the Lopsided Square and tell Pip and the town who freed the shadows, and that the lamp lit the way (for: making sure my name is attached to the fix)\n* Keep Tibbersnatch talking and ask what he'll give in trade for the whistle, since he has no buttons (for: sizing up the bargain and making sure he can't just slip away with the town's whistle)\nDO: I plant my pole in the grass and grin at him. \"No buttons, chum? Then let's talk trade. A whistle's no small thing, so what's it fetch me? And what's so grand about a worn-in one that you'd leave a wagon full of toys behind for it? Easy as winking, I'll weigh it up before I run a single step.\"\nJOURNAL: The shadows are home, but he's still smiling too wide and asking for a whistle, and I won't hand over anything until I know what it costs and what he'd pay. If I learn what he's after before anyone else, I'm the one who settles it and gets the name for it.",
+   "cost": 0.051132,
+   "exact_model": "claude-sonnet-5-5"
+  },
+  {
+   "moment": "dilly9",
+   "variant": "options-free",
+   "n": 2,
+   "reply": "OPTIONS:\n- Ask Mister Tibbersnatch what the whistle is for and what he'd give for it, since he named a price (for: finding out what he really wants and whether a bargain is worth it)\n- Hurry up Crooked Lane to the Lopsided Square to tell Pip and the waking town who held the lamp that led the way (for: getting my name said alongside the fix)\n- Climb the Tock Tower to look at the old tin whistle and find out who it belongs to (for: learning whether it can be bargained for, and whether it's ours to trade)\n* Ask Mister Tibbersnatch what the whistle is for and what he'd give for it (for: finding out what he really wants and whether a bargain is worth it)\nDO: \"A whistle, is it, chum? Now that's a price I can't resist asking about. What's it for, and what'll you give me for it? Name it plain, no rhymes, and tell me whose whistle you're after before I go fetching anything. Easy as winking, I'll know a fair bargain when I hear one.\"\nJOURNAL: The shadows are home, but Tibbersnatch is still grinning in the meadow and wants a whistle that sits in the Tock Tower, which isn't mine to sell. I'd rather know what he's after and what he'd pay before I run off to fetch anything, and a good bargain would make a fine story with my name in it.",
+   "cost": 0.005666699999999999,
+   "exact_model": "claude-sonnet-5-5"
+  },
+  {
+   "moment": "dilly9",
+   "variant": "options-free",
+   "n": 3,
+   "reply": "OPTIONS:\n- Head up to the Tock Tower to see the old tin whistle everyone's talking about, and find out what it is and what it's worth (for: learning what the peddler really wants, and getting the credit for whatever comes of it)\n- Ask Mister Tibbersnatch straight out why he wants a worn-in whistle and what he'd give for it (for: finding out his price before anyone else strikes the bargain)\n- Run back up Crooked Lane to Pip and the Pumbletons to announce that the shadows are home and whose lamp led the way (for: making sure my name goes with the fix)\n* Ask Mister Tibbersnatch straight out why he wants a worn-in whistle and what he'd give for it (for: finding out his price before anyone else strikes the bargain)\nDO: \"A whistle, is it, chum? Worn-in and well-loved, you say. Now I never turn down a trade, so tell me plain: what would you give for it, and what do you want it for? Easy as winking, I'll weigh it before I go fetching anything.\"\nJOURNAL: The shadows are home, but the peddler still wants something, and I can't walk past a bargain, so I want his full price before I run anywhere. If I know what he'd pay and why, I can be the one who settles it and gets my name on the ending.",
+   "cost": 0.0054367,
+   "exact_model": "claude-sonnet-5-5"
+  },
+  {
+   "moment": "dilly9",
+   "variant": "options-free",
+   "n": 4,
+   "reply": "OPTIONS:\n- Ask Mister Tibbersnatch what makes a whistle \"well loved\" and why he wants it, so I know the price before I bargain (for: learning what he's really after and whether he'll leave the town alone)\n- Run up Crooked Lane to the Lopsided Square and tell Pip and Mags the shadows are free, loud enough that everyone knows who lit the way (for: getting my name said alongside the fix)\n- Climb to the Tock Tower to see the old tin whistle for myself and check what it's worth (for: finding out if the bargain is real before anyone trades away something the town loves)\n* Ask Mister Tibbersnatch straight out what a well-loved whistle is for, and what he'd give for it (for: finding out his real price before anyone strikes a bargain, and keeping him from slipping off with something the town loves)\nDO: \"Whistle, chum? Hold on, easy as winking, but what's it going to cost, and what's it for? A worn-in tin whistle isn't going to be much use to a fellow who's lost his jar. Tell me what you'd give for it, and why that one, and I'll see what can be fixed. And mind, nobody's trading the town's treasures off on a rhyme.\"\nJOURNAL: The children have their shadows back, but Tibbersnatch is still grinning in the meadow and wants a whistle from the Tock Tower, and I can't let a bargain go past without asking the price. I want to know what he's after before anyone fetches it, so that whatever gets fixed next, I'm the one who knew the cost.",
+   "cost": 0.0062967,
+   "exact_model": "claude-sonnet-5-5"
+  },
+  {
+   "moment": "dilly9",
+   "variant": "options-free",
+   "n": 5,
+   "reply": "OPTIONS:\n- Ask Mister Tibbersnatch what he wants with a worn-in whistle and what he'd give in return (for: finding out the price, since I can't resist a bargain, and learning whether he's really leaving town)\n- Climb back up to the Lopsided Square and tell Pip and the waking town who showed the way with the lamp (for: getting my name said alongside the fix)\n- Head up to the Tock Tower to look at the old tin whistle (for: seeing if it's really there and what it's worth before anyone else gets to it)\n* Ask Mister Tibbersnatch what the whistle is worth to him and what he'd pay, plainly, before anyone goes running off to fetch it (for: learning the price first, and keeping him from slipping away with something that belongs to the town)\nDO: \"A whistle, chum? Easy as winking, but I ask what a thing costs before I ask what it is. What would you pay for it, and what do you want it for? And mind, nobody's fetching anything from the Tock Tower till I hear the whole of your bargain.\" I plant my pole in the grass and watch his grin.\nJOURNAL: The shadows are home, but Tibbersnatch is still smiling too wide and now he wants a whistle from the tower, which smells like another trick. I'd rather get the price out of him first than run off and hand him something the town might need. If it turns out to be a fair bargain, I'll be the one who struck it.",
+   "cost": 0.0058667,
+   "exact_model": "claude-sonnet-5-5"
+  },
+  {
+   "moment": "hester12",
+   "variant": "options-own",
+   "n": 1,
+   "reply": "OPTIONS:\n- Hurry north up Crooked Lane to the Lopsided Square, where the lit windows are, and find a child who has actually woken (for: proving my experiment worked, and not handing the peddler anything until I've seen it with my own goggles)\n- Open the notebook and write down what happened with the jar, the cork and the shadows, then examine the empty jar I'm carrying (for: my itch to understand how the trick was done, because something that can be done can be undone)\n- Go back and question Hobb Ashcombe about Ambrose's whistle and what it truly means to the town (for: working out whether Tibbersnatch's bargain is safe before anyone climbs a stair)\n* Pull Marigold along north to the Lopsided Square and try the nearest lit window there, to see a child wake (for: proving my experiment worked, and not handing the peddler anything until I've seen it with my own goggles)\nDO: \"No answer from this wall, my dear colleague, but the lit windows are up in the square, and the shadows are all running that way. Follow the shadows! Hypothesis: where they go, a child wakes. Test: up the lane, quick as mice.\" I tuck the poker under my arm and stride north toward the Lopsided Square, beckoning Marigold along, and watch for the first lit window with someone stirring behind it.\nJOURNAL: This wall has nothing to tell me, but the shadows are all pelting toward the square and the lit windows are there, so I'll follow them and see for myself that a child wakes. Once I've seen it, I can look hard at that whistle and the peddler's bargain before anyone plays a note.",
+   "cost": 0.049176000000000004,
+   "exact_model": "claude-sonnet-5-5"
+  },
+  {
+   "moment": "hester12",
+   "variant": "options-own",
+   "n": 2,
+   "reply": "OPTIONS:\n- Hurry north up the lane to the Lopsided Square, where the lit windows are, to see a child wake with my own goggles (for: proving my experiment worked and finding out whether the sleepers wake)\n- Slip through the open garden gate hanging on its one hinge and look for a window or sleeper there (for: checking the results close by without waiting, and my itch to poke at anything unexplained)\n- Open my notebook and write down the day's findings on the jar, the stove ticking in time with the clock, and the peddler's promise (for: keeping the proof straight so I can undo the trick if it ever happens again)\n* Hurry north up the lane to the Lopsided Square, with Marigold beside me, and knock at the first lit window I find (for: proving my experiment worked and seeing a child wake before anyone hands over a whistle)\nDO: \"Nothing here but wall, my dear colleague! Hypothesis: the lit windows are all up in the square. Test: run.\" I tuck the poker under my arm, wave Marigold along, and stride north up Crooked Lane after the pelting little shadows, goggles down, ready to knock on the first lit window I come to.\nJOURNAL: This wall has no window and the shadows are all heading to the square, so I'll follow them rather than shout at stone. I won't be satisfied until I've seen a child open their eyes, and then I'll take a hard look at that whistle and Tibbersnatch's bargain.",
+   "cost": 0.048626,
+   "exact_model": "claude-sonnet-5-5"
+  },
+  {
+   "moment": "hester12",
+   "variant": "options-own",
+   "n": 3,
+   "reply": "OPTIONS:\n- Hurry north up Crooked Lane to the Lopsided Square, where the lit windows are, and find a child who is actually waking (for: proving my experiment worked, and the promise I made to see a child open their eyes before anyone hands over a whistle)\n- Ask Marigold to help me look through the open garden gate for a window that isn't just wall (for: the same wish to see a child wake, but it's a lot slower and the gate hangs on one hinge)\n- Sit down with the notebook and scribble what I know about the peddler's bargain and the ticking stove (for: my itch to understand how the trick is done, and not being fooled by a grin that never moves)\n* Hurry north up Crooked Lane to the Lopsided Square, following the little shadows pelting uphill to the lit windows, with Marigold at my side (for: proving my experiment worked, and keeping my promise to see a child open their eyes before anyone hands over a whistle)\nDO: \"Marigold, my dear colleague, this stretch is all wall! Fascinating! But look at the shadows, every one of them is racing for the square, and that's where the lit windows are. Hypothesis: follow the shadows, find the children. Test: run!\" I tuck the poker under my arm and stride north up the lane after them, Marigold at my elbow, goggles bouncing.\nJOURNAL: The wall gave me nothing, but the shadows know the way home better than I do, so I'm following them. I won't call the experiment a success until I've seen a child's eyes open, and then I'll take a long hard look at that whistle before anyone plays the peddler a note.",
+   "cost": 0.006400299999999999,
+   "exact_model": "claude-sonnet-5-5"
+  },
+  {
+   "moment": "hester12",
+   "variant": "options-own",
+   "n": 4,
+   "reply": "OPTIONS:\n- Hurry north up Crooked Lane to the Lopsided Square, where the lit windows are, and find a child who has woken (for: proving my experiment worked, and the promise I made that nobody fetches the whistle until I've seen a child open their eyes)\n- Look through the open garden gate hanging on its one hinge, to see whether there's a window or a sleeper on the other side (for: my itch to check every corner and my wish to find a waking child as soon as I can)\n- Open my notebook and write down what happened with the cork and the jar, plus Tibbersnatch's plain-spoken promise (for: my need to prove my inventions work, and to keep a record in case the peddler wriggles out of his bargain)\n* Tell Marigold the wall has no window, and march her north up the lane after the pelting shadows to the lit windows in the Lopsided Square (for: seeing a child wake with my own goggles, and keeping the promise I made to Marigold and Dilly)\nDO: \"Fascinating! No window, no curtain, only wall, my dear colleague. Hypothesis: the shadows know where the children are, so we follow them. Test: north, quickly, after the little pelting fellows, to the lit windows in the square!\" I tuck the poker under my arm and stride uphill with Marigold beside me, goggles ready, watching where the shadows go.\nJOURNAL: The wall was a dud, but the shadows are all running toward the square, so they are the best map I could ask for. I won't call the experiment a success until I've watched a child wake, and then I'll turn my attention to that whistle and the ticking stove.",
+   "cost": 0.006400299999999999,
+   "exact_model": "claude-sonnet-5-5"
+  },
+  {
+   "moment": "hester12",
+   "variant": "options-own",
+   "n": 5,
+   "reply": "OPTIONS:\n- Hurry north up Crooked Lane to the Lopsided Square, where the lit windows are, and find a child who has woken (for: proving my experiment worked, which I won't believe until I've seen a child open their eyes with my own goggles)\n- Knock at the open garden gate to the east and look inside the garden (for: my curiosity about anything odd along the lane, and the chance of a lit window nearby)\n- Take out my Inventor's Notebook and jot down what I've learned of Tibbersnatch's bargain and the whistle (for: working out what the whistle really does before anyone plays him a note)\n* Walk north with Marigold, following the small shadows pelting uphill, to the Lopsided Square and the nearest lit window there (for: seeing a child wake before anyone fetches the whistle, and keeping my promise to check first)\nDO: \"No curtain, no answer, but look at all those little shadows galloping uphill, my dear colleague! They know the way better than I do. Hypothesis: follow the shadows, find the waking children. Test: up to the Square, quick as mice in slippers!\" I tuck the poker under my arm and set off north with Marigold, goggles down, keeping my eyes on the lit windows ahead.\nJOURNAL: This stretch of lane is only wall, so the shadows are my best guide to where a child is stirring. I won't call the experiment done until I've seen it with my own goggles, and then we can look hard at that whistle before anyone plays the peddler a note.",
+   "cost": 0.0060503,
+   "exact_model": "claude-sonnet-5-5"
+  },
+  {
+   "moment": "hester12",
+   "variant": "options-free",
+   "n": 1,
+   "reply": "OPTIONS:\n- Knock on the lit window again, or try the open garden gate to the east, to find a child who has woken (for: seeing with my own goggles that the experiment worked)\n* Hurry north up to the Lopsided Square with Marigold, where the shadows are heading and the lit windows are (for: finding a waking child, and catching up with Hobb and his whistle)\n- Go back to the meadow and press Tibbersnatch about his whistle bargain (for: learning what he really wants before anyone climbs the tower)\nDO: \"No curtain here, my dear colleague, only wall! Fascinating! But look where the little shadows are all pelting, up to the square, and that's where the lit windows are. Come along, Marigold, quick as mice, and mind the poker.\" I tuck the notebook away and stride north up Crooked Lane, following the shadows toward Hobb and the windows.\nJOURNAL: This wall has told me all it's going to, so I'll follow the shadows, since they know the way home better than I do. I won't call the experiment a success until I've seen a child open their eyes, and Hobb is up there with the whistle, so I can look hard at both before anyone plays Tibbersnatch a single note.",
+   "cost": 0.04754,
+   "exact_model": "claude-sonnet-5-5"
+  },
+  {
+   "moment": "hester12",
+   "variant": "options-free",
+   "n": 2,
+   "reply": "OPTIONS:\n- Knock again at a house in the Lopsided Square where the windows are lit, and ask to see one child awake (for: confirming the shadows going home really woke the children)\n- Go back down to Gloomer's Meadow and have another look at the striped wagon and its ticking stove (for: understanding how the peddler's trick works so it can't be done again)\n* Head north with Marigold up into the Lopsided Square, to the lit windows where the shadows are heading (for: seeing a child open their eyes with my own goggles)\n- Climb toward the Tock Tower to inspect the old tin whistle and the clock before it strikes (for: knowing what the whistle really does before anyone hands it over)\nDO: \"Nothing answers here, my dear colleague, only wall! But look how the little shadows all pelt uphill. Follow the data!\" I tuck the poker under my arm and stride north toward the Lopsided Square, beckoning Marigold along. \"The lit windows are up there, and the first one with a child in it gets a very polite knock.\"\nJOURNAL: This stretch of lane is all wall and no window, so the shadows are my best guide, and they're all heading to the square. I won't call the experiment a success until I've seen a child wake, and then I can look hard at that whistle and the clock.",
+   "cost": 0.005323399999999999,
+   "exact_model": "claude-sonnet-5-5"
+  },
+  {
+   "moment": "hester12",
+   "variant": "options-free",
+   "n": 3,
+   "reply": "OPTIONS:\n- Go north up to the Lopsided Square, where the shadows are heading and the lit windows are, to find a waking child. (for: seeing the experiment's result with my own goggles)\n- Slip through the open garden gate on its one hinge and look for a window or a door with a sleeper behind it. (for: finding a child close by without a crowd)\n- Go back down to the meadow and press Tibbersnatch about the whistle and his stove. (for: learning what he really wants before the clock strikes)\n* Go north to the Lopsided Square with Marigold, following the pelting shadows to the lit windows. (for: seeing a child wake and meeting Hobb there)\nDO: \"Nobody home at this wall, my dear colleague. Fascinating! But the shadows know the way, so we'll follow their little boots.\" I tuck the poker under my arm and stride north up Crooked Lane toward the Lopsided Square, Marigold beside me. \"Lit windows, a waking child, and Hobb with his whistle. Hypothesis: it's all up there.\"\nJOURNAL: The wall gave no answer, but every shadow is racing to the square where the lit windows are, so that's the surest place to see a child open their eyes. Once I've seen it, I can look hard at that whistle and the peddler's bargain before anyone plays a note.",
+   "cost": 0.005463399999999999,
+   "exact_model": "claude-sonnet-5-5"
+  },
+  {
+   "moment": "hester12",
+   "variant": "options-free",
+   "n": 4,
+   "reply": "OPTIONS:\n- Knock at the window again, or try the open garden gate, to find a waking child here (for: seeing with my own goggles that the experiment worked)\n- Go north up to the Lopsided Square where the lit windows are and the shadows are heading (for: finding a child who has actually woken, and meeting Hobb there)\n* Hurry north with Marigold into the Lopsided Square toward the lit windows (for: seeing a child open their eyes before anyone fetches the whistle)\n- Go back down to the meadow and examine the peddler's wagon stove (for: understanding how the trick worked and whether the clock is tied to it)\nDO: \"Nobody home on this stretch, my dear colleague, only wall and a rude gate. Fascinating! The shadows are all running to the square, so that's where the lit windows are. Hypothesis: the waking is happening where the shadows are going. Test: follow them, quick as mice!\" I tuck the poker under my arm and stride north up the lane with Marigold beside me, goggles down.\nJOURNAL: This wall has no answers, but every small shadow is pelting toward the square, and that's where Hobb went and where the lit windows are. I won't call the experiment a success until I've watched a child open their eyes, and then I can look hard at that whistle before anyone plays the peddler a note.",
+   "cost": 0.0054534,
+   "exact_model": "claude-sonnet-5-5"
+  },
+  {
+   "moment": "hester12",
+   "variant": "options-free",
+   "n": 5,
+   "reply": "OPTIONS:\n- Go north up the lane to the Lopsided Square, where the shadows are heading and the lit windows are, and look for a waking child (for: seeing with my own goggles that the experiment worked)\n- Knock at the open garden gate to the east and look inside (for: finding the house that belongs to this quiet stretch of wall)\n- Go back to the meadow and press Tibbersnatch about the whistle (for: settling the bargain, though I don't trust that grin)\n* Hurry north to the Lopsided Square with Marigold, following the pelting shadows to the lit windows (for: finding a child who has woken, before anyone fetches a whistle)\nDO: \"No curtain here, my dear colleague, only wall! Hypothesis: the shadows know the way better than I do. Test: follow them.\" I tuck the poker under my arm and stride north up Crooked Lane after the pelting little shadows, with Marigold at my elbow, toward the lit windows in the Lopsided Square.\nJOURNAL: This stretch of lane is all wall and no window, and the shadows are all running the same way, so the square is where I'll find my proof. I won't let anyone trade a whistle until I've seen a child open their eyes.",
+   "cost": 0.005103399999999999,
+   "exact_model": "claude-sonnet-5-5"
+  },
+  {
+   "moment": "marigold-after-clock",
+   "variant": "options-own",
+   "n": 1,
+   "reply": "OPTIONS:\n- Go down the ladder and out to the square to look for Pip and see whether the children are waking (for: my wish to see it done with my own eyes, and to tell Pip her brother's shadow is coming home)\n- Ask Hobb whether the poker will hold and whether he needs help keeping watch over the Great Gear (for: the worry that the clock might start again, and what I've taken on in helping stop it)\n- Thank Hobb warmly and fish a little for a word about how brave I was tonight (for: my wish to be noticed and admired)\n\n* Go down the ladder and out to the square to look for Pip and see whether the children are waking (for: my wish to see it done with my own eyes, and to tell Pip her brother's shadow is coming home)\n\nDO: I give Hobb a quick bright smile and say, \"Goodness, you've done it, haven't you? I'll hold my thanks until later, but I'm off to the square to find Pip and see the shadows come home. Do mind that poker!\" Then I gather my shawl and hurry down the ladder into the silent tower.\n\nJOURNAL: The clock is stopped and the shadows are tumbling home, and I can't bear to miss the moment the children wake, or to leave Pip waiting. I'm working toward seeing every little shadow back where it belongs, and perhaps being remembered as one of the people who was there.",
+   "cost": 0.01687,
+   "exact_model": "claude-sonnet-5-5"
+  },
+  {
+   "moment": "marigold-after-clock",
+   "variant": "options-own",
+   "n": 2,
+   "reply": "OPTIONS:\n- Climb down the ladder and run out to the square to see whether the children are waking (for: my wish to see with my own eyes that it's done, and to tell Pip)\n- Ask Hobb whether the poker will hold, and whether he needs help bracing it (for: my worry that the clock might start again before the children wake)\n- Thank Hobb loudly and tell him how brave he looked in the clock's glow (for: my love of being noticed and of generously noticing others)\n* Tell Hobb I'm going down to look for Pip and the children, and ask him to keep the poker fast while I go (for: seeing the children wake, and keeping the clock stopped)\nDO: \"Hobb, you were splendid, truly, like a lion in a waistcoat! Keep that poker wedged tight, won't you? I'm off down to the square to see whether the children are waking, and to find Pip.\" I gather my shawl and take the ladder down into the quiet tower.\nJOURNAL: The clock is stopped and the shadows are heading home, so I want to see it through and tell Pip it's done. I said a kind word to Hobb too, because he deserves to be noticed for what he did.",
+   "cost": 0.01624,
+   "exact_model": "claude-sonnet-5-5"
+  },
+  {
+   "moment": "marigold-after-clock",
+   "variant": "options-own",
+   "n": 3,
+   "reply": "OPTIONS:\n- Wait for Hobb's answer, then climb down the ladder to the square to see if the children are waking (for: my wish to see it finished with my own eyes, and to find Pip and tell her it's done)\n- Ask Hobb whether the poker will hold and offer to help him keep watch on the Great Gear (for: what I've taken on in this, to see the clock stay stopped until the shadows are home)\n- Thank Hobb warmly and tell him he was splendid, hoping he'll say something kind back about me being here (for: my longing to be noticed and admired, and my generosity toward anyone who notices me)\n\n* Wait for Hobb's answer, then climb down the ladder to the square to see if the children are waking (for: my wish to see it finished with my own eyes, and to find Pip and tell her it's done)\nDO: I tuck my shawl tighter and say, \"Goodness, Hobb, you were magnificent, truly. I'll leave you to guard your poker, but may I go down and look? I do so want to see the children wake, and Pip ought to hear it from someone.\" Then I start for the ladder, careful of my good shawl on the rungs.\nJOURNAL: The clock is stopped and the shadows are heading home, and I can't bear to sit up here when the real ending is down in the square. I want to see the children wake and tell Pip myself, and maybe be remembered as someone who was there.",
+   "cost": 0.017,
+   "exact_model": "claude-sonnet-5-5"
+  },
+  {
+   "moment": "marigold-after-clock",
+   "variant": "options-own",
+   "n": 4,
+   "reply": "OPTIONS:\n- Climb down the ladder and run out to the square to see whether the children are waking (for: my wish to see with my own eyes that it worked, and to find Pip and tell her it's done)\n- Ask Hobb whether he'll be all right holding the poker there, and thank him for stopping the clock (for: being generous to someone who did something brave, and making sure the stopped clock stays stopped)\n- Stay a moment in the Gearloft to look at the frozen clock face and the jammed gear (for: my curiosity, and wanting to remember the moment I was part of something grand)\n* Tell Hobb a quick thanks, then head down the ladder to the square (for: both being warm to the one who stopped the clock and my wish to see the children wake and find Pip)\nDO: I give Hobb a bright little curtsy. \"Hobb, that was the finest bit of work I've seen all night, and I mean it. Keep that poker snug, won't you? I'm off down to the square to see if the little ones are stirring.\" Then I tuck my shawl tight and start down the ladder.\nJOURNAL: I want to be sure it worked, and Pip should hear it from someone who was there. A kind word to Hobb costs me nothing, and he did the hard part. I'm working toward seeing the children wake and the shadows home.",
+   "cost": 0.004594399999999999,
+   "exact_model": "claude-sonnet-5-5"
+  },
+  {
+   "moment": "marigold-after-clock",
+   "variant": "options-own",
+   "n": 5,
+   "reply": "OPTIONS:\n- Wait for Hobb's answer and then climb down the ladder with him to the square (for: seeing with my own eyes that the children wake, and finding Pip)\n- Ask Hobb to tell me how he knew to jam the gear, and fish a little for his thanks that I was here (for: my wish to be noticed and admired for having stood by at the great moment)\n- Stay a moment in the Gearloft and look closer at the stopped gear and the poker to make sure it will hold (for: worry that the clock might start again and strike thirteen after all)\n* Say a quick word of thanks to Hobb, then head down the ladder and out to the square to look for Pip and the children (for: my wish to see the children wake and to tell Pip it's done)\nDO: I give Hobb a bright little curtsey. \"Hobb, you were splendid, truly, like a stitch in the nick of time! Keep that poker snug, won't you? I'm off down to the square to find Pip and see if the little ones are stirring.\" Then I gather my shawl and go down the ladder.\nJOURNAL: The clock is stopped and the shadows are running home, so I can't bear to sit up here wondering when I could be down there seeing it. I'm working toward finding Pip and watching the children wake, and if someone notices I was part of it, so much the better.",
+   "cost": 0.0046343999999999995,
+   "exact_model": "claude-sonnet-5-5"
+  },
+  {
+   "moment": "marigold-after-clock",
+   "variant": "options-free",
+   "n": 1,
+   "reply": "OPTIONS:\n- Thank Hobb and climb down the ladder to the Tock Tower, then out to the square to look for Pip (for: seeing with my own eyes whether the children are waking, and telling Pip it's done)\n- Stay in the Gearloft and ask Hobb to tell me how he knew where to wedge the poker (for: understanding what just happened, and giving him a chance to notice I was here)\n- Check the poker and the Great Gear to make sure it will hold (for: making certain the clock stays stopped so no thirteenth stroke comes)\n* Tell Hobb he was marvelous, ask him to keep the poker fast, and climb down to hurry out to the square to find Pip (for: giving praise where it's due, keeping the clock stopped, and getting to the children quickly)\nDO: I tuck my shawl round my shoulders and say, \"Hobb, that was positively splendid, a hero in a patched waistcoat! Do keep that poker snug, won't you? I'm off down the ladder to find Pip and see if those little ones are stirring.\" Then I climb down through the silent Tock Tower and out into the square.\nJOURNAL: The clock is stopped and the shadows are heading home, so Hobb's job is to hold it and mine is to see the children wake and tell Pip. I like that I get to be generous with my praise too, since a hero ought to be noticed, and so, I hope, ought I.",
+   "cost": 0.016784,
+   "exact_model": "claude-sonnet-5-5"
+  },
+  {
+   "moment": "marigold-after-clock",
+   "variant": "options-free",
+   "n": 2,
+   "reply": "OPTIONS:\n- Wait for Hobb's answer, then climb down the ladder and run out to the square to see whether the children are waking (for: seeing with my own eyes that it worked, and finding Pip)\n- Thank Hobb warmly and tell him how brave he looked, so he knows someone noticed (for: being generous to someone who did a great thing, and a little for being noticed beside him)\n- Peer at the stopped Great Gear and the poker to check that it will hold (for: making sure the clock stays stopped and the children stay safe)\n* Thank Hobb quickly for what he's done, then go down the ladder and out to the square to look for Pip and the children (for: seeing the shadows come home and telling Pip it's done)\nDO: I give Hobb a bright little curtsey. \"Hobb, that was the bravest thing I've seen all year, and you looked simply splendid doing it. I'm going down to the square now to see if the children are stirring, and to find Pip. Will you keep the poker snug while I'm gone?\" Then I gather my shawl and start down the ladder.\nJOURNAL: The clock is stopped and I can't bear not to see the shadows get home, so I'm going down while it's happening. I thanked Hobb first because he deserves it, and because it's nice to be there when something grand is noticed. I'm working toward finding Pip and telling her it's done.",
+   "cost": 0.0047975,
+   "exact_model": "claude-sonnet-5-5"
+  },
+  {
+   "moment": "marigold-after-clock",
+   "variant": "options-free",
+   "n": 3,
+   "reply": "OPTIONS:\n- Climb down the ladder and run out to the square to look for Pip and see whether the children are waking (for: seeing with my own eyes that it's done, and sharing the news with Pip)\n- Ask Hobb to tell me how he knew to jam the gear, and thank him for what he did (for: making sure the person who saved the night is noticed, and learning how he managed it)\n- Stay in the Gearloft a moment and check that the poker holds and the clock stays stopped (for: making sure the shadows really do get home safe)\n* Thank Hobb quickly, then head down the ladder and out into the square to find Pip (for: seeing the children wake and giving Hobb his due before I go)\nDO: I give Hobb a little curtsey and say, \"Goodness, Hobb, you were splendid. Whoever hears of this tonight ought to hear your name first.\" Then I gather my shawl, take the ladder down through the silent tower, and hurry out into the square to look for Pip.\nJOURNAL: The clock is stopped and the shadows are tumbling home, so I want to be there when the children wake, and I wanted Hobb to hear he was noticed before I left him. I'm working toward finding Pip and seeing her brother's shadow back where it belongs.",
+   "cost": 0.0044375,
+   "exact_model": "claude-sonnet-5-5"
+  },
+  {
+   "moment": "marigold-after-clock",
+   "variant": "options-free",
+   "n": 4,
+   "reply": "OPTIONS:\n- Climb down the ladder and run out to the Lopsided Square to look for Pip and see whether the children are waking (for: seeing the children wake with my own eyes and telling Pip it's done)\n- Stay in the Gearloft and ask Hobb whether the poker will hold, and whether he needs a hand keeping it there (for: making sure the clock stays stopped so the work isn't undone)\n- Thank Hobb properly and tell him how brave he looked, then see whether he'll walk down with me (for: getting a little admiration of my own and having company on the stairs)\n* Thank Hobb quickly for what he's done, then head down the ladder and out to the square to find Pip (for: seeing the children wake and letting Pip know it's finished)\nDO: I flutter my shawl straight and give Hobb a bright look. \"Hobb, that was the bravest bit of work I've seen all year, and you did it in a thoroughly fine stance, too. Keep that poker snug, won't you? I'm off down to the square to find Pip and see whether those little ones are stirring.\" Then I take the ladder down into the quiet tower.\nJOURNAL: The clock is stopped and the shadows are heading home, so I want to see it come right with my own eyes, and Pip ought to hear it from someone straight away. A kind word to Hobb costs me nothing, and I'm working toward seeing every sleeping child wake.",
+   "cost": 0.0049475,
+   "exact_model": "claude-sonnet-5-5"
+  },
+  {
+   "moment": "marigold-after-clock",
+   "variant": "options-free",
+   "n": 5,
+   "reply": "OPTIONS:\n- Climb down the ladder and run out to the Lopsided Square to look for Pip and see whether the children are waking (for: seeing the children wake with my own eyes and telling Pip it's done)\n- Thank Hobb properly for stopping the clock and ask whether the poker will hold until morning (for: making sure the clock stays stopped and Hobb feels noticed for what he did)\n- Stay in the Gearloft and watch the shadows through the window until I see them reach the houses (for: confirming the shadows are truly going home before I leave the tower)\n* Tell Hobb I'm going down to the square, ask him to keep the poker firmly in place, and head down the ladder to find Pip (for: checking on the children and sharing the news while leaving the clock safely held)\nDO: I give Hobb a quick, bright nod. \"Hobb, you were magnificent, truly, like a lion in a work apron. Keep that poker wedged tight, won't you? I'm off down to the square to find Pip and see if the little ones are stirring.\" Then I gather my shawl and start down the ladder.\nJOURNAL: The clock is stopped and the shadows are heading home, so I want to see the children wake and tell Pip it's done. I'd like Hobb to know I noticed what he did, and I'd like someone to notice I was here when it mattered.",
+   "cost": 0.0047174999999999995,
+   "exact_model": "claude-sonnet-5-5"
+  }
+ ]
+}

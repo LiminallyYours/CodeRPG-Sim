@@ -1,0 +1,965 @@
+{
+ "kind": "save",
+ "person": "dilly",
+ "game": "thirteenth_stroke",
+ "from": "bench-53, round 1",
+ "note": "a fresh game (seed bench-53), round 1, before anyone has acted: the opening, what they know, no quest taken on yet",
+ "save": {
+  "version": 10,
+  "game": "thirteenth_stroke",
+  "adventure": "The Thirteenth Stroke",
+  "players": {
+   "marigold": {
+    "name": "Marigold Thimble",
+    "model": "sonnet",
+    "status": "playing",
+    "location": "lopsided_square",
+    "stats": {
+     "might": 0,
+     "agility": 2,
+     "wits": 1,
+     "max_hp": 10,
+     "hp": 10,
+     "coins": 5
+    },
+    "inventory": [
+     "silver_thimble"
+    ],
+    "equipped": null,
+    "map": {
+     "lopsided_square": {
+      "name": "The Lopsided Square",
+      "exits": {
+       "north": "tock_tower",
+       "east": "fizzlewick_shop",
+       "west": "leaning_house",
+       "south": "crooked_lane"
+      },
+      "terrain": "stone",
+      "color": null,
+      "made_by": null,
+      "neighbors": {
+       "tock_tower": "The Tock Tower",
+       "fizzlewick_shop": "Fizzlewick's Sweet Shop",
+       "leaning_house": "The Pumbletons' Leaning House",
+       "crooked_lane": "Crooked Lane"
+      }
+     }
+    },
+    "met": [
+     "mags",
+     "pip"
+    ],
+    "present": {
+     "room": "lopsided_square",
+     "characters": [
+      "mags",
+      "pip"
+     ]
+    },
+    "worked": null,
+    "taken_on": [],
+    "heard": []
+   },
+   "hobb": {
+    "name": "Hobb Ashcombe",
+    "model": "sonnet",
+    "status": "playing",
+    "location": "tock_tower",
+    "stats": {
+     "might": 2,
+     "agility": 0,
+     "wits": 1,
+     "max_hp": 13,
+     "hp": 13,
+     "coins": 6
+    },
+    "inventory": [
+     "tally_stick"
+    ],
+    "equipped": null,
+    "map": {
+     "tock_tower": {
+      "name": "The Tock Tower",
+      "exits": {
+       "south": "lopsided_square",
+       "up": "gearloft"
+      },
+      "terrain": "indoors",
+      "color": null,
+      "made_by": null,
+      "neighbors": {
+       "lopsided_square": "The Lopsided Square",
+       "gearloft": "The Gearloft"
+      }
+     }
+    },
+    "met": [
+     "ambrose"
+    ],
+    "present": null,
+    "worked": null,
+    "taken_on": []
+   },
+   "dilly": {
+    "name": "Dilly Quickstep",
+    "model": "haiku",
+    "status": "playing",
+    "location": "lopsided_square",
+    "stats": {
+     "might": 1,
+     "agility": 2,
+     "wits": 0,
+     "max_hp": 11,
+     "hp": 11,
+     "coins": 4
+    },
+    "inventory": [
+     "lamplighters_pole"
+    ],
+    "equipped": null,
+    "map": {
+     "lopsided_square": {
+      "name": "The Lopsided Square",
+      "exits": {
+       "north": "tock_tower",
+       "east": "fizzlewick_shop",
+       "west": "leaning_house",
+       "south": "crooked_lane"
+      },
+      "terrain": "stone",
+      "color": null,
+      "made_by": null,
+      "neighbors": {
+       "tock_tower": "The Tock Tower",
+       "fizzlewick_shop": "Fizzlewick's Sweet Shop",
+       "leaning_house": "The Pumbletons' Leaning House",
+       "crooked_lane": "Crooked Lane"
+      }
+     }
+    },
+    "met": [
+     "mags",
+     "pip"
+    ],
+    "present": null,
+    "worked": null,
+    "taken_on": []
+   },
+   "hester": {
+    "name": "Hester Gimbal",
+    "model": "opus",
+    "status": "playing",
+    "location": "crooked_lane",
+    "stats": {
+     "might": -1,
+     "agility": 1,
+     "wits": 3,
+     "max_hp": 9,
+     "hp": 9,
+     "coins": 4
+    },
+    "inventory": [
+     "inventors_notebook"
+    ],
+    "equipped": null,
+    "map": {
+     "crooked_lane": {
+      "name": "Crooked Lane",
+      "exits": {
+       "north": "lopsided_square",
+       "south": "gloomers_meadow"
+      },
+      "terrain": "stone",
+      "color": null,
+      "made_by": null,
+      "neighbors": {
+       "lopsided_square": "The Lopsided Square",
+       "gloomers_meadow": "Gloomer's Meadow"
+      }
+     }
+    },
+    "met": [],
+    "present": null,
+    "worked": null,
+    "taken_on": []
+   }
+  },
+  "flags": [
+   "craves_whistle",
+   "poker_in_house"
+  ],
+  "room_items": {
+   "crooked_lane": [],
+   "fizzlewick_shop": [],
+   "gearloft": [],
+   "gloomers_meadow": [],
+   "leaning_house": [
+    "iron_poker"
+   ],
+   "lopsided_square": [],
+   "snatch_wagon": [
+    "shadow_jar"
+   ],
+   "tock_tower": []
+  },
+  "npcs": {},
+  "npc_memory": {},
+  "run": {
+   "id": "63478a9dfb31",
+   "variants": {
+    "craving": "craves_whistle",
+    "poker_spot": "poker_in_house"
+   },
+   "rolls": {},
+   "clock": null,
+   "moves": 0,
+   "weather": "a fat orange moon hanging crooked over the chimney pots",
+   "rooms": {},
+   "characters": {},
+   "items": {},
+   "quests": {},
+   "exits": {},
+   "placements": {},
+   "notes": {},
+   "chronicle": [],
+   "rumors": [],
+   "used_encounters": [],
+   "world_turn_due": false,
+   "generated": 0,
+   "commissions": {},
+   "ordering": null,
+   "seed": "bench-53",
+   "started": "2026-10-25",
+   "daily": false,
+   "dice_n": 3,
+   "befriended": [],
+   "before": {
+    "dilly": {
+     "hester": 1,
+     "marigold": 1,
+     "hobb": 1
+    },
+    "hester": {
+     "marigold": 1,
+     "hobb": 1
+    },
+    "marigold": {
+     "hobb": 1
+    }
+   },
+   "round": 1,
+   "round_state": {
+    "order": [
+     "dilly",
+     "hester",
+     "marigold",
+     "hobb"
+    ],
+    "done": []
+   }
+  },
+  "view": {
+   "game": {
+    "id": "thirteenth_stroke",
+    "title": "The Thirteenth Stroke"
+   },
+   "run_label": "2026-10-25 · seed bench-53",
+   "look": {
+    "palette": {
+     "accent": "#c74a6b",
+     "good": "green",
+     "bad": "red",
+     "warn": "#e3c75a",
+     "heal": "#8fd6c4",
+     "accent_by_time": {
+      "half past ten": "#d0607e",
+      "eleven o'clock": "#c74a6b",
+      "a quarter to twelve": "#a83d5c",
+      "a minute to midnight": "#8a3550"
+     }
+    },
+    "speaker_colors": [
+     "#8fae4a",
+     "#7fa7c9",
+     "#c98a8a",
+     "#c9a35a",
+     "#6fb3a8",
+     "#a08fc9"
+    ],
+    "sections": {
+     "where": "WHERE",
+     "you": "YOU",
+     "at_stake": "AT STAKE",
+     "act": "ACT",
+     "carrying": "CARRYING",
+     "more": "MORE"
+    },
+    "stat_labels": {
+     "might": "Gumption",
+     "agility": "Wiggle",
+     "wits": "Noggin"
+    },
+    "stat_short": {
+     "might": "GUM",
+     "agility": "WIG",
+     "wits": "NOG"
+    },
+    "currency": "buttons",
+    "tagline": "a crooked bedtime story for CodeRPG",
+    "tabs": [
+     "here",
+     "map",
+     "journal"
+    ],
+    "tab_labels": {
+     "here": "Here",
+     "map": "Map",
+     "journal": "Journal"
+    },
+    "tab_keys": {
+     "here": "h",
+     "map": "m",
+     "journal": "j"
+    },
+    "phrases": {
+     "idle": [
+      "Tick, tock, tick",
+      "The clock runs a little fast",
+      "A lullaby hums down the hill",
+      "Something in the drain clears its throat",
+      "A shadow slips past the lamp",
+      "The crooked houses lean in to listen",
+      "Somewhere a tin key turns"
+     ],
+     "by_command": {
+      "look": [
+       "Taking in the scene",
+       "Looking about"
+      ],
+      "move": [
+       "On the move",
+       "The way unwinds"
+      ],
+      "take": [
+       "Reaching out",
+       "Picking it up"
+      ],
+      "drop": [
+       "Setting it down"
+      ],
+      "gain": [
+       "Hands exchange",
+       "A deal is struck"
+      ],
+      "lose": [
+       "Hands exchange",
+       "Letting it go"
+      ],
+      "equip": [
+       "Testing the grip"
+      ],
+      "use": [
+       "Bracing yourself"
+      ],
+      "check": [
+       "Fate weighs your chances",
+       "The dice are cast"
+      ],
+      "roll": [
+       "The dice are cast"
+      ],
+      "attack": [
+       "Blows are traded",
+       "The fight is on"
+      ],
+      "hurt": [
+       "Pain flares"
+      ],
+      "heal": [
+       "Warmth returns"
+      ],
+      "coins": [
+       "Counting coins"
+      ],
+      "flag": [
+       "The story turns"
+      ],
+      "remember": [
+       "A memory settles"
+      ],
+      "newgame": [
+       "Setting the stage",
+       "The curtain rises"
+      ],
+      "npc-brief": [
+       "Someone gathers their thoughts"
+      ],
+      "world-brief": [
+       "The world takes shape",
+       "Something stirs at the edge of the map"
+      ],
+      "generate": [
+       "Something takes shape"
+      ],
+      "world-turn": [
+       "Time passes off-screen",
+       "Elsewhere, the world stirs"
+      ],
+      "show": [
+       "Recalling the place"
+      ],
+      "note": [
+       "Committing it to memory"
+      ],
+      "chronicle": [
+       "The tale is written down"
+      ],
+      "game": [
+       "Turning to another tale"
+      ],
+      "pay": [
+       "Money changes hands",
+       "The work is handed over"
+      ],
+      "talk": [
+       "Turning to listen",
+       "Finding the words"
+      ]
+     },
+     "phases": {
+      "reading": [
+       "Reading the room",
+       "Taking in the scene"
+      ],
+      "considering": [
+       "{name} considers your words",
+       "{name} weighs a reply"
+      ],
+      "shaping": [
+       "Something new takes shape"
+      ],
+      "stirring": [
+       "Elsewhere, the world stirs"
+      ],
+      "resolving": [
+       "Fate weighs your chances"
+      ]
+     }
+    },
+    "resource": {
+     "name": "Candle",
+     "icon": "✺",
+     "low": "Your candle is burning down to a stub, and the shadows lean closer.",
+     "spent": "Your candle gutters out. Wumbleby goes still and dark: nobody answers, nothing stirs, until you come back with a fresh one."
+    },
+    "terrain": {
+     "water": {
+      "bg": "#1f4060",
+      "fg": "#9cc9ef",
+      "moves": true
+     },
+     "grass": {
+      "bg": "#2f5232",
+      "fg": "#cdeccd",
+      "moves": false
+     },
+     "stone": {
+      "bg": "#4a4a52",
+      "fg": "#e2e2e6",
+      "moves": false
+     },
+     "indoors": {
+      "bg": "#5e4128",
+      "fg": "#f3dfc1",
+      "moves": false
+     },
+     "gloomgrass": {
+      "bg": "#2c2a3d",
+      "fg": "#b9b3d6",
+      "moves": false
+     }
+    },
+    "sounds": {
+     "step": "step",
+     "dice": "dice",
+     "hit": "hit",
+     "miss": "miss",
+     "coin": "coin",
+     "heal": "heal",
+     "fanfare": "fanfare",
+     "defeat": "defeat",
+     "wipe": "wipe",
+     "type": "type",
+     "meter_low": "meter_low",
+     "phase_reading": null,
+     "phase_considering": "chime_mid",
+     "phase_shaping": "chime_high",
+     "phase_stirring": "chime_low",
+     "phase_resolving": null,
+     "curse": "curse",
+     "curse_lifted": "chime_high",
+     "signal": "chime_low"
+    }
+   },
+   "time": "half past ten",
+   "weather": "a fat orange moon hanging crooked over the chimney pots",
+   "clock": null,
+   "meter": {
+    "left": 30,
+    "capacity": 30,
+    "state": "ok"
+   },
+   "settings": {
+    "preset": "simulation",
+    "capacity": 30,
+    "prices": {
+     "generate": 2,
+     "world_turn": 2,
+     "craft": 2,
+     "build": 3,
+     "reuse": 1,
+     "promote": 2,
+     "scene": 2
+    },
+    "npc_agents": {
+     "on": true,
+     "lines_per_exchange": 4,
+     "off_for": []
+    },
+    "world_turns": {
+     "on": true,
+     "every_moves": 2,
+     "plans": true
+    },
+    "generation": {
+     "on": true,
+     "max_per_run": 16,
+     "kinds": [
+      "extras",
+      "characters",
+      "side_quests"
+     ]
+    },
+    "crafting": {
+     "on": true,
+     "max_per_run": 10
+    },
+    "building": {
+     "on": true,
+     "max_per_run": 5
+    },
+    "promotion": {
+     "on": true,
+     "max_per_run": 2,
+     "after_conversations": 3
+    },
+    "side_scenes": {
+     "on": false,
+     "max_per_run": 2,
+     "replies": 6
+    },
+    "new_worlds": {
+     "on": false
+    }
+   },
+   "chronicle": [],
+   "rumors": [],
+   "signals": [],
+   "players": {
+    "marigold": {
+     "name": "Marigold Thimble",
+     "location": "lopsided_square",
+     "location_name": "The Lopsided Square",
+     "location_generated": false,
+     "status": "playing",
+     "stats": {
+      "might": 0,
+      "agility": 2,
+      "wits": 1,
+      "max_hp": 10,
+      "hp": 10,
+      "coins": 5
+     },
+     "items": [
+      {
+       "id": "silver_thimble",
+       "name": "Silver Thimble",
+       "equipped": false,
+       "own": false
+      }
+     ],
+     "weight": 1,
+     "carry_limit": 8,
+     "characters_here": [
+      {
+       "id": "mags",
+       "name": "Mags Ragwort",
+       "role": "the rag-and-bone woman, who buys odds and ends from her cart in the Lopsided Square",
+       "generated": false,
+       "card": "#a3896b",
+       "promoted": false
+      },
+      {
+       "id": "pip",
+       "name": "Pip Pumbleton",
+       "role": "an eleven-year-old girl who refuses to fall asleep until she gets her little brother's shadow back",
+       "generated": false,
+       "card": "#7fc7d9",
+       "promoted": false
+      }
+     ],
+     "people": [
+      {
+       "id": "mags",
+       "name": "Mags Ragwort",
+       "role": "the rag-and-bone woman, who buys odds and ends from her cart in the Lopsided Square",
+       "generated": false,
+       "card": "#a3896b",
+       "promoted": false,
+       "here": true,
+       "memory": []
+      },
+      {
+       "id": "pip",
+       "name": "Pip Pumbleton",
+       "role": "an eleven-year-old girl who refuses to fall asleep until she gets her little brother's shadow back",
+       "generated": false,
+       "card": "#7fc7d9",
+       "promoted": false,
+       "here": true,
+       "memory": []
+      }
+     ],
+     "foes": [],
+     "quests": [
+      {
+       "id": "thirteenth_stroke",
+       "name": "Before the Thirteenth Stroke",
+       "complete": false,
+       "failed": false,
+       "side": false,
+       "objectives": [
+        {
+         "text": "Find out why Wumbleby's children won't wake.",
+         "done": false
+        }
+       ]
+      }
+     ],
+     "art": null,
+     "picture": {
+      "source": "rules/art/terrain/stone-2.png",
+      "stamp": "735:1792792625000000000",
+      "width": 44,
+      "height": 28,
+      "rgb": "Q0A5RUE7R0M9SEU/SkdATEhBTUpDT0tEUE1FUU5GU09HVFBIVVFJVVJKVlJLV1NLWFRMWFRMWFRMWVVNWVVNWVVNWVVNWVVNWVVNWFRMWFRMWFRMV1NLVlJLVVJKVVFJVXE9U09HUU5GUE1FT0tETUpDTEhBSkdASEU/R0M9RUE7Q0A5REE6TktEUU1GU09IVlJKWFRMWlZOXFhQU05HYFtTYV1UY15WZF9XZWBYZmFZZ2JaWlZOaWRbaWRbamVcamVcamVcamVcamVcXFdPaWRbaWRbaGNaZ2JaZmFZZWBYZF9XVlJKYV1UYFtTXlpRXFhQWlZOWFRMVlJKSkZAUU1GTktES0hBREE6TktEUU1GU09IVlJKWFRMWlZOXFhQU05HYFtTYV1UY15WZF9XZWBYZmFZZ2JaWlZOaWRbaWRbamVcamVcWnpAamVcamVcXFdPaWRbaWRbaGNaZ2JaZmFZZWBYZF9XVlJKYV1UYFtTXlpRXFhQWlZOWFRMVlJKSkZAUU1GTktES0hBREE6TktEUU1GU09IVlJKWFRMWlZOXFhQU05HYFtTYV1UY15WZF9XZWBYZmFZZ2JaWlZOaWRbaWRbamVcamVcamVcamVcamVcXFdPaWRbaWRbaGNaZ2JaZmFZZWBYZF9XVlJKYV1UYFtTXlpRXFhQWlZOWFRMVlJKSkZAUU1GTktES0hBQ0A5RUE7R0M9SEU/SkdATEhBTUpDT0tEUE1FUU5GU09HVFBIVVFJVVJKVlJLV1NLWFRMWFRMWFRMWVVNWVVNWVVNWVVNWVVNWVVNWFRMWFRMWFRMV1NLVlJLVVJKVVFJVFBIU09HUU5GUE1FT0tETUpDTEhBSkdASEU/R0M9RUE7Q0A5S0hBTktEUU1GU09ITEhBTGM4WlZOXFhQXlpRYFtTYV1UY15WV1NLZWBYZmFZZ2JaaGNaaWRbaWRbKigkKigkKigkKigkKigkKigkaWRbWXg/aGNaWlVNZmFZZWBYZF9XY15WYV1UYFtTXlpRUU1GWlZOWFRMVlJKU09IUU1GTktES0hBS0hBTktEUU1GU09ITEhBWFRMWlZOXFhQXlpRYFtTYV1UY15WV1NLZWBYZmFZZ2JaaGNaaWRbKigkKigkKigkKigkKigkKigkKigkKigkaWRbWHc/WlVNZmFZZWBYZF9XY15WYV1UYFtTXlpRUU1GWlZOWFRMVlJKU09IUU1GTktES0hBS0hBTktEUU1GU09ITEhBWFRMWlZOXFhQXlpRYFtTYV1UVXE9V1NLZWBYZmFZZ2JaKigkKigkKigkKigkKigkKigkKigkKigkKigkKigkKigkKigkWlVNZmFZZWBYZF9XY15WYV1UYFtTXlpRUU1GWlZOWFRMVlJKU09IUU1GTktES0hBQ0A5RUE7R0M9SEU/SkdATEhBTUpDT0tEUE1FUU5GU09HVFBIVVFJVVJKVlJLV1NLKigkKigkKigkKigkKigkKigkKigkKigkKigkKigkKigkKigkV1NLVlJLVVJKVnI9VFBIU09HUU5GUE1FT0tETUpDTEhBSkdASEU/R0M9RUE7Q0A5REE6TktEUU1GU09IVlJKWFRMWlZOXFhQU05HYFtTYV1UY15WZF9XZWBYZmFZKigkKigkKigkKigkKigkKigkKigkKigkWnpAKigkKigkKigkKigkKigkZmFZZWBYZF9XVlJKYV1UUm07XlpRXFhQWlZOWFRMVlJKSkZAUU1GTktES0hBREE6TktEUU1GU09IVlJKWFRMWlZOXFhQU05HYFtTYV1UY15WZF9XZWBYZmFZKigkKigkWXg/OjYwOjYwOjYwOjYwOjYwOjYwOjYwOjYwOjYwOjYwKigkZmFZZWBYZF9XVlJKYV1UYFtTXlpRXFhQWlZOWFRMVlJKSkZAUU1GTktES0hBREE6TktEUU1GU09IVlJKWFRMWlZOXFhQU05HYFtTYV1UY15WZF9XZWBYKigkKigkKigkPzoyPzoyPzoyPzoyPzoyWnpAPzoyPzoyPzoyPzoyWHc/KigkKigkZWBYZF9XVlJKYV1UYFtTXlpRXFhQWlZOWFRMVlJKSkZAUU1GTktES0hBQ0A5RUE7R0M9SEU/SkdATEhBTUpDT0tEUE1FUU5GU09HVFBIVVFJVVJKKigkKigkKigkQj41Qz41x7+fyMCgyMCgyMCgyMCgx7+fxr6eQj41Qj00KigkKigkVVJKVVFJVFBIU09HUU5GUE1FT0tETUpDTEhBSkdASEU/R0M9RUE7Q0A5S0hBTktEUU1GU09ITEhBTGM4WlZOXFhQXlpRYFtTYV1UY15WV1NLVnQ+KigkKigkKigkR0E3SEI3x7+fyMCgyMCgyMCgyMCgx7+fxr6eR0E3R0E2KigkKigkZWBYZF9XY15WYV1UYFtTXlpRUU1GWlZOWFRMVlJKU09IUU1GTktES0hBS0hBTktEUU1GU09ITEhBWFRMWlZOXFhQXlpRYFtTYV1UY15WV1NLZWBYV3U+KigkKigkTEU6TUY6x7+fyMCgyMCgyMCgyMCgx7+fxr6eTEU6TEU5KigkKigkKigkZF9XY15WYV1UYFtTXlpRUU1GWlZOWFRMVlJKU09IUU1GTktES0hBQ1MzTktEUU1GU09ITEhBWFRMWlZOXFhQUWs7YFtTYV1UVXE9V1NLZWBYKigkKigkKigkUUk7UUo8x7+fyMCgyMCgyMCgyMCgx7+fxr6eUUk7UUk7KigkKigkKigkZF9XY15WYV1UYFtTXlpRUU1GWlZOWFRMVlJKU09IUU1GTktES0hBQ0A5RUE7R0M9SEU/SkdATEhBTUpDT0tEUE1FUU5GU09HVFBIVVFJVVJKKigkWHY/KigkVU0+VU4/x7+fyMCgyMCgyMCgyMCgx7+fxr6eVU0+VU0+KigkKigkVnQ+VVFJVFBIU09HUU5GUE1FT0tETUpDTEhBSkdASEU/R0M9RUE7Q0A5REE6TktEUU1GU09IVlJKWFRMWlZOXFhQU05HYFtTYV1UY15WZF9XZWBYKigkKigkKigkWlFAWlFBx7+fyMCgyMCgyMCgyMCgx7+fxr6eWlFAWVFAKigkKigkKigkZF9XVlJKYV1UYFtTXlpRXFhQWlZOWFRMVlJKSkZAUU1GTktES0hBREE6TktEUU1GU09IVlJKWFRMWlZOXFhQU05HYFtTYV1UY15WZF9XZWBYKigkKigkKigkX1VDX1VEx7+fyMCgyMCgyMCgyMCgx7+fxr6eX1VDWHc/KigkKigkKigkZF9XVlJKYV1UYFtTXlpRXFhQWlZOWFRMVlJKSkZAUU1GTktES0hBREE6TktEUU1GU09IVlJKWFRMWlZOXFhQU05HYFtTYV1UY15WZF9XVnQ+KigkKigkKigkY1lFY1lGx7+fyMCgyMCgyMCgyMCgx7+fxr6eY1lFYlhFKigkKigkKigkZF9XVlJKYV1UYFtTXlpRXFhQWlZOWFRMVlJKSkZAUU1GTktES0hBQ0A5RUE7R0M9SEU/SkdATEhBTUpDT0tEUE1FUU5GU09HVFBIVVFJVVJKKigkKigkKigkaF1IaF1JaV5JaV5JaV5JaV5JaV5JaV5JaF1JaF1IZ1xIKigkKigkKigkVVFJVFBIU09HUU5GUWs7T0tETUpDTEhBSkdASEU/R0M9RUE7Q0A5S0hBRVY0UU1GU09ITEhBWFRMWlZOXFhQXlpRYFtTYV1UY15WV1NLZWBYKigkKigkKigkbWFKbWFLbmJLbmJLbmJLbmJLbmJLbmJLbWFLbWFKbGBKKigkKigkKigkZF9XY15WYV1UYFtTXlpRUU1GWlZOWFRMVlJKU09IR1o1TktES0hBS0hBTktEUU1GU09ITEhBWFRMWlZOXFhQXlpRYFtTYV1UVXE9V1NLZWBYKigkKigkKigkcGVNcWVNcmZOcmZOcmZOcmZOcmZOcmZOcWVNcGVNcGRNKigkKigkKigkZF9XY15WYV1UYFtTXlpRUU1GWlZOWFRMVlJKSV02UU1GTktES0hBS0hBTktEUU1GU09ITEhBWFRMWlZOUGg6XlpRYFtTYV1UY15WV1NLZWBYKigkKigkKigkdWlPdmlPd2pQd2pQd2pQd2pQd2pQd2pQdmlPdWlPdWhPKigkKigkKigkZF9XY15WYV1UYFtTXlpRUU1GWlZOWFRMVlJKSV02UU1GTktES0hBQ0A5RUE7R0M9SEU/SkdATEhBTUpDT0tEUE1FUU5GU09HVFBIVVFJVVJKSEM7SUQ7SUQ7SUQ7SkU8SkU8SkU8SkU8SkU8SkU8SkU8SkU8SUQ7SUQ7SUQ7SEM7SEM6VVFJVFBIU09HUU5GUE1FT0tETUpDTEhBSkdASEU/R0M9RUE7Q0A5REE6TktEUU1GU09IVlJKWFRMWlZOXFhQU05HYFtTYV1UY15WZF9XZWBYSEM7SUQ7SUQ7SUQ7SkU8SkU8SkU8SkU8SkU8SkU8SkU8SkU8SUQ7SUQ7SUQ7SEM7SEM6VnI9VlJKYV1UYFtTXlpRUGg6WlZOWFRMVlJKSkZAUU1GTktES0hBREE6TktEUU1GU09IVlJKWFRMWlZOXFhQU05HYFtTYV1UY15WZF9XZWBYSEM7SUQ7SUQ7SUQ7SkU8SkU8SkU8WnpASkU8SkU8SkU8SkU8SUQ7SUQ7SUQ7SEM7SEM6ZF9XVlJKYV1UYFtTXlpRXFhQWlZOWFRMVlJKSkZAUU1GTktES0hBREE6TktEUU1GU09IVlJKWFRMWlZOXFhQU05HYFtTYV1UY15WZF9XZWBYSEM7SUQ7SUQ7SUQ7SkU8SkU8SkU8SkU8SkU8SkU8SkU8WXlASUQ7SUQ7SUQ7SEM7SEM6ZF9XVlJKYV1UYFtTXlpRXFhQWlZOTGM4S2A3SkZAUU1GTktES0hB"
+     },
+     "curses": []
+    },
+    "hobb": {
+     "name": "Hobb Ashcombe",
+     "location": "tock_tower",
+     "location_name": "The Tock Tower",
+     "location_generated": false,
+     "status": "playing",
+     "stats": {
+      "might": 2,
+      "agility": 0,
+      "wits": 1,
+      "max_hp": 13,
+      "hp": 13,
+      "coins": 6
+     },
+     "items": [
+      {
+       "id": "tally_stick",
+       "name": "Tally Stick",
+       "equipped": false,
+       "own": false
+      }
+     ],
+     "weight": 1,
+     "carry_limit": 12,
+     "characters_here": [
+      {
+       "id": "ambrose",
+       "name": "Ambrose Tock",
+       "role": "the old keeper of the Wumbleby town clock",
+       "generated": false,
+       "card": "#c9b26a",
+       "promoted": false
+      }
+     ],
+     "people": [
+      {
+       "id": "ambrose",
+       "name": "Ambrose Tock",
+       "role": "the old keeper of the Wumbleby town clock",
+       "generated": false,
+       "card": "#c9b26a",
+       "promoted": false,
+       "here": true,
+       "memory": []
+      }
+     ],
+     "foes": [],
+     "quests": [
+      {
+       "id": "thirteenth_stroke",
+       "name": "Before the Thirteenth Stroke",
+       "complete": false,
+       "failed": false,
+       "side": false,
+       "objectives": [
+        {
+         "text": "Find out why Wumbleby's children won't wake.",
+         "done": false
+        }
+       ]
+      }
+     ],
+     "art": null,
+     "picture": {
+      "source": "rules/art/terrain/indoors-2.png",
+      "stamp": "2497:1792792625000000000",
+      "width": 44,
+      "height": 28,
+      "rgb": "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"
+     },
+     "curses": []
+    },
+    "dilly": {
+     "name": "Dilly Quickstep",
+     "location": "lopsided_square",
+     "location_name": "The Lopsided Square",
+     "location_generated": false,
+     "status": "playing",
+     "stats": {
+      "might": 1,
+      "agility": 2,
+      "wits": 0,
+      "max_hp": 11,
+      "hp": 11,
+      "coins": 4
+     },
+     "items": [
+      {
+       "id": "lamplighters_pole",
+       "name": "Lamplighter's Pole",
+       "equipped": false,
+       "own": false
+      }
+     ],
+     "weight": 2,
+     "carry_limit": 10,
+     "characters_here": [
+      {
+       "id": "mags",
+       "name": "Mags Ragwort",
+       "role": "the rag-and-bone woman, who buys odds and ends from her cart in the Lopsided Square",
+       "generated": false,
+       "card": "#a3896b",
+       "promoted": false
+      },
+      {
+       "id": "pip",
+       "name": "Pip Pumbleton",
+       "role": "an eleven-year-old girl who refuses to fall asleep until she gets her little brother's shadow back",
+       "generated": false,
+       "card": "#7fc7d9",
+       "promoted": false
+      }
+     ],
+     "people": [
+      {
+       "id": "mags",
+       "name": "Mags Ragwort",
+       "role": "the rag-and-bone woman, who buys odds and ends from her cart in the Lopsided Square",
+       "generated": false,
+       "card": "#a3896b",
+       "promoted": false,
+       "here": true,
+       "memory": []
+      },
+      {
+       "id": "pip",
+       "name": "Pip Pumbleton",
+       "role": "an eleven-year-old girl who refuses to fall asleep until she gets her little brother's shadow back",
+       "generated": false,
+       "card": "#7fc7d9",
+       "promoted": false,
+       "here": true,
+       "memory": []
+      }
+     ],
+     "foes": [],
+     "quests": [
+      {
+       "id": "thirteenth_stroke",
+       "name": "Before the Thirteenth Stroke",
+       "complete": false,
+       "failed": false,
+       "side": false,
+       "objectives": [
+        {
+         "text": "Find out why Wumbleby's children won't wake.",
+         "done": false
+        }
+       ]
+      }
+     ],
+     "art": null,
+     "picture": {
+      "source": "rules/art/terrain/stone-2.png",
+      "stamp": "735:1792792625000000000",
+      "width": 44,
+      "height": 28,
+      "rgb": "Q0A5RUE7R0M9SEU/SkdATEhBTUpDT0tEUE1FUU5GU09HVFBIVVFJVVJKVlJLV1NLWFRMWFRMWFRMWVVNWVVNWVVNWVVNWVVNWVVNWFRMWFRMWFRMV1NLVlJLVVJKVVFJVXE9U09HUU5GUE1FT0tETUpDTEhBSkdASEU/R0M9RUE7Q0A5REE6TktEUU1GU09IVlJKWFRMWlZOXFhQU05HYFtTYV1UY15WZF9XZWBYZmFZZ2JaWlZOaWRbaWRbamVcamVcamVcamVcamVcXFdPaWRbaWRbaGNaZ2JaZmFZZWBYZF9XVlJKYV1UYFtTXlpRXFhQWlZOWFRMVlJKSkZAUU1GTktES0hBREE6TktEUU1GU09IVlJKWFRMWlZOXFhQU05HYFtTYV1UY15WZF9XZWBYZmFZZ2JaWlZOaWRbaWRbamVcamVcWnpAamVcamVcXFdPaWRbaWRbaGNaZ2JaZmFZZWBYZF9XVlJKYV1UYFtTXlpRXFhQWlZOWFRMVlJKSkZAUU1GTktES0hBREE6TktEUU1GU09IVlJKWFRMWlZOXFhQU05HYFtTYV1UY15WZF9XZWBYZmFZZ2JaWlZOaWRbaWRbamVcamVcamVcamVcamVcXFdPaWRbaWRbaGNaZ2JaZmFZZWBYZF9XVlJKYV1UYFtTXlpRXFhQWlZOWFRMVlJKSkZAUU1GTktES0hBQ0A5RUE7R0M9SEU/SkdATEhBTUpDT0tEUE1FUU5GU09HVFBIVVFJVVJKVlJLV1NLWFRMWFRMWFRMWVVNWVVNWVVNWVVNWVVNWVVNWFRMWFRMWFRMV1NLVlJLVVJKVVFJVFBIU09HUU5GUE1FT0tETUpDTEhBSkdASEU/R0M9RUE7Q0A5S0hBTktEUU1GU09ITEhBTGM4WlZOXFhQXlpRYFtTYV1UY15WV1NLZWBYZmFZZ2JaaGNaaWRbaWRbKigkKigkKigkKigkKigkKigkaWRbWXg/aGNaWlVNZmFZZWBYZF9XY15WYV1UYFtTXlpRUU1GWlZOWFRMVlJKU09IUU1GTktES0hBS0hBTktEUU1GU09ITEhBWFRMWlZOXFhQXlpRYFtTYV1UY15WV1NLZWBYZmFZZ2JaaGNaaWRbKigkKigkKigkKigkKigkKigkKigkKigkaWRbWHc/WlVNZmFZZWBYZF9XY15WYV1UYFtTXlpRUU1GWlZOWFRMVlJKU09IUU1GTktES0hBS0hBTktEUU1GU09ITEhBWFRMWlZOXFhQXlpRYFtTYV1UVXE9V1NLZWBYZmFZZ2JaKigkKigkKigkKigkKigkKigkKigkKigkKigkKigkKigkKigkWlVNZmFZZWBYZF9XY15WYV1UYFtTXlpRUU1GWlZOWFRMVlJKU09IUU1GTktES0hBQ0A5RUE7R0M9SEU/SkdATEhBTUpDT0tEUE1FUU5GU09HVFBIVVFJVVJKVlJLV1NLKigkKigkKigkKigkKigkKigkKigkKigkKigkKigkKigkKigkV1NLVlJLVVJKVnI9VFBIU09HUU5GUE1FT0tETUpDTEhBSkdASEU/R0M9RUE7Q0A5REE6TktEUU1GU09IVlJKWFRMWlZOXFhQU05HYFtTYV1UY15WZF9XZWBYZmFZKigkKigkKigkKigkKigkKigkKigkKigkWnpAKigkKigkKigkKigkKigkZmFZZWBYZF9XVlJKYV1UUm07XlpRXFhQWlZOWFRMVlJKSkZAUU1GTktES0hBREE6TktEUU1GU09IVlJKWFRMWlZOXFhQU05HYFtTYV1UY15WZF9XZWBYZmFZKigkKigkWXg/OjYwOjYwOjYwOjYwOjYwOjYwOjYwOjYwOjYwOjYwKigkZmFZZWBYZF9XVlJKYV1UYFtTXlpRXFhQWlZOWFRMVlJKSkZAUU1GTktES0hBREE6TktEUU1GU09IVlJKWFRMWlZOXFhQU05HYFtTYV1UY15WZF9XZWBYKigkKigkKigkPzoyPzoyPzoyPzoyPzoyWnpAPzoyPzoyPzoyPzoyWHc/KigkKigkZWBYZF9XVlJKYV1UYFtTXlpRXFhQWlZOWFRMVlJKSkZAUU1GTktES0hBQ0A5RUE7R0M9SEU/SkdATEhBTUpDT0tEUE1FUU5GU09HVFBIVVFJVVJKKigkKigkKigkQj41Qz41x7+fyMCgyMCgyMCgyMCgx7+fxr6eQj41Qj00KigkKigkVVJKVVFJVFBIU09HUU5GUE1FT0tETUpDTEhBSkdASEU/R0M9RUE7Q0A5S0hBTktEUU1GU09ITEhBTGM4WlZOXFhQXlpRYFtTYV1UY15WV1NLVnQ+KigkKigkKigkR0E3SEI3x7+fyMCgyMCgyMCgyMCgx7+fxr6eR0E3R0E2KigkKigkZWBYZF9XY15WYV1UYFtTXlpRUU1GWlZOWFRMVlJKU09IUU1GTktES0hBS0hBTktEUU1GU09ITEhBWFRMWlZOXFhQXlpRYFtTYV1UY15WV1NLZWBYV3U+KigkKigkTEU6TUY6x7+fyMCgyMCgyMCgyMCgx7+fxr6eTEU6TEU5KigkKigkKigkZF9XY15WYV1UYFtTXlpRUU1GWlZOWFRMVlJKU09IUU1GTktES0hBQ1MzTktEUU1GU09ITEhBWFRMWlZOXFhQUWs7YFtTYV1UVXE9V1NLZWBYKigkKigkKigkUUk7UUo8x7+fyMCgyMCgyMCgyMCgx7+fxr6eUUk7UUk7KigkKigkKigkZF9XY15WYV1UYFtTXlpRUU1GWlZOWFRMVlJKU09IUU1GTktES0hBQ0A5RUE7R0M9SEU/SkdATEhBTUpDT0tEUE1FUU5GU09HVFBIVVFJVVJKKigkWHY/KigkVU0+VU4/x7+fyMCgyMCgyMCgyMCgx7+fxr6eVU0+VU0+KigkKigkVnQ+VVFJVFBIU09HUU5GUE1FT0tETUpDTEhBSkdASEU/R0M9RUE7Q0A5REE6TktEUU1GU09IVlJKWFRMWlZOXFhQU05HYFtTYV1UY15WZF9XZWBYKigkKigkKigkWlFAWlFBx7+fyMCgyMCgyMCgyMCgx7+fxr6eWlFAWVFAKigkKigkKigkZF9XVlJKYV1UYFtTXlpRXFhQWlZOWFRMVlJKSkZAUU1GTktES0hBREE6TktEUU1GU09IVlJKWFRMWlZOXFhQU05HYFtTYV1UY15WZF9XZWBYKigkKigkKigkX1VDX1VEx7+fyMCgyMCgyMCgyMCgx7+fxr6eX1VDWHc/KigkKigkKigkZF9XVlJKYV1UYFtTXlpRXFhQWlZOWFRMVlJKSkZAUU1GTktES0hBREE6TktEUU1GU09IVlJKWFRMWlZOXFhQU05HYFtTYV1UY15WZF9XVnQ+KigkKigkKigkY1lFY1lGx7+fyMCgyMCgyMCgyMCgx7+fxr6eY1lFYlhFKigkKigkKigkZF9XVlJKYV1UYFtTXlpRXFhQWlZOWFRMVlJKSkZAUU1GTktES0hBQ0A5RUE7R0M9SEU/SkdATEhBTUpDT0tEUE1FUU5GU09HVFBIVVFJVVJKKigkKigkKigkaF1IaF1JaV5JaV5JaV5JaV5JaV5JaV5JaF1JaF1IZ1xIKigkKigkKigkVVFJVFBIU09HUU5GUWs7T0tETUpDTEhBSkdASEU/R0M9RUE7Q0A5S0hBRVY0UU1GU09ITEhBWFRMWlZOXFhQXlpRYFtTYV1UY15WV1NLZWBYKigkKigkKigkbWFKbWFLbmJLbmJLbmJLbmJLbmJLbmJLbWFLbWFKbGBKKigkKigkKigkZF9XY15WYV1UYFtTXlpRUU1GWlZOWFRMVlJKU09IR1o1TktES0hBS0hBTktEUU1GU09ITEhBWFRMWlZOXFhQXlpRYFtTYV1UVXE9V1NLZWBYKigkKigkKigkcGVNcWVNcmZOcmZOcmZOcmZOcmZOcmZOcWVNcGVNcGRNKigkKigkKigkZF9XY15WYV1UYFtTXlpRUU1GWlZOWFRMVlJKSV02UU1GTktES0hBS0hBTktEUU1GU09ITEhBWFRMWlZOUGg6XlpRYFtTYV1UY15WV1NLZWBYKigkKigkKigkdWlPdmlPd2pQd2pQd2pQd2pQd2pQd2pQdmlPdWlPdWhPKigkKigkKigkZF9XY15WYV1UYFtTXlpRUU1GWlZOWFRMVlJKSV02UU1GTktES0hBQ0A5RUE7R0M9SEU/SkdATEhBTUpDT0tEUE1FUU5GU09HVFBIVVFJVVJKSEM7SUQ7SUQ7SUQ7SkU8SkU8SkU8SkU8SkU8SkU8SkU8SkU8SUQ7SUQ7SUQ7SEM7SEM6VVFJVFBIU09HUU5GUE1FT0tETUpDTEhBSkdASEU/R0M9RUE7Q0A5REE6TktEUU1GU09IVlJKWFRMWlZOXFhQU05HYFtTYV1UY15WZF9XZWBYSEM7SUQ7SUQ7SUQ7SkU8SkU8SkU8SkU8SkU8SkU8SkU8SkU8SUQ7SUQ7SUQ7SEM7SEM6VnI9VlJKYV1UYFtTXlpRUGg6WlZOWFRMVlJKSkZAUU1GTktES0hBREE6TktEUU1GU09IVlJKWFRMWlZOXFhQU05HYFtTYV1UY15WZF9XZWBYSEM7SUQ7SUQ7SUQ7SkU8SkU8SkU8WnpASkU8SkU8SkU8SkU8SUQ7SUQ7SUQ7SEM7SEM6ZF9XVlJKYV1UYFtTXlpRXFhQWlZOWFRMVlJKSkZAUU1GTktES0hBREE6TktEUU1GU09IVlJKWFRMWlZOXFhQU05HYFtTYV1UY15WZF9XZWBYSEM7SUQ7SUQ7SUQ7SkU8SkU8SkU8SkU8SkU8SkU8SkU8WXlASUQ7SUQ7SUQ7SEM7SEM6ZF9XVlJKYV1UYFtTXlpRXFhQWlZOTGM4S2A3SkZAUU1GTktES0hB"
+     },
+     "curses": []
+    },
+    "hester": {
+     "name": "Hester Gimbal",
+     "location": "crooked_lane",
+     "location_name": "Crooked Lane",
+     "location_generated": false,
+     "status": "playing",
+     "stats": {
+      "might": -1,
+      "agility": 1,
+      "wits": 3,
+      "max_hp": 9,
+      "hp": 9,
+      "coins": 4
+     },
+     "items": [
+      {
+       "id": "inventors_notebook",
+       "name": "Inventor's Notebook",
+       "equipped": false,
+       "own": false
+      }
+     ],
+     "weight": 1,
+     "carry_limit": 6,
+     "characters_here": [],
+     "people": [],
+     "foes": [],
+     "quests": [
+      {
+       "id": "thirteenth_stroke",
+       "name": "Before the Thirteenth Stroke",
+       "complete": false,
+       "failed": false,
+       "side": false,
+       "objectives": [
+        {
+         "text": "Find out why Wumbleby's children won't wake.",
+         "done": false
+        }
+       ]
+      }
+     ],
+     "art": null,
+     "picture": {
+      "source": "rules/art/terrain/stone-2.png",
+      "stamp": "735:1792792625000000000",
+      "width": 44,
+      "height": 28,
+      "rgb": "Q0A5RUE7R0M9SEU/SkdATEhBTUpDT0tEUE1FUU5GU09HVFBIVVFJVVJKVlJLV1NLWFRMWFRMWFRMWVVNWVVNWVVNWVVNWVVNWVVNWFRMWFRMWFRMV1NLVlJLVVJKVVFJVXE9U09HUU5GUE1FT0tETUpDTEhBSkdASEU/R0M9RUE7Q0A5REE6TktEUU1GU09IVlJKWFRMWlZOXFhQU05HYFtTYV1UY15WZF9XZWBYZmFZZ2JaWlZOaWRbaWRbamVcamVcamVcamVcamVcXFdPaWRbaWRbaGNaZ2JaZmFZZWBYZF9XVlJKYV1UYFtTXlpRXFhQWlZOWFRMVlJKSkZAUU1GTktES0hBREE6TktEUU1GU09IVlJKWFRMWlZOXFhQU05HYFtTYV1UY15WZF9XZWBYZmFZZ2JaWlZOaWRbaWRbamVcamVcWnpAamVcamVcXFdPaWRbaWRbaGNaZ2JaZmFZZWBYZF9XVlJKYV1UYFtTXlpRXFhQWlZOWFRMVlJKSkZAUU1GTktES0hBREE6TktEUU1GU09IVlJKWFRMWlZOXFhQU05HYFtTYV1UY15WZF9XZWBYZmFZZ2JaWlZOaWRbaWRbamVcamVcamVcamVcamVcXFdPaWRbaWRbaGNaZ2JaZmFZZWBYZF9XVlJKYV1UYFtTXlpRXFhQWlZOWFRMVlJKSkZAUU1GTktES0hBQ0A5RUE7R0M9SEU/SkdATEhBTUpDT0tEUE1FUU5GU09HVFBIVVFJVVJKVlJLV1NLWFRMWFRMWFRMWVVNWVVNWVVNWVVNWVVNWVVNWFRMWFRMWFRMV1NLVlJLVVJKVVFJVFBIU09HUU5GUE1FT0tETUpDTEhBSkdASEU/R0M9RUE7Q0A5S0hBTktEUU1GU09ITEhBTGM4WlZOXFhQXlpRYFtTYV1UY15WV1NLZWBYZmFZZ2JaaGNaaWRbaWRbKigkKigkKigkKigkKigkKigkaWRbWXg/aGNaWlVNZmFZZWBYZF9XY15WYV1UYFtTXlpRUU1GWlZOWFRMVlJKU09IUU1GTktES0hBS0hBTktEUU1GU09ITEhBWFRMWlZOXFhQXlpRYFtTYV1UY15WV1NLZWBYZmFZZ2JaaGNaaWRbKigkKigkKigkKigkKigkKigkKigkKigkaWRbWHc/WlVNZmFZZWBYZF9XY15WYV1UYFtTXlpRUU1GWlZOWFRMVlJKU09IUU1GTktES0hBS0hBTktEUU1GU09ITEhBWFRMWlZOXFhQXlpRYFtTYV1UVXE9V1NLZWBYZmFZZ2JaKigkKigkKigkKigkKigkKigkKigkKigkKigkKigkKigkKigkWlVNZmFZZWBYZF9XY15WYV1UYFtTXlpRUU1GWlZOWFRMVlJKU09IUU1GTktES0hBQ0A5RUE7R0M9SEU/SkdATEhBTUpDT0tEUE1FUU5GU09HVFBIVVFJVVJKVlJLV1NLKigkKigkKigkKigkKigkKigkKigkKigkKigkKigkKigkKigkV1NLVlJLVVJKVnI9VFBIU09HUU5GUE1FT0tETUpDTEhBSkdASEU/R0M9RUE7Q0A5REE6TktEUU1GU09IVlJKWFRMWlZOXFhQU05HYFtTYV1UY15WZF9XZWBYZmFZKigkKigkKigkKigkKigkKigkKigkKigkWnpAKigkKigkKigkKigkKigkZmFZZWBYZF9XVlJKYV1UUm07XlpRXFhQWlZOWFRMVlJKSkZAUU1GTktES0hBREE6TktEUU1GU09IVlJKWFRMWlZOXFhQU05HYFtTYV1UY15WZF9XZWBYZmFZKigkKigkWXg/OjYwOjYwOjYwOjYwOjYwOjYwOjYwOjYwOjYwOjYwKigkZmFZZWBYZF9XVlJKYV1UYFtTXlpRXFhQWlZOWFRMVlJKSkZAUU1GTktES0hBREE6TktEUU1GU09IVlJKWFRMWlZOXFhQU05HYFtTYV1UY15WZF9XZWBYKigkKigkKigkPzoyPzoyPzoyPzoyPzoyWnpAPzoyPzoyPzoyPzoyWHc/KigkKigkZWBYZF9XVlJKYV1UYFtTXlpRXFhQWlZOWFRMVlJKSkZAUU1GTktES0hBQ0A5RUE7R0M9SEU/SkdATEhBTUpDT0tEUE1FUU5GU09HVFBIVVFJVVJKKigkKigkKigkQj41Qz41x7+fyMCgyMCgyMCgyMCgx7+fxr6eQj41Qj00KigkKigkVVJKVVFJVFBIU09HUU5GUE1FT0tETUpDTEhBSkdASEU/R0M9RUE7Q0A5S0hBTktEUU1GU09ITEhBTGM4WlZOXFhQXlpRYFtTYV1UY15WV1NLVnQ+KigkKigkKigkR0E3SEI3x7+fyMCgyMCgyMCgyMCgx7+fxr6eR0E3R0E2KigkKigkZWBYZF9XY15WYV1UYFtTXlpRUU1GWlZOWFRMVlJKU09IUU1GTktES0hBS0hBTktEUU1GU09ITEhBWFRMWlZOXFhQXlpRYFtTYV1UY15WV1NLZWBYV3U+KigkKigkTEU6TUY6x7+fyMCgyMCgyMCgyMCgx7+fxr6eTEU6TEU5KigkKigkKigkZF9XY15WYV1UYFtTXlpRUU1GWlZOWFRMVlJKU09IUU1GTktES0hBQ1MzTktEUU1GU09ITEhBWFRMWlZOXFhQUWs7YFtTYV1UVXE9V1NLZWBYKigkKigkKigkUUk7UUo8x7+fyMCgyMCgyMCgyMCgx7+fxr6eUUk7UUk7KigkKigkKigkZF9XY15WYV1UYFtTXlpRUU1GWlZOWFRMVlJKU09IUU1GTktES0hBQ0A5RUE7R0M9SEU/SkdATEhBTUpDT0tEUE1FUU5GU09HVFBIVVFJVVJKKigkWHY/KigkVU0+VU4/x7+fyMCgyMCgyMCgyMCgx7+fxr6eVU0+VU0+KigkKigkVnQ+VVFJVFBIU09HUU5GUE1FT0tETUpDTEhBSkdASEU/R0M9RUE7Q0A5REE6TktEUU1GU09IVlJKWFRMWlZOXFhQU05HYFtTYV1UY15WZF9XZWBYKigkKigkKigkWlFAWlFBx7+fyMCgyMCgyMCgyMCgx7+fxr6eWlFAWVFAKigkKigkKigkZF9XVlJKYV1UYFtTXlpRXFhQWlZOWFRMVlJKSkZAUU1GTktES0hBREE6TktEUU1GU09IVlJKWFRMWlZOXFhQU05HYFtTYV1UY15WZF9XZWBYKigkKigkKigkX1VDX1VEx7+fyMCgyMCgyMCgyMCgx7+fxr6eX1VDWHc/KigkKigkKigkZF9XVlJKYV1UYFtTXlpRXFhQWlZOWFRMVlJKSkZAUU1GTktES0hBREE6TktEUU1GU09IVlJKWFRMWlZOXFhQU05HYFtTYV1UY15WZF9XVnQ+KigkKigkKigkY1lFY1lGx7+fyMCgyMCgyMCgyMCgx7+fxr6eY1lFYlhFKigkKigkKigkZF9XVlJKYV1UYFtTXlpRXFhQWlZOWFRMVlJKSkZAUU1GTktES0hBQ0A5RUE7R0M9SEU/SkdATEhBTUpDT0tEUE1FUU5GU09HVFBIVVFJVVJKKigkKigkKigkaF1IaF1JaV5JaV5JaV5JaV5JaV5JaV5JaF1JaF1IZ1xIKigkKigkKigkVVFJVFBIU09HUU5GUWs7T0tETUpDTEhBSkdASEU/R0M9RUE7Q0A5S0hBRVY0UU1GU09ITEhBWFRMWlZOXFhQXlpRYFtTYV1UY15WV1NLZWBYKigkKigkKigkbWFKbWFLbmJLbmJLbmJLbmJLbmJLbmJLbWFLbWFKbGBKKigkKigkKigkZF9XY15WYV1UYFtTXlpRUU1GWlZOWFRMVlJKU09IR1o1TktES0hBS0hBTktEUU1GU09ITEhBWFRMWlZOXFhQXlpRYFtTYV1UVXE9V1NLZWBYKigkKigkKigkcGVNcWVNcmZOcmZOcmZOcmZOcmZOcmZOcWVNcGVNcGRNKigkKigkKigkZF9XY15WYV1UYFtTXlpRUU1GWlZOWFRMVlJKSV02UU1GTktES0hBS0hBTktEUU1GU09ITEhBWFRMWlZOUGg6XlpRYFtTYV1UY15WV1NLZWBYKigkKigkKigkdWlPdmlPd2pQd2pQd2pQd2pQd2pQd2pQdmlPdWlPdWhPKigkKigkKigkZF9XY15WYV1UYFtTXlpRUU1GWlZOWFRMVlJKSV02UU1GTktES0hBQ0A5RUE7R0M9SEU/SkdATEhBTUpDT0tEUE1FUU5GU09HVFBIVVFJVVJKSEM7SUQ7SUQ7SUQ7SkU8SkU8SkU8SkU8SkU8SkU8SkU8SkU8SUQ7SUQ7SUQ7SEM7SEM6VVFJVFBIU09HUU5GUE1FT0tETUpDTEhBSkdASEU/R0M9RUE7Q0A5REE6TktEUU1GU09IVlJKWFRMWlZOXFhQU05HYFtTYV1UY15WZF9XZWBYSEM7SUQ7SUQ7SUQ7SkU8SkU8SkU8SkU8SkU8SkU8SkU8SkU8SUQ7SUQ7SUQ7SEM7SEM6VnI9VlJKYV1UYFtTXlpRUGg6WlZOWFRMVlJKSkZAUU1GTktES0hBREE6TktEUU1GU09IVlJKWFRMWlZOXFhQU05HYFtTYV1UY15WZF9XZWBYSEM7SUQ7SUQ7SUQ7SkU8SkU8SkU8WnpASkU8SkU8SkU8SkU8SUQ7SUQ7SUQ7SEM7SEM6ZF9XVlJKYV1UYFtTXlpRXFhQWlZOWFRMVlJKSkZAUU1GTktES0hBREE6TktEUU1GU09IVlJKWFRMWlZOXFhQU05HYFtTYV1UY15WZF9XZWBYSEM7SUQ7SUQ7SUQ7SkU8SkU8SkU8SkU8SkU8SkU8SkU8WXlASUQ7SUQ7SUQ7SEM7SEM6ZF9XVlJKYV1UYFtTXlpRXFhQWlZOTGM4S2A3SkZAUU1GTktES0hB"
+     },
+     "curses": []
+    }
+   },
+   "name": "Marigold Thimble",
+   "location": "lopsided_square",
+   "location_name": "The Lopsided Square",
+   "location_generated": false,
+   "status": "playing",
+   "stats": {
+    "might": 0,
+    "agility": 2,
+    "wits": 1,
+    "max_hp": 10,
+    "hp": 10,
+    "coins": 5
+   },
+   "items": [
+    {
+     "id": "silver_thimble",
+     "name": "Silver Thimble",
+     "equipped": false,
+     "own": false
+    }
+   ],
+   "weight": 1,
+   "carry_limit": 8,
+   "characters_here": [
+    {
+     "id": "mags",
+     "name": "Mags Ragwort",
+     "role": "the rag-and-bone woman, who buys odds and ends from her cart in the Lopsided Square",
+     "generated": false,
+     "card": "#a3896b",
+     "promoted": false
+    },
+    {
+     "id": "pip",
+     "name": "Pip Pumbleton",
+     "role": "an eleven-year-old girl who refuses to fall asleep until she gets her little brother's shadow back",
+     "generated": false,
+     "card": "#7fc7d9",
+     "promoted": false
+    }
+   ],
+   "people": [
+    {
+     "id": "mags",
+     "name": "Mags Ragwort",
+     "role": "the rag-and-bone woman, who buys odds and ends from her cart in the Lopsided Square",
+     "generated": false,
+     "card": "#a3896b",
+     "promoted": false,
+     "here": true,
+     "memory": []
+    },
+    {
+     "id": "pip",
+     "name": "Pip Pumbleton",
+     "role": "an eleven-year-old girl who refuses to fall asleep until she gets her little brother's shadow back",
+     "generated": false,
+     "card": "#7fc7d9",
+     "promoted": false,
+     "here": true,
+     "memory": []
+    }
+   ],
+   "foes": [],
+   "quests": [
+    {
+     "id": "thirteenth_stroke",
+     "name": "Before the Thirteenth Stroke",
+     "complete": false,
+     "failed": false,
+     "side": false,
+     "objectives": [
+      {
+       "text": "Find out why Wumbleby's children won't wake.",
+       "done": false
+      }
+     ]
+    }
+   ],
+   "art": null,
+   "picture": {
+    "source": "rules/art/terrain/stone-2.png",
+    "stamp": "735:1792792625000000000",
+    "width": 44,
+    "height": 28,
+    "rgb": "Q0A5RUE7R0M9SEU/SkdATEhBTUpDT0tEUE1FUU5GU09HVFBIVVFJVVJKVlJLV1NLWFRMWFRMWFRMWVVNWVVNWVVNWVVNWVVNWVVNWFRMWFRMWFRMV1NLVlJLVVJKVVFJVXE9U09HUU5GUE1FT0tETUpDTEhBSkdASEU/R0M9RUE7Q0A5REE6TktEUU1GU09IVlJKWFRMWlZOXFhQU05HYFtTYV1UY15WZF9XZWBYZmFZZ2JaWlZOaWRbaWRbamVcamVcamVcamVcamVcXFdPaWRbaWRbaGNaZ2JaZmFZZWBYZF9XVlJKYV1UYFtTXlpRXFhQWlZOWFRMVlJKSkZAUU1GTktES0hBREE6TktEUU1GU09IVlJKWFRMWlZOXFhQU05HYFtTYV1UY15WZF9XZWBYZmFZZ2JaWlZOaWRbaWRbamVcamVcWnpAamVcamVcXFdPaWRbaWRbaGNaZ2JaZmFZZWBYZF9XVlJKYV1UYFtTXlpRXFhQWlZOWFRMVlJKSkZAUU1GTktES0hBREE6TktEUU1GU09IVlJKWFRMWlZOXFhQU05HYFtTYV1UY15WZF9XZWBYZmFZZ2JaWlZOaWRbaWRbamVcamVcamVcamVcamVcXFdPaWRbaWRbaGNaZ2JaZmFZZWBYZF9XVlJKYV1UYFtTXlpRXFhQWlZOWFRMVlJKSkZAUU1GTktES0hBQ0A5RUE7R0M9SEU/SkdATEhBTUpDT0tEUE1FUU5GU09HVFBIVVFJVVJKVlJLV1NLWFRMWFRMWFRMWVVNWVVNWVVNWVVNWVVNWVVNWFRMWFRMWFRMV1NLVlJLVVJKVVFJVFBIU09HUU5GUE1FT0tETUpDTEhBSkdASEU/R0M9RUE7Q0A5S0hBTktEUU1GU09ITEhBTGM4WlZOXFhQXlpRYFtTYV1UY15WV1NLZWBYZmFZZ2JaaGNaaWRbaWRbKigkKigkKigkKigkKigkKigkaWRbWXg/aGNaWlVNZmFZZWBYZF9XY15WYV1UYFtTXlpRUU1GWlZOWFRMVlJKU09IUU1GTktES0hBS0hBTktEUU1GU09ITEhBWFRMWlZOXFhQXlpRYFtTYV1UY15WV1NLZWBYZmFZZ2JaaGNaaWRbKigkKigkKigkKigkKigkKigkKigkKigkaWRbWHc/WlVNZmFZZWBYZF9XY15WYV1UYFtTXlpRUU1GWlZOWFRMVlJKU09IUU1GTktES0hBS0hBTktEUU1GU09ITEhBWFRMWlZOXFhQXlpRYFtTYV1UVXE9V1NLZWBYZmFZZ2JaKigkKigkKigkKigkKigkKigkKigkKigkKigkKigkKigkKigkWlVNZmFZZWBYZF9XY15WYV1UYFtTXlpRUU1GWlZOWFRMVlJKU09IUU1GTktES0hBQ0A5RUE7R0M9SEU/SkdATEhBTUpDT0tEUE1FUU5GU09HVFBIVVFJVVJKVlJLV1NLKigkKigkKigkKigkKigkKigkKigkKigkKigkKigkKigkKigkV1NLVlJLVVJKVnI9VFBIU09HUU5GUE1FT0tETUpDTEhBSkdASEU/R0M9RUE7Q0A5REE6TktEUU1GU09IVlJKWFRMWlZOXFhQU05HYFtTYV1UY15WZF9XZWBYZmFZKigkKigkKigkKigkKigkKigkKigkKigkWnpAKigkKigkKigkKigkKigkZmFZZWBYZF9XVlJKYV1UUm07XlpRXFhQWlZOWFRMVlJKSkZAUU1GTktES0hBREE6TktEUU1GU09IVlJKWFRMWlZOXFhQU05HYFtTYV1UY15WZF9XZWBYZmFZKigkKigkWXg/OjYwOjYwOjYwOjYwOjYwOjYwOjYwOjYwOjYwOjYwKigkZmFZZWBYZF9XVlJKYV1UYFtTXlpRXFhQWlZOWFRMVlJKSkZAUU1GTktES0hBREE6TktEUU1GU09IVlJKWFRMWlZOXFhQU05HYFtTYV1UY15WZF9XZWBYKigkKigkKigkPzoyPzoyPzoyPzoyPzoyWnpAPzoyPzoyPzoyPzoyWHc/KigkKigkZWBYZF9XVlJKYV1UYFtTXlpRXFhQWlZOWFRMVlJKSkZAUU1GTktES0hBQ0A5RUE7R0M9SEU/SkdATEhBTUpDT0tEUE1FUU5GU09HVFBIVVFJVVJKKigkKigkKigkQj41Qz41x7+fyMCgyMCgyMCgyMCgx7+fxr6eQj41Qj00KigkKigkVVJKVVFJVFBIU09HUU5GUE1FT0tETUpDTEhBSkdASEU/R0M9RUE7Q0A5S0hBTktEUU1GU09ITEhBTGM4WlZOXFhQXlpRYFtTYV1UY15WV1NLVnQ+KigkKigkKigkR0E3SEI3x7+fyMCgyMCgyMCgyMCgx7+fxr6eR0E3R0E2KigkKigkZWBYZF9XY15WYV1UYFtTXlpRUU1GWlZOWFRMVlJKU09IUU1GTktES0hBS0hBTktEUU1GU09ITEhBWFRMWlZOXFhQXlpRYFtTYV1UY15WV1NLZWBYV3U+KigkKigkTEU6TUY6x7+fyMCgyMCgyMCgyMCgx7+fxr6eTEU6TEU5KigkKigkKigkZF9XY15WYV1UYFtTXlpRUU1GWlZOWFRMVlJKU09IUU1GTktES0hBQ1MzTktEUU1GU09ITEhBWFRMWlZOXFhQUWs7YFtTYV1UVXE9V1NLZWBYKigkKigkKigkUUk7UUo8x7+fyMCgyMCgyMCgyMCgx7+fxr6eUUk7UUk7KigkKigkKigkZF9XY15WYV1UYFtTXlpRUU1GWlZOWFRMVlJKU09IUU1GTktES0hBQ0A5RUE7R0M9SEU/SkdATEhBTUpDT0tEUE1FUU5GU09HVFBIVVFJVVJKKigkWHY/KigkVU0+VU4/x7+fyMCgyMCgyMCgyMCgx7+fxr6eVU0+VU0+KigkKigkVnQ+VVFJVFBIU09HUU5GUE1FT0tETUpDTEhBSkdASEU/R0M9RUE7Q0A5REE6TktEUU1GU09IVlJKWFRMWlZOXFhQU05HYFtTYV1UY15WZF9XZWBYKigkKigkKigkWlFAWlFBx7+fyMCgyMCgyMCgyMCgx7+fxr6eWlFAWVFAKigkKigkKigkZF9XVlJKYV1UYFtTXlpRXFhQWlZOWFRMVlJKSkZAUU1GTktES0hBREE6TktEUU1GU09IVlJKWFRMWlZOXFhQU05HYFtTYV1UY15WZF9XZWBYKigkKigkKigkX1VDX1VEx7+fyMCgyMCgyMCgyMCgx7+fxr6eX1VDWHc/KigkKigkKigkZF9XVlJKYV1UYFtTXlpRXFhQWlZOWFRMVlJKSkZAUU1GTktES0hBREE6TktEUU1GU09IVlJKWFRMWlZOXFhQU05HYFtTYV1UY15WZF9XVnQ+KigkKigkKigkY1lFY1lGx7+fyMCgyMCgyMCgyMCgx7+fxr6eY1lFYlhFKigkKigkKigkZF9XVlJKYV1UYFtTXlpRXFhQWlZOWFRMVlJKSkZAUU1GTktES0hBQ0A5RUE7R0M9SEU/SkdATEhBTUpDT0tEUE1FUU5GU09HVFBIVVFJVVJKKigkKigkKigkaF1IaF1JaV5JaV5JaV5JaV5JaV5JaV5JaF1JaF1IZ1xIKigkKigkKigkVVFJVFBIU09HUU5GUWs7T0tETUpDTEhBSkdASEU/R0M9RUE7Q0A5S0hBRVY0UU1GU09ITEhBWFRMWlZOXFhQXlpRYFtTYV1UY15WV1NLZWBYKigkKigkKigkbWFKbWFLbmJLbmJLbmJLbmJLbmJLbmJLbWFLbWFKbGBKKigkKigkKigkZF9XY15WYV1UYFtTXlpRUU1GWlZOWFRMVlJKU09IR1o1TktES0hBS0hBTktEUU1GU09ITEhBWFRMWlZOXFhQXlpRYFtTYV1UVXE9V1NLZWBYKigkKigkKigkcGVNcWVNcmZOcmZOcmZOcmZOcmZOcmZOcWVNcGVNcGRNKigkKigkKigkZF9XY15WYV1UYFtTXlpRUU1GWlZOWFRMVlJKSV02UU1GTktES0hBS0hBTktEUU1GU09ITEhBWFRMWlZOUGg6XlpRYFtTYV1UY15WV1NLZWBYKigkKigkKigkdWlPdmlPd2pQd2pQd2pQd2pQd2pQd2pQdmlPdWlPdWhPKigkKigkKigkZF9XY15WYV1UYFtTXlpRUU1GWlZOWFRMVlJKSV02UU1GTktES0hBQ0A5RUE7R0M9SEU/SkdATEhBTUpDT0tEUE1FUU5GU09HVFBIVVFJVVJKSEM7SUQ7SUQ7SUQ7SkU8SkU8SkU8SkU8SkU8SkU8SkU8SkU8SUQ7SUQ7SUQ7SEM7SEM6VVFJVFBIU09HUU5GUE1FT0tETUpDTEhBSkdASEU/R0M9RUE7Q0A5REE6TktEUU1GU09IVlJKWFRMWlZOXFhQU05HYFtTYV1UY15WZF9XZWBYSEM7SUQ7SUQ7SUQ7SkU8SkU8SkU8SkU8SkU8SkU8SkU8SkU8SUQ7SUQ7SUQ7SEM7SEM6VnI9VlJKYV1UYFtTXlpRUGg6WlZOWFRMVlJKSkZAUU1GTktES0hBREE6TktEUU1GU09IVlJKWFRMWlZOXFhQU05HYFtTYV1UY15WZF9XZWBYSEM7SUQ7SUQ7SUQ7SkU8SkU8SkU8WnpASkU8SkU8SkU8SkU8SUQ7SUQ7SUQ7SEM7SEM6ZF9XVlJKYV1UYFtTXlpRXFhQWlZOWFRMVlJKSkZAUU1GTktES0hBREE6TktEUU1GU09IVlJKWFRMWlZOXFhQU05HYFtTYV1UY15WZF9XZWBYSEM7SUQ7SUQ7SUQ7SkU8SkU8SkU8SkU8SkU8SkU8SkU8WXlASUQ7SUQ7SUQ7SEM7SEM6ZF9XVlJKYV1UYFtTXlpRXFhQWlZOTGM4S2A3SkZAUU1GTktES0hB"
+   },
+   "curses": []
+  }
+ }
+}

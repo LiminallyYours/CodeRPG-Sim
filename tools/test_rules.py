@@ -1043,6 +1043,7 @@ class Engine(unittest.TestCase):
     def test_what_one_learns_where_others_hear_they_learn_too(self):
         self.rpg("game", "switch", "thirteenth_stroke")
         self.rpg("newgame", seed=43)  # Marigold and Dilly in the square, with Pip
+        self.rpg("quest", "take", "thirteenth_stroke", as_="dilly")  # so it shows in what she's working on
         self.rpg("round", "start")
         if self.save()["run"]["round_state"]["order"][0] != "marigold":
             self.take_turn("dilly")
@@ -1401,6 +1402,8 @@ class Engine(unittest.TestCase):
     def test_what_one_person_learns_stays_their_own(self):
         self.rpg("game", "switch", "thirteenth_stroke")
         self.rpg("newgame", seed=43)  # Marigold and Dilly both start in the square, with Pip
+        for pid in ("marigold", "dilly"):
+            self.rpg("quest", "take", "thirteenth_stroke", as_=pid)
         self.assertIn("(Marigold Thimble's own)", self.rpg("flag", "set", "heard_of_shadows", as_="marigold"))
         self.assertIn("[done] Find out why", self.rpg("pane", "marigold"))
         self.assertNotIn("[done] Find out why", self.rpg("pane", "dilly"))
@@ -1871,11 +1874,12 @@ print(json.dumps({"type": "result", "is_error": False, "result": answer, "total_
         entries = self.log_entries()
         tag = lambda text: hashlib.sha256(text.encode()).hexdigest()[:8]  # noqa: E731
         first = [e for e in entries if e["kind"] == "action" and e["player"] == order[0]][0]
-        self.assertEqual(sorted(first["versions"]), sorted(["brief", "thinkback", "cast:" + order[0], "instructions:player"]))
+        shared = ["brief", "thinkback", "universe", "public:dark_lighthouse", "instructions:player"]  # the world's public knowledge too
+        self.assertEqual(sorted(first["versions"]), sorted(shared + ["cast:" + order[0]]))
         self.assertEqual(first["versions"]["instructions:player"], tag(sent[0]), "the instructions as sent to them")
         self.assertEqual([e["versions"] for e in entries if e["kind"] == "brief" and e["player"] == order[0]], [first["versions"]])
         texts = [e for e in entries if e["kind"] == "text"]
-        self.assertEqual(sorted(e["name"] for e in texts), sorted(["brief", "thinkback", "instructions:player"] + ["cast:" + p for p in order]),
+        self.assertEqual(sorted(e["name"] for e in texts), sorted(shared + ["cast:" + p for p in order]),
                          "each text logged whole once, however often it's used")
         whole = {e["name"]: e for e in texts}
         self.assertEqual(whole["instructions:player"]["text"], sent[0])
@@ -2289,6 +2293,9 @@ print(json.dumps({"type": "result", "is_error": False, "result": "Round done.", 
         told = [e["text"] for e in self.me()["memory"]["recent"] if e["kind"] == "seen" and "is finished" in e["text"]]
         self.assertEqual(told, ["The Net-Loft is finished, southwest of Harbor Square: Morwen built it for you."])
         self.assertNotIn("built it for you", json.dumps(self.save()["players"]["corin"]["memory"]), "only its owner is told")
+        self.assertIn("## What I know\n- The Net-Loft is finished, southwest of Harbor Square: Morwen built it for you.\n",
+                      self.rpg("brief", "wren", as_=False), "and kept where it never fades")
+        self.assertNotIn("## What I know", self.rpg("brief", "corin", as_=False))
 
     def test_an_order_is_logged_from_what_was_asked_to_each_use(self):
         self.rpg("game", "switch", "dark_lighthouse")
@@ -2370,7 +2377,9 @@ print(json.dumps({"type": "result", "is_error": False, "result": "Round done.", 
         phrases = re.findall(r"^[a-z_]+:[ \t]*(.*)$", (ROOT / "rules" / "people" / "brief.md").read_text(), re.M)
         self.assertGreater(len(phrases), 50)
         think = re.sub(r"\A\s*<!--.*?-->", "", (ROOT / "rules" / "people" / "thinkback.md").read_text(), flags=re.S)
-        for text in phrases + [think]:
+        universe = [l for l in (ROOT / "rules" / "people" / "universe.md").read_text().splitlines() if l.strip() and not l.startswith("#")]
+        self.assertGreaterEqual(len(universe), 3)
+        for text in phrases + [think] + universe:
             self.assertIsNone(self.FORBIDDEN.search(re.sub(r"\{[a-z_]+\}", "", text)), text)
 
     def test_a_brief_holds_the_players_own_life_and_nothing_of_the_machinery(self):
@@ -2423,6 +2432,81 @@ print(json.dumps({"type": "result", "is_error": False, "result": "Round done.", 
 
     def log_of(self):
         return [json.loads(line) for line in (self.dir / "state" / "log" / ("%s.jsonl" % self.save()["run"]["id"])).read_text().splitlines()]
+
+    def test_a_person_knows_what_they_knew_at_the_start_what_everyone_knows_and_what_the_run_settled(self):
+        self.rpg("game", "switch", "thirteenth_stroke")
+        self.settings_tool("preset", "simulation")
+        path = self.dir / "games" / "thirteenth_stroke" / "cast.json"
+        cast = json.loads(path.read_text())
+        hobb = next(e for e in cast if e["id"] == "hobb")
+        hobb.update(knows=["Ambrose Tock builds sheds and porches, for a price.", "Nell Fizzlewick makes sweets to order."],
+                    people=[{"who": "ambrose", "how": "He lets me sleep on the coal sacks, which counts as owing."},
+                            {"who": "marigold", "how": "She mends every coat in town, mine included."}],
+                    look="a big, slow, soot-grimed man in a coal-black coat")
+        path.write_text(json.dumps(cast))
+        self.assertIn("CONTENT OK: thirteenth_stroke", self.rpg("validate"))
+        self.rpg("newgame", seed=43)
+        self.assertIn("ambrose", self.save()["players"]["hobb"]["met"], "someone they know they've met already")
+        brief = self.rpg("brief", "hobb", as_=False)
+        self.assertIn("## Who I am (a note to myself)\nI'm Hobb Ashcombe (he/him). Big, slow", brief)
+        self.assertIn("People I know: Ambrose Tock: He lets me sleep on the coal sacks, which counts as owing.; "
+                      "Marigold Thimble: She mends every coat in town, mine included..\n\n## What I know\n"
+                      "- Ambrose Tock builds sheds and porches, for a price.\n- Nell Fizzlewick makes sweets to order.\n\n"
+                      "## What everyone around here knows\n- Folk pay for things in buttons, and most have little to spare.\n", brief)
+        self.assertIn("- Three days ago a peddler called Mister Tibbersnatch rolled into town", brief, "the world's public knowledge")
+        self.assertLess(brief.index("## What everyone around here knows"), brief.index("## How it begins"))
+        marigold = self.rpg("brief", "marigold", as_=False)
+        self.assertIn("I'm Marigold Thimble (she/her).", marigold)
+        self.assertNotIn("## What I know", marigold, "no facts of her own yet, and nothing settled")
+        self.assertNotIn("## What you're working on", marigold, "the town's problem is known, but not hers until she takes it on")
+        # what others see of him, for the referee and the townspeople alike (Pip, in the square, has an agent's voice)
+        self.rpg("move", "south", as_="hobb")  # the Tock Tower to the square, where Marigold is
+        self.assertIn("Hobb Ashcombe (hobb, he/him; a big, slow, soot-grimed man in a coal-black coat; carrying", self.rpg("look", as_="marigold"))
+        self.assertIn("Hobb Ashcombe (he/him; a big, slow, soot-grimed man in a coal-black coat)", self.rpg("npc-brief", "pip", as_="marigold"))
+        # taking the town's problem on, and setting it aside
+        look = self.rpg("look", as_="marigold")
+        self.assertIn("QUESTS: Before the Thirteenth Stroke (thirteenth_stroke): not taken on.", look)
+        self.assertIn("TAKEN ON: Before the Thirteenth Stroke", self.rpg("quest", "take", "thirteenth_stroke", as_="marigold"))
+        self.assertIn("already taken on", self.rpg("quest", "take", "thirteenth_stroke", as_="marigold", ok=False))
+        self.assertIn("## What you're working on\nBefore the Thirteenth Stroke: ", self.rpg("pane", "marigold"))
+        self.assertNotIn("## What you're working on", self.rpg("pane", "hobb"), "hers, not his")
+        self.assertIn("SET ASIDE", self.rpg("quest", "leave", "thirteenth_stroke", as_="marigold"))
+        self.assertNotIn("## What you're working on", self.rpg("pane", "marigold"))
+        self.assertIn("no quest 'nope'", self.rpg("quest", "take", "nope", as_="marigold", ok=False))
+        # an ending: everyone keeps what the town saw of it, the one who brought it about too, and it never fades
+        order = [p.split("(")[1].rstrip(")") for p in self.rpg("round", "start").split(": ", 1)[1].strip().split(", ")]
+        self.write("proposals/reply.txt", "DO: I jam the poker in the gear.\nJOURNAL: To stop the clock.\n")
+        self.rpg("reply", order[0], "proposals/reply.txt")
+        self.rpg("flag", "set", "clock_stopped", as_=order[0])
+        self.write("proposals/ending.txt", "Word came that the town clock had stopped a whisker before midnight.")
+        self.rpg("ending", "proposals/ending.txt", as_=order[0])
+        self.write("proposals/story.txt", "The gear stops dead.")
+        self.rpg("narrate", order[0], "proposals/story.txt")
+        for pid in order[1:]:
+            self.take_turn(pid)
+        self.rpg("round", "end")
+        for _ in range(6):
+            self.play_round()
+        for pid in order:
+            self.assertIn("## What I know\n%s- Word came that the town clock had stopped a whisker before midnight.\n" % (
+                "- Ambrose Tock builds sheds and porches, for a price.\n- Nell Fizzlewick makes sweets to order.\n" if pid == "hobb" else ""),
+                self.rpg("brief", pid, as_=False))
+
+    def test_validate_checks_what_a_cast_entry_says_they_know(self):
+        path = self.dir / "games" / "dark_lighthouse" / "cast.json"
+        cast = json.loads(path.read_text())
+        cast[0].update(knows=["x" * 300], people=[{"who": "nobody_here", "how": "We met once."}, {"who": cast[0]["id"], "how": "Me."}],
+                       look="")
+        cast[1].update(knows="a fact", people=[{"who": "morwen"}])
+        path.write_text(json.dumps(cast))
+        out = self.rpg("validate", ok=False)
+        first, second = cast[0]["id"], cast[1]["id"]
+        self.assertIn("cast.json %s: knows must be a list of at most 8 facts, each a line of at most 240 characters" % first, out)
+        self.assertIn("cast.json %s: people: 'nobody_here' is neither another of the cast nor a character in this world" % first, out)
+        self.assertIn("cast.json %s: people: '%s' is neither" % (first, first), out, "not themselves")
+        self.assertIn("cast.json %s: look must be a line of at most 240 characters" % first, out)
+        self.assertIn("cast.json %s: knows must be a list" % second, out)
+        self.assertIn('cast.json %s: people must be a list of at most 8 {"who", "how"}' % second, out)
 
     def test_validate_checks_the_cast(self):
         d = "games/dark_lighthouse/cast.json"

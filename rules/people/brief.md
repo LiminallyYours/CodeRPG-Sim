@@ -12,9 +12,16 @@
 
 # ---- who they are, at the top of every brief (their cast entry, in their own first person)
 who_i_am:        ## Who I am (a note to myself)
-i_am:            I'm {name}. {personality}
+i_am:            I'm {name} ({pronouns}). {personality}
 how_i_talk:      How I talk: {voice}
 drives:          What drives me: {motivations}.
+people_i_know:   People I know: {people}.
+person_i_know:   {who}: {how}
+
+# ---- what they know: their own starting facts and what this run has settled (never fading), then what everyone
+# ---- around here knows (rules/people/universe.md, then the world's public knowledge)
+i_know:          ## What I know
+everyone_knows:  ## What everyone around here knows
 
 # ---- their first turn only, then their memory
 begins:          ## How it begins
