@@ -2772,6 +2772,41 @@ print(json.dumps({"type": "result", "is_error": False, "result": "Round done.", 
                          "coast_road.md: project: needs an id", "condition 'most_roads': no shared work called 'roads'"):
             self.assertIn(expected, out)
 
+    def test_validate_warns_of_what_ignores_the_ending_and_of_the_player_and_passes_the_world_all_the_same(self):
+        out = self.rpg("validate")
+        self.assertIn("WARNING: thirteenth_stroke: characters/tibbersnatch.md: `## If craves_whistle` never asks how the quest "
+                      "ended (clock_stopped, shadows_carted, shadows_freed)", out)
+        self.assertIn('WARNING: thirteenth_stroke: characters/nell.md: says "the player" 2 times where their agent reads it', out)
+        self.assertIn("CONTENT OK: thirteenth_stroke", out)
+        self.assertIn("CONTENT OK: thirteenth_stroke", self.rpg("validate", "--game", "thirteenth_stroke", "--sim-complete"))
+        out = self.rpg("validate", "--game", "thirteenth_stroke", "--sim-strict", ok=False)
+        for expected in ("sim-strict: needs days that go on", "sim-strict: needs at least one need", "sim-strict: needs someone who sells",
+                         "sim-strict: needs shared work", "sim-strict: needs something scarce", "sim-strict: world.md has `## Who the player is`",
+                         "sim-strict: characters/tibbersnatch.md: `## If craves_whistle` never asks"):
+            self.assertIn(expected, out)
+        self.assertNotIn("WARNING:", out, "under the strict check they're errors")
+
+    def test_a_world_built_for_the_simulation_passes_the_strict_check(self):
+        self.projects_world()
+        games = self.dir / "games" / "dark_lighthouse"
+        pell = games / "characters" / "pell.md"
+        pell.write_text(pell.read_text().replace("---\n", "---\nsells:\n  honey_cake: 1\n  smoked_fish: 2, 1 in stock\n", 1))
+        morwen = games / "characters" / "morwen.md"
+        morwen.write_text(morwen.read_text().replace("---\n", "---\nbuys:\n  trinket: 1\n", 1))
+        square = games / "rooms" / "harbor_square.md"
+        square.write_text(square.read_text().replace("---\n", "---\nwork:\n  stat: might\n  pay: 1-2\n", 1))
+        world = games / "world.md"
+        text = re.sub(r"\n## Who the player is\n.*?(?=\n## )", "\n", world.read_text(), flags=re.S)
+        world.write_text(re.sub(r"(\n  (?:rooms|items)): \w+", r"\1: no", text))
+        for path in (games / "characters").glob("*.md"):  # the lone hero's words gone, and every want following the ending
+            body = re.sub(r"\bthe player\b", "the one talking to you", path.read_text(), flags=re.I)
+            path.write_text(re.sub(r"^(## If (?!.*lamp_lit).*)$", r"\1 and not lamp_lit", body, flags=re.M))
+        out = self.rpg("validate", "--game", "dark_lighthouse", "--sim-strict")
+        self.assertIn("CONTENT OK: dark_lighthouse:", out)
+        self.assertIn("(sim-strict)", out)
+        world.write_text(world.read_text().replace("needs: food, sleep\n", ""))
+        self.assertIn("sim-strict: needs at least one need", self.rpg("validate", "--game", "dark_lighthouse", "--sim-strict", ok=False))
+
     def test_a_person_strikes_what_no_longer_holds_from_what_they_learned_on_their_own_turn(self):
         self.rpg("game", "switch", "thirteenth_stroke")
         self.settings_tool("preset", "simulation")

@@ -3282,7 +3282,64 @@ def unknown_keys(over, base, where, problems):
             unknown_keys(v, base[k], "%s %s" % (where, k), problems)
 
 
-def validate_game(kit=False, sim=False):
+WARNINGS = []  # what validate_game found that a world may live with (printed as warnings; errors under --sim-strict)
+
+
+def world_warnings(w):
+    """Two lessons of the runs (SIM-WORLD-SPEC.md section 2, 1 and 8), as warnings: a character's conditional text or
+    plan that turns on the story's flags but never on how its quest ended (Tibbersnatch craved the whistle after the
+    shadows were freed), and "the player" in what a townsperson's own agent reads (worlds written for one hero)."""
+    ends, out = set(), []
+    for q in content.ids("quests"):
+        meta = content.load("quests", q)
+        for k in ("completed_by", "failed_by"):
+            ends.update(generate.TERM.findall(str(meta.get(k) or "")))
+    for c in content.ids("characters"):
+        body = content.load("characters", c)["body"]
+        conds = [(h, content.section_condition(h)) for h, _ in content.sections(body) if content.section_condition(h)]
+        conds += [("Plan: %s" % st["step"], st["when"]) for st in content.plans(body) if st.get("when")]
+        for heading, cond in conds:
+            terms = set(generate.TERM.findall(cond))
+            story = {x for x in terms if not x.startswith(AUTOMATIC) and not x.startswith(c + "_")}
+            if ends and story and not terms & ends:
+                out.append("characters/%s.md: `## %s` never asks how the quest ended (%s): after it ends, it still holds"
+                           % (c, heading, ", ".join(sorted(ends))))
+        read = [body.split("\n## ")[0]] + [text for h, text in content.sections(body) if not h.lower().startswith("gm") and not content.is_plan(h)]
+        n = sum(len(re.findall(r"\bthe player\b", x, re.I)) for x in read)
+        if n:
+            out.append("characters/%s.md: says \"the player\" %d time%s where their agent reads it: say who they are to them instead"
+                       % (c, n, "" if n == 1 else "s"))
+    return out
+
+
+def validate_sim_strict(w, problems):
+    """What a world built for the simulation needs (SIM-WORLD-SPEC.md section 5), beyond --sim-complete: days that go
+    on, needs and what meets them, things for sale, shared work, a quest, something scarce, public knowledge, nothing
+    written for a lone hero. What only a reader can judge (each kind of want served; public knowledge never saying
+    which places pay or who buys) the spec lists for a human read. `validate --sim-strict`."""
+    people = [content.load("characters", c) for c in content.ids("characters")]
+    rooms = [content.load("rooms", r) for r in content.ids("rooms")]
+    if str(w.get("days", "no")).lower() != "yes":
+        problems.append("sim-strict: needs days that go on (days: yes)")
+    if not options_of(w.get("needs") or []):
+        problems.append("sim-strict: needs at least one need (needs:), and something to meet it")
+    if not any(c.get("sells") for c in people):
+        problems.append("sim-strict: needs someone who sells things at set prices (sells:)")
+    if not any(r.get("project") for r in rooms):
+        problems.append("sim-strict: needs shared work (a room's project:)")
+    if not content.ids("quests"):
+        problems.append("sim-strict: needs a quest (a problem or mystery of its own size, beside the shared work)")
+    if not any(rent_of(r) for r in rooms) and not any(_SELLS.match(str(v).strip()) and _SELLS.match(str(v).strip()).group(2)
+                                                       for c in people for v in (c.get("sells") or {}).values()):
+        problems.append("sim-strict: needs something scarce: a place to let (rent:), or a thing in short stock (\"<price>, <n> in stock\")")
+    if not public_knowledge():
+        problems.append("sim-strict: needs public knowledge (world.md ## Public knowledge): what everyone around here knows")
+    if any(h.strip().lower() == "who the player is" for h, _ in content.sections(w["body"])):
+        problems.append("sim-strict: world.md has `## Who the player is`: a world for the cast is written for no lone hero")
+    problems += ["sim-strict: " + x for x in world_warnings(w)]
+
+
+def validate_game(kit=False, sim=False, strict=False):
     """Every problem in the active game's content: references, formats, soundness, and its JSON settings. With `kit`,
     also everything a world needs for every kit feature to work in it (what a forged world must pass); with `sim`,
     everything a simulation needs (`validate_sim_complete`)."""
@@ -3560,8 +3617,11 @@ def validate_game(kit=False, sim=False):
     validate_soundness(w, problems)
     if kit:
         validate_kit_complete(w, problems)
-    if sim:
+    if sim or strict:
         validate_sim_complete(w, problems)
+    WARNINGS[:] = [] if strict else world_warnings(w)
+    if strict:
+        validate_sim_strict(w, problems)
     return problems, "%d rooms, %d characters, %d items, %d quests, %d tables, %d curses, %d scenes" % tuple(len(content.ids(k)) for k in content.KINDS)
 
 
@@ -5607,11 +5667,12 @@ def cmd_log(args):
 
 
 def cmd_validate(args):
-    """validate [--game <id> | --dir <folder>] [--kit-complete] [--sim-complete]: check the kit's games (or one
-    installed game, or a draft's folder) for broken references, formats and soundness; --kit-complete adds what a
-    forged world needs, --sim-complete what a simulation needs."""
-    kit, sim = "--kit-complete" in args, "--sim-complete" in args
-    args = [a for a in args if a not in ("--kit-complete", "--sim-complete")]
+    """validate [--game <id> | --dir <folder>] [--kit-complete] [--sim-complete] [--sim-strict]: check the kit's games
+    (or one installed game, or a draft's folder) for broken references, formats and soundness; --kit-complete adds what
+    a forged world needs, --sim-complete what a simulation needs, --sim-strict what a world built for the simulation
+    needs (and its warnings become errors). Warnings are printed and don't fail a world."""
+    kit, sim, strict = "--kit-complete" in args, "--sim-complete" in args, "--sim-strict" in args
+    args = [a for a in args if a not in ("--kit-complete", "--sim-complete", "--sim-strict")]
     if "--dir" in args:
         want = args[args.index("--dir") + 1:][:1]
         folder = (ROOT / want[0]).resolve() if want else None
@@ -5641,14 +5702,17 @@ def cmd_validate(args):
     for g, folder in targets:
         try:
             choose_game(g, folder)
-            problems, summary = validate_game(kit, sim)
+            problems, summary = validate_game(kit, sim, strict)
         except (Refused, KeyError, ValueError) as e:  # a file too broken to read: say so, never stop with a refusal
             problems, summary = ["checking stopped early: %s" % (e.args[0] if isinstance(e, KeyError) and e.args else e)], ""
         if problems:
             bad = True
             print("\n".join("%s: %s" % (g, x) for x in problems))
         else:
-            print("CONTENT OK: %s: %s%s%s" % (g, summary, " (kit-complete)" if kit else "", " (sim-complete)" if sim else ""))
+            print("CONTENT OK: %s: %s%s%s%s" % (g, summary, " (kit-complete)" if kit else "", " (sim-complete)" if sim else "",
+                                                " (sim-strict)" if strict else ""))
+        print("\n".join("WARNING: %s: %s" % (g, x) for x in WARNINGS) if WARNINGS else "", end="\n" if WARNINGS else "")
+        WARNINGS[:] = []
     if bad:
         sys.exit(1)
 
@@ -6023,7 +6087,7 @@ COMMANDS = {
     "narrate": (cmd_narrate, 2, "narrate <player> <file>   the story told to the player this turn, from a file; ends their turn"),
     "memory": (cmd_memory, 2, "memory condense <player> | memory store <player> <file> [--spend <usd>] [--instructions <file>] [--exact-model <id>]   fold older rounds into the player's own words"),
     "log": (cmd_log, 0, "log [n]   the run's last n log entries (default 10), one line each, for checking"),
-    "validate": (cmd_validate, 0, "validate [--game <id> | --dir <folder>] [--kit-complete] [--sim-complete]   check games' content, soundness and settings"),
+    "validate": (cmd_validate, 0, "validate [--game <id> | --dir <folder>] [--kit-complete] [--sim-complete] [--sim-strict]   check games' content, soundness and settings"),
     "game": (cmd_game, 0, "game [list | show | switch <id>]   the installed games; switching keeps each one's save"),
     "meter": (cmd_meter, 0, "meter [refill]   the meter, or fill it (the SessionStart hook refills it)"),
     "settings": (cmd_settings, 0, "settings   the owner's switches and prices for this game (change: tools/settings.py)"),
