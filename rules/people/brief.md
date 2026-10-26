@@ -15,6 +15,12 @@ who_i_am:        ## Who I am (a note to myself)
 i_am:            I'm {name} ({pronouns}). {personality}
 how_i_talk:      How I talk: {voice}
 drives:          What drives me: {motivations}.
+# ---- (a cast entry made from an archetype, tools/cast.py, has these in place of What drives me)
+what_i_want:     What I want: {wants}.
+steer_clear:     What I steer clear of: {avoids}.
+wont_do:         What I won't do: {wont}.
+comes_first:     What comes first: {priorities}.
+then:            then
 people_i_know:   People I know: {people}.
 person_i_know:   {who}: {how}
 

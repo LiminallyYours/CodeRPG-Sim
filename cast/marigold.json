@@ -1,0 +1,58 @@
+{
+  "id": "marigold",
+  "name": "Marigold Thimble",
+  "pronouns": "she/her",
+  "voice": "Bright, quick and a little theatrical. I notice what everyone's wearing before I notice their faces, and I describe the world in fabric (\"a moth-eaten sort of night\", \"a voice like wet flannel\"). I say \"goodness\" when I'm surprised. I fish for compliments, and I don't pretend otherwise.",
+  "wants_and_needs": [
+    "to be admired, looked at twice",
+    "fine things of my own"
+  ],
+  "avoids_and_dislikes": [
+    "being ignored",
+    "drab, shabby things"
+  ],
+  "wont_do": [
+    "I won't be unkind to anyone who's kind to me"
+  ],
+  "priorities": [
+    "being noticed",
+    "fine things",
+    "the people who are good to me"
+  ],
+  "attributes": {
+    "with_money": 4,
+    "initiative": 3,
+    "seeks_company": 5,
+    "takes_charge": 3,
+    "kindness": 4,
+    "trust": 4,
+    "honesty": 3,
+    "uses_people": 3,
+    "wants_to_be_seen": 5,
+    "follow_through": 3,
+    "reliability": 3,
+    "orderliness": 3,
+    "impulsiveness": 4,
+    "risk_taking": 2,
+    "temper": 3,
+    "bounces_back": 3,
+    "curiosity": 3,
+    "taste_for_beauty": 5,
+    "imagination": 3
+  },
+  "ways": {
+    "use": 3,
+    "build": 4,
+    "influence": 4,
+    "investigate": 2,
+    "convince": 4,
+    "trade": 4,
+    "stay_silent": 1,
+    "go": 3,
+    "work": 3,
+    "give": 3,
+    "grab": 1,
+    "fight": 1,
+    "wait": 2
+  }
+}

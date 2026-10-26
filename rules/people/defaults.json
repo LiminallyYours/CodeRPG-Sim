@@ -1,0 +1,171 @@
+{
+  "scale": {
+    "min": 1,
+    "max": 5,
+    "ordinary": 3
+  },
+  "attributes": {
+    "with_money": {
+      "name": "With money",
+      "low": "I hold on to every coin",
+      "high": "I spend whatever I have"
+    },
+    "initiative": {
+      "name": "Initiative",
+      "low": "I wait for things to come to me",
+      "high": "I get up, get on with it and find a way"
+    },
+    "seeks_company": {
+      "name": "Seeks company",
+      "low": "I keep to myself",
+      "high": "I seek people out, and at the extreme can't bear to be left"
+    },
+    "takes_charge": {
+      "name": "Takes charge",
+      "low": "I go along with others and do as I'm asked",
+      "high": "I tell others what to do and ask for what I want"
+    },
+    "kindness": {
+      "name": "Kindness",
+      "low": "Other people's trouble doesn't move me",
+      "high": "I help whoever is in trouble"
+    },
+    "trust": {
+      "name": "Trust",
+      "low": "I look for the catch",
+      "high": "I take people at their word"
+    },
+    "honesty": {
+      "name": "Honesty",
+      "low": "I lie when it suits me",
+      "high": "I say what's true"
+    },
+    "uses_people": {
+      "name": "Uses people",
+      "low": "I deal straight",
+      "high": "I charm or steer people to get what I want"
+    },
+    "wants_to_be_seen": {
+      "name": "Wants to be seen",
+      "low": "I'm content to go unnoticed and give others the credit",
+      "high": "I need to be looked at and owed the credit"
+    },
+    "follow_through": {
+      "name": "Follow-through",
+      "low": "I drop goals and get sidetracked",
+      "high": "I stick with a goal until it's done, and at the extreme keep trying what fails"
+    },
+    "reliability": {
+      "name": "Reliability",
+      "low": "I break promises and forget what I owe",
+      "high": "I keep my word and pay what I owe"
+    },
+    "orderliness": {
+      "name": "Orderliness",
+      "low": "I lose track of things",
+      "high": "I keep count and keep things in order"
+    },
+    "impulsiveness": {
+      "name": "Impulsiveness",
+      "low": "I think before I act",
+      "high": "I act on the spot"
+    },
+    "risk_taking": {
+      "name": "Risk-taking",
+      "low": "I'm fearful and keep out of danger",
+      "high": "I go toward danger for the thrill or the prize"
+    },
+    "temper": {
+      "name": "Temper",
+      "low": "I'm even-tempered and polite",
+      "high": "I flare up quickly and my moods swing"
+    },
+    "bounces_back": {
+      "name": "Bounces back",
+      "low": "I get discouraged and give up",
+      "high": "I shrug off setbacks"
+    },
+    "curiosity": {
+      "name": "Curiosity about the world",
+      "low": "I don't care how things work",
+      "high": "I can't leave a question alone"
+    },
+    "taste_for_beauty": {
+      "name": "Taste for beauty",
+      "low": "I don't care how things look",
+      "high": "Fine and beautiful things move me"
+    },
+    "imagination": {
+      "name": "Imagination",
+      "low": "I'm practical and do things the usual way",
+      "high": "I'm inventive, and odd at the extreme"
+    }
+  },
+  "ways": {
+    "use": {
+      "name": "Use",
+      "low": "I forget what I'm carrying",
+      "high": "I make use of whatever I have on me"
+    },
+    "build": {
+      "name": "Build",
+      "low": "I make do with what I have",
+      "high": "I'd sooner have a thing made or built for me"
+    },
+    "influence": {
+      "name": "Influence",
+      "low": "I do things myself rather than ask",
+      "high": "I get others to act for me or with me"
+    },
+    "investigate": {
+      "name": "Investigate",
+      "low": "I take things as they look",
+      "high": "I look closer, ask questions, follow a lead"
+    },
+    "convince": {
+      "name": "Convince",
+      "low": "I let people think what they like",
+      "high": "I talk people round to my way of seeing it"
+    },
+    "trade": {
+      "name": "Buy, sell, trade",
+      "low": "I'd rather not deal in money or swaps",
+      "high": "I'm always buying, selling or swapping"
+    },
+    "stay_silent": {
+      "name": "Stay silent",
+      "low": "I say what I'm doing as I do it",
+      "high": "I keep my own counsel and act without a word"
+    },
+    "go": {
+      "name": "Go somewhere",
+      "low": "I stay where I am",
+      "high": "I'm off to see the next place"
+    },
+    "work": {
+      "name": "Work for pay",
+      "low": "I'd rather not work for wages",
+      "high": "I'll take any paid work going"
+    },
+    "give": {
+      "name": "Give and help",
+      "low": "I keep what's mine for myself",
+      "high": "I give things away and lend a hand"
+    },
+    "grab": {
+      "name": "Grab",
+      "low": "I'd never take what someone holds",
+      "high": "If someone holds what I need, I take it"
+    },
+    "fight": {
+      "name": "Fight",
+      "low": "I keep out of fights",
+      "high": "I'll fight for what I want"
+    },
+    "wait": {
+      "name": "Wait",
+      "low": "I can't let a moment pass idle",
+      "high": "I'm content to wait and see"
+    }
+  }
+}

@@ -109,7 +109,9 @@
       "sonnet",
       "opus",
       "fable"
-    ]
+    ],
+    "list_max": 4,
+    "note_chars": 1100
   },
   "turns": {
     "do_chars": 1200,

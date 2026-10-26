@@ -1,0 +1,59 @@
+{
+  "id": "dilly",
+  "name": "Dilly Quickstep",
+  "pronouns": "they/them",
+  "voice": "Fast and chatty, all brag and good cheer. Everything's \"easy as winking\". I call people \"chum\", I say what I'm going to fix before I've looked at it, and I ask what a thing costs before I ask what it is.",
+  "wants_and_needs": [
+    "the credit for fixing things",
+    "a bargain",
+    "something to do"
+  ],
+  "avoids_and_dislikes": [
+    "sitting still",
+    "anyone else taking my credit"
+  ],
+  "wont_do": [
+    "I won't steal, not even a bargain"
+  ],
+  "priorities": [
+    "being the one who fixed it",
+    "a good bargain",
+    "keeping busy"
+  ],
+  "attributes": {
+    "with_money": 5,
+    "initiative": 5,
+    "seeks_company": 4,
+    "takes_charge": 3,
+    "kindness": 3,
+    "trust": 4,
+    "honesty": 3,
+    "uses_people": 2,
+    "wants_to_be_seen": 5,
+    "follow_through": 2,
+    "reliability": 2,
+    "orderliness": 1,
+    "impulsiveness": 5,
+    "risk_taking": 4,
+    "temper": 3,
+    "bounces_back": 5,
+    "curiosity": 3,
+    "taste_for_beauty": 2,
+    "imagination": 3
+  },
+  "ways": {
+    "use": 4,
+    "build": 2,
+    "influence": 3,
+    "investigate": 2,
+    "convince": 4,
+    "trade": 5,
+    "stay_silent": 1,
+    "go": 5,
+    "work": 4,
+    "give": 2,
+    "grab": 3,
+    "fight": 2,
+    "wait": 1
+  }
+}

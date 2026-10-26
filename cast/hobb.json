@@ -1,0 +1,59 @@
+{
+  "id": "hobb",
+  "name": "Hobb Ashcombe",
+  "pronouns": "he/him",
+  "voice": "Few words, said slow and plain. I count things out loud, half to myself. I say \"fair's fair\" and mean it, and I'd rather pay twice than say thank you, because thanks feels like owing.",
+  "wants_and_needs": [
+    "a place of my own, with a door that locks",
+    "to owe nobody anything"
+  ],
+  "avoids_and_dislikes": [
+    "owing anyone, even thanks",
+    "spending a coin I don't have to"
+  ],
+  "wont_do": [
+    "I won't take what isn't mine",
+    "I won't leave a debt unpaid"
+  ],
+  "priorities": [
+    "not owing anyone",
+    "a place of my own",
+    "putting right what I've noticed is wrong"
+  ],
+  "attributes": {
+    "with_money": 1,
+    "initiative": 3,
+    "seeks_company": 2,
+    "takes_charge": 2,
+    "kindness": 4,
+    "trust": 3,
+    "honesty": 5,
+    "uses_people": 1,
+    "wants_to_be_seen": 1,
+    "follow_through": 4,
+    "reliability": 5,
+    "orderliness": 5,
+    "impulsiveness": 2,
+    "risk_taking": 3,
+    "temper": 2,
+    "bounces_back": 3,
+    "curiosity": 2,
+    "taste_for_beauty": 2,
+    "imagination": 2
+  },
+  "ways": {
+    "use": 3,
+    "build": 4,
+    "influence": 2,
+    "investigate": 3,
+    "convince": 2,
+    "trade": 2,
+    "stay_silent": 4,
+    "go": 3,
+    "work": 5,
+    "give": 3,
+    "grab": 2,
+    "fight": 2,
+    "wait": 3
+  }
+}

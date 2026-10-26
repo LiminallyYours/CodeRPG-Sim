@@ -29,7 +29,7 @@ SIM_GAMES = ("thirteenth_stroke",)  # the worlds with the simulation's whole eco
 class Engine(unittest.TestCase):
     def setUp(self):
         self.dir = Path(tempfile.mkdtemp(prefix="rpg-test-"))
-        for d in ("rules", "games", "proposals", "tools", ".claude/hooks", ".claude/agents", "mod/sounds"):
+        for d in ("rules", "games", "cast", "proposals", "tools", ".claude/hooks", ".claude/agents", "mod/sounds"):
             shutil.copytree(ROOT / d, self.dir / d, ignore=shutil.ignore_patterns("__pycache__", "*.json.tmp"))
         (self.dir / "state").mkdir()
         for stale in (self.dir / "proposals").glob("*.json"):
@@ -2807,6 +2807,102 @@ print(json.dumps({"type": "result", "is_error": False, "result": "Round done.", 
         world.write_text(world.read_text().replace("needs: food, sleep\n", ""))
         self.assertIn("sim-strict: needs at least one need", self.rpg("validate", "--game", "dark_lighthouse", "--sim-strict", ok=False))
 
+    def made_hobb(self, **changes):
+        """An entry for Hobb in The Thirteenth Stroke as the generator might write it from his archetype."""
+        arch = json.loads((ROOT / "cast" / "hobb.json").read_text())
+        old = next(e for e in json.loads((ROOT / "games" / "thirteenth_stroke" / "cast.json").read_text()) if e["id"] == "hobb")
+        entry = {"id": "hobb", "name": arch["name"], "pronouns": arch["pronouns"], "voice": arch["voice"], "wont_do": arch["wont_do"],
+                 "backstory": "About twenty-five. I carry coal to every hearth in Wumbleby and sleep on the sacks behind the Tock Tower.",
+                 "wants_and_needs": ["four walls of my own, and a door that locks", "to owe nobody in Wumbleby a button"],
+                 "avoids_and_dislikes": ["owing anyone, even a thank-you", "spending a button I needn't"],
+                 "priorities": ["owing nobody", "four walls of my own", "putting right what's gone wrong"],
+                 "how_i_am": "I keep a tally of every button and spend none I needn't. I keep my own company and let others lead, and I'd "
+                             "sooner go unnoticed. What I say I'll do, I do, and I pay what I owe the same day.",
+                 "look": "Big and slow, soot to the elbows, a sack over one shoulder.",
+                 "knows": ["Old Ambrose keeps the town clock and builds sheds for a price."],
+                 "people": [{"who": "ambrose", "how": "I sleep in his coal yard by his leave."}],
+                 "home": old["home"], "inventory": old["inventory"], "equipped": None, "attributes": old["attributes"],
+                 "hp": old["hp"], "coins": old["coins"], "opening": "You're awake on the coal sacks behind the tower, and the clock ticks too fast."}
+        entry.update(changes)
+        return entry
+
+    def test_the_generator_makes_an_entry_from_the_archetype_and_checks_it(self):
+        out, asked, argv = self.ask("make", "thirteenth_stroke", "hobb", answers=["```json\n%s\n```" % json.dumps(self.made_hobb())], tool="tools/cast.py")
+        self.assertIn("MADE: Hobb Ashcombe for thirteenth_stroke, in proposals/cast-hobb.json", out)
+        self.assertIn("PROBLEMS: none", out)
+        self.assertIn("# How they lean (1 to 5; 3 is ordinary, and only the others are listed)\n- With money: 1 (1: I hold on to every coin;", asked[0])
+        self.assertIn("## Places (id: name. what it is)\n- ", asked[0])
+        self.assertNotIn("- Initiative:", asked[0], "an ordinary rating isn't listed")
+        system = argv[0][argv[0].index("--system-prompt") + 1]
+        self.assertTrue(system.startswith("You write one person's entry for a world"), system[:60])
+        made = json.loads((self.dir / "proposals" / "cast-hobb.json").read_text())
+        self.assertEqual((made["archetype"], sorted(made["made_with"])), ("hobb", ["archetype", "cost", "definitions", "generate", "model", "when"]))
+        bad = self.made_hobb(voice="Loud.", how_i_am="I hold on to every coin, 5 of them, and the dice say so.")
+        out, _, _ = self.ask("make", "thirteenth_stroke", "hobb", answers=[json.dumps(bad)], ok=False, tool="tools/cast.py")
+        for expected in ("how_i_am has a number in it", "how_i_am has a trait's line word for word: 'I hold on to every coin'",
+                         "a word of the machinery, 'dice'", "voice must be the archetype's, word for word"):
+            self.assertIn(expected, out)
+        out, _, _ = self.ask("make", "thirteenth_stroke", "hobb", answers=["I can't."], ok=False, tool="tools/cast.py")
+        self.assertEqual((self.dir / "proposals" / "cast-hobb.txt").read_text(), "I can't.", "a reply with no entry is kept as it came")
+
+    def test_an_entry_made_from_an_archetype_opens_the_brief_in_its_own_layout(self):
+        self.write("proposals/cast-hobb.json", json.dumps(self.made_hobb(archetype="hobb")))
+        out, _, _ = self.ask("apply", "thirteenth_stroke", "hobb", answers=[], tool="tools/cast.py")
+        self.assertIn("APPLIED: hobb's entry is in games/thirteenth_stroke/cast.json.", out)
+        self.assertIn("CONTENT OK: thirteenth_stroke", out)
+        self.rpg("game", "switch", "thirteenth_stroke")
+        self.settings_tool("preset", "simulation")
+        self.rpg("newgame", seed=44)
+        brief = self.rpg("brief", "hobb")
+        self.assertIn("## Who I am (a note to myself)\nI'm Hobb Ashcombe (he/him). About twenty-five. I carry coal", brief)
+        self.assertIn("What I want: four walls of my own, and a door that locks; to owe nobody in Wumbleby a button.\n"
+                      "What I steer clear of: owing anyone, even a thank-you; spending a button I needn't.\n"
+                      "What I won't do: I won't take what isn't mine; I won't leave a debt unpaid.\n"
+                      "What comes first: owing nobody then four walls of my own then putting right what's gone wrong.\n"
+                      "People I know: Ambrose Tock: I sleep in his coal yard by his leave.\n"
+                      "I keep a tally of every button", brief)
+        self.assertNotIn("What drives me", brief)
+        self.assertIn("What you want: four walls of my own, and a door that locks; to owe nobody in Wumbleby a button.", brief)
+        self.assertIsNone(self.FORBIDDEN.search(brief.split("## What everyone")[0]))
+        tags = [e for e in self.log_entries() if e["kind"] == "brief"][-1]["versions"]
+        self.assertIn("archetype:hobb", tags)
+        self.assertIn("definitions", tags)
+        self.assertIn("What drives me: I want to be admired; I love fine things.", self.rpg("brief", "marigold"), "hand-written entries as before")
+
+    def test_the_round_trip_sets_what_the_note_shows_beside_the_archetypes_ratings(self):
+        self.write("proposals/cast-hobb.json", json.dumps(self.made_hobb(archetype="hobb")))
+        defs = json.loads((ROOT / "rules" / "people" / "defaults.json").read_text())
+        arch = json.loads((ROOT / "cast" / "hobb.json").read_text())
+        answer = "\n".join("%s: %d" % (k, arch[part][k]) for part in ("attributes", "ways") for k in defs[part])
+        answer = answer.replace("with_money: 1", "with_money: 4").replace("honesty: 5\n", "")
+        out, asked, argv = self.ask("check", "thirteenth_stroke", "hobb", "--proposal", answers=[answer], tool="tools/cast.py")
+        self.assertIn("# The note\n## Who I am (a note to myself)\nI'm Hobb Ashcombe (he/him).", asked[0])
+        self.assertIn("- with_money: 1 = I hold on to every coin; 5 = I spend whatever I have", asked[0])
+        self.assertIn("with_money         1  read 4   <<< +3", out)
+        self.assertIn("honesty            5  read ?   <<< not answered", out)
+        self.assertIn("FLAGGED: 2 of 32, 2 or more apart; 30 read exactly", out)
+        kept = json.loads(sorted((self.dir / "bench" / "results").glob("cast-check-thirteenth_stroke-hobb-*.json"))[-1].read_text())
+        self.assertEqual((kept["entry"], kept["archetype"], len(kept["rows"])), ("proposal", "hobb", 32))
+        out, asked, _ = self.ask("check", "thirteenth_stroke", "hobb", "--archetype", "hobb", answers=[answer], tool="tools/cast.py")
+        self.assertIn("What drives me", asked[0], "the hand-written entry, as its brief shows it")
+
+    def test_validate_holds_the_definitions_the_archetypes_and_entries_made_from_them(self):
+        arch = self.dir / "cast" / "hobb.json"
+        data = json.loads(arch.read_text())
+        data["attributes"]["kindness"] = 7
+        del data["ways"]["wait"]
+        data["attributes"]["luck"] = 3
+        arch.write_text(json.dumps(data))
+        cast = self.dir / "games" / "thirteenth_stroke" / "cast.json"
+        entries = json.loads(cast.read_text())
+        entries[1] = self.made_hobb(archetype="hobb", personality="I'm Hobb.", wont_do=["I won't."])
+        cast.write_text(json.dumps(entries))
+        out = self.rpg("validate", ok=False)
+        for expected in ("cast/hobb.json: attributes kindness needs a rating from 1 to 5", "cast/hobb.json: ways wait needs a rating",
+                         "cast/hobb.json: attributes luck isn't in the definitions", "wont_do must be the archetype's, word for word",
+                         "personality is for a hand-written entry"):
+            self.assertIn(expected, out)
+
     def test_a_person_strikes_what_no_longer_holds_from_what_they_learned_on_their_own_turn(self):
         self.rpg("game", "switch", "thirteenth_stroke")
         self.settings_tool("preset", "simulation")
@@ -3057,8 +3153,8 @@ print(json.dumps({"type": "result", "is_error": False, "result": "Round done.", 
         self.assertIn("ambrose", self.save()["players"]["hobb"]["met"], "someone they know they've met already")
         brief = self.rpg("brief", "hobb", as_=False)
         self.assertIn("## Who I am (a note to myself)\nI'm Hobb Ashcombe (he/him). Big, slow", brief)
-        self.assertIn("People I know: Ambrose Tock: He lets me sleep on the coal sacks, which counts as owing.; "
-                      "Marigold Thimble: She mends every coat in town, mine included..\n\n## What I know\n"
+        self.assertIn("People I know: Ambrose Tock: He lets me sleep on the coal sacks, which counts as owing; "
+                      "Marigold Thimble: She mends every coat in town, mine included.\n\n## What I know\n"
                       "- Ambrose Tock builds sheds and porches, for a price.\n- Nell Fizzlewick makes sweets to order.\n\n"
                       "## What everyone around here knows\n- Folk pay for things in buttons, and most have little to spare.\n", brief)
         self.assertIn("- Three days ago a peddler called Mister Tibbersnatch rolled into town", brief, "the world's public knowledge")

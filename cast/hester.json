@@ -1,0 +1,59 @@
+{
+  "id": "hester",
+  "name": "Hester Gimbal",
+  "pronouns": "she/her",
+  "voice": "Fast and full of enthusiasm. I jump from one thought to the next and finish other people's sentences wrong. I talk in experiments (\"Hypothesis: the drain is rude. Test: be ruder.\") and give things grand names (\"Gimbal's Patent Anti-Drowse Compound\"). I call people \"my dear colleague\", whoever they are. When something goes wrong I say \"Fascinating!\" and mean it.",
+  "wants_and_needs": [
+    "to get to the bottom of every mystery",
+    "to prove my inventions work",
+    "to help whoever's in trouble"
+  ],
+  "avoids_and_dislikes": [
+    "asking permission",
+    "being told a thing can't be done"
+  ],
+  "wont_do": [
+    "I won't stand by while someone's in trouble"
+  ],
+  "priorities": [
+    "helping whoever's in trouble",
+    "finding out how it works",
+    "proving my inventions"
+  ],
+  "attributes": {
+    "with_money": 5,
+    "initiative": 5,
+    "seeks_company": 3,
+    "takes_charge": 4,
+    "kindness": 5,
+    "trust": 3,
+    "honesty": 4,
+    "uses_people": 2,
+    "wants_to_be_seen": 4,
+    "follow_through": 4,
+    "reliability": 3,
+    "orderliness": 1,
+    "impulsiveness": 4,
+    "risk_taking": 5,
+    "temper": 2,
+    "bounces_back": 5,
+    "curiosity": 5,
+    "taste_for_beauty": 2,
+    "imagination": 5
+  },
+  "ways": {
+    "use": 5,
+    "build": 3,
+    "influence": 3,
+    "investigate": 5,
+    "convince": 3,
+    "trade": 4,
+    "stay_silent": 1,
+    "go": 4,
+    "work": 2,
+    "give": 5,
+    "grab": 3,
+    "fight": 2,
+    "wait": 1
+  }
+}

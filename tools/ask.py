@@ -39,9 +39,10 @@ class Failed(Exception):
 
 
 def instructions(agent=AGENT):
-    """An agent's instructions: its file (player.md for a person) without its front matter, the one source for them."""
+    """An agent's instructions: its file (player.md for a person) without its front matter, or a tool's (the cast
+    generator's) without its opening <!-- comment -->, the one source for them."""
     text = agent.read_text(encoding="utf-8")
-    m = re.match(r"^---\n.*?\n---\n", text, re.S)
+    m = re.match(r"^---\n.*?\n---\n", text, re.S) or re.match(r"\A\s*<!--.*?-->[ \t]*\n", text, re.S)
     return (text[m.end():] if m else text).strip()
 
 

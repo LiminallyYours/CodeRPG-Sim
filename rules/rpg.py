@@ -3752,7 +3752,73 @@ def validate_plans(w, flag_text, problems):
 
 
 CAST_ID = re.compile(r"^[a-z][a-z0-9_]{0,23}$")
-CAST_TEXT = ("name", "personality", "voice", "opening")
+CAST_TEXT = ("name", "personality", "voice", "opening")  # a hand-written entry; one made from an archetype has these:
+MADE_TEXT = ("name", "voice", "opening", "backstory", "how_i_am")
+MADE_LISTS = ("wants_and_needs", "avoids_and_dislikes", "wont_do", "priorities")
+ARCHETYPES = ROOT / "cast"  # the people anywhere (PERSON-STRUCTURE-PROPOSAL.md 5.2): ratings never shown to them
+
+
+def definitions():
+    """The definitions of the attributes and ways of acting (rules/people/defaults.json), with the world's own lines
+    (games/<id>/people.json) in their place where it gives any: the scale, and each one's name, low and high line."""
+    base = json.loads(people_file("defaults.json"))
+    try:
+        own = content.game_json("people.json")
+    except ValueError:
+        own = {}
+    return content.deep_merge(base, own or {})
+
+
+def archetype(ident):
+    """A person anywhere (cast/<id>.json), or None."""
+    path = ARCHETYPES / ("%s.json" % ident)
+    return json.loads(path.read_text(encoding="utf-8")) if path.is_file() else None
+
+
+def archetype_problems(arch, defs, where):
+    """What's wrong with an archetype: its parts, and a rating on the scale for every attribute and way."""
+    out, scale = [], defs["scale"]
+    for k in ("id", "name", "pronouns", "voice"):
+        if not isinstance(arch.get(k), str) or not arch[k].strip():
+            out.append("%s: %s must be some text" % (where, k))
+    for k in MADE_LISTS:
+        if not isinstance(arch.get(k), list) or not arch[k] or not all(isinstance(x, str) and x.strip() for x in arch[k]):
+            out.append("%s: %s must be a list of short lines" % (where, k))
+    for part in ("attributes", "ways"):
+        given = arch.get(part) if isinstance(arch.get(part), dict) else {}
+        for k in defs[part]:
+            v = given.get(k)
+            if not isinstance(v, int) or isinstance(v, bool) or not scale["min"] <= v <= scale["max"]:
+                out.append("%s: %s %s needs a rating from %d to %d" % (where, part, k, scale["min"], scale["max"]))
+        out += ["%s: %s %s isn't in the definitions" % (where, part, k) for k in given if k not in defs[part]]
+    unknown = set(arch) - {"id", "name", "pronouns", "voice", "attributes", "ways"} - set(MADE_LISTS)
+    if unknown:
+        out.append("%s: unknown key%s %s" % (where, "s" if len(unknown) > 1 else "", ", ".join(sorted(unknown))))
+    return out
+
+
+def made_entry_problems(e, where):
+    """A cast entry made from an archetype: the archetype exists and passes; its name, pronouns, voice and what they
+    won't do are the archetype's word for word; its lists are short lines; the old hand-written fields are gone."""
+    out, limits = [], BALANCE["cast"]
+    arch = archetype(str(e.get("archetype")))
+    if not arch:
+        return out + ["%s: archetype: no cast/%s.json" % (where, e.get("archetype"))]
+    out += archetype_problems(arch, definitions(), "cast/%s.json" % e["archetype"])
+    for k in ("name", "pronouns", "voice", "wont_do"):
+        if e.get(k) != arch.get(k):
+            out.append("%s: %s must be the archetype's, word for word" % (where, k))
+    for k in MADE_LISTS:
+        v = e.get(k)
+        if not isinstance(v, list) or not 1 <= len(v) <= int(limits["list_max"]) or not all(
+                isinstance(x, str) and x.strip() and len(x) <= int(limits["line_chars"]) for x in v):
+            out.append("%s: %s must be 1 to %d lines of at most %d characters" % (where, k, int(limits["list_max"]), int(limits["line_chars"])))
+    for k in ("backstory", "how_i_am"):
+        if isinstance(e.get(k), str) and len(e[k]) > int(limits["note_chars"]):
+            out.append("%s: %s is at most %d characters" % (where, k, int(limits["note_chars"])))
+    out += ["%s: %s is for a hand-written entry; one made from an archetype has %s" % (where, k, alt)
+            for k, alt in (("personality", "backstory and how_i_am"), ("motivations", "wants_and_needs")) if k in e]
+    return out
 
 
 def validate_cast(problems):
@@ -3772,7 +3838,7 @@ def validate_cast(problems):
         problems.append("cast.json: at most %d players (has %d)" % (int(limits["max_players"]), len(data)))
     seen_ids, seen_names = set(), set()
     known = {"id", "model", "pronouns", "motivations", "attributes", "hp", "coins", "inventory", "equipped", "home",
-             "knows", "people", "look", "paid_beds"} | set(CAST_TEXT)
+             "knows", "people", "look", "paid_beds", "archetype", "made_with"} | set(CAST_TEXT) | set(MADE_TEXT) | set(MADE_LISTS)
     cast_ids = {e.get("id") for e in data if isinstance(e, dict)}
     for n, e in enumerate(data, 1):
         if not isinstance(e, dict):
@@ -3789,9 +3855,12 @@ def validate_cast(problems):
         elif content.exists("characters", ident):
             problems.append("%s: the id is also a character's in this world" % where)
         seen_ids.add(ident)
-        for k in CAST_TEXT:
+        made = "archetype" in e  # made from an archetype by tools/cast.py, or written by hand
+        for k in MADE_TEXT if made else CAST_TEXT:
             if not isinstance(e.get(k), str) or not e[k].strip():
                 problems.append("%s: %s must be some text" % (where, k))
+        if made:
+            problems += made_entry_problems(e, where)
         if isinstance(e.get("name"), str):
             if e["name"].lower() in seen_names:
                 problems.append("%s: the name %r is used twice" % (where, e["name"]))
@@ -3799,7 +3868,7 @@ def validate_cast(problems):
         if "pronouns" in e and not (isinstance(e["pronouns"], str) and re.fullmatch(r"[a-z]+(/[a-z]+)+", e["pronouns"])):
             problems.append("%s: pronouns are written like she/her, he/him or they/them" % where)
         motives = e.get("motivations")
-        if not isinstance(motives, list) or not motives or not all(isinstance(m, str) and m.strip() for m in motives):
+        if not made and (not isinstance(motives, list) or not motives or not all(isinstance(m, str) and m.strip() for m in motives)):
             problems.append("%s: motivations must be a list of short lines" % where)
         lines = e.get("knows", [])
         if not isinstance(lines, list) or len(lines) > int(limits["knows_max"]) or not all(
@@ -5240,6 +5309,7 @@ def parse_thinkback(raw):
 PEOPLE = ROOT / "rules" / "people"
 PHRASES = {
     "who_i_am": (), "i_am": ("name", "pronouns", "personality"), "how_i_talk": ("voice",), "drives": ("motivations",),
+    "what_i_want": ("wants",), "steer_clear": ("avoids",), "wont_do": ("wont",), "comes_first": ("priorities",), "then": (),
     "people_i_know": ("people",), "person_i_know": ("who", "how"), "i_know": (), "everyone_knows": (),
     "begins": (), "remember": (), "lately": (), "moment": ("n",), "did": (), "why": (), "happened": (), "told": (),
     "stood": (), "where_you_are": (), "place": ("place",), "ways_on": ("ways",), "way": ("direction", "place"),
@@ -5336,6 +5406,26 @@ def people_problems():
         out.append("universe.md has a gap the code doesn't fill: %s" % ", ".join(sorted(gaps(universe) - set(UNIVERSE_GAPS))))
     if gaps(think) - set(THINKBACK_GAPS):
         out.append("thinkback.md has a gap the code doesn't fill: %s" % ", ".join(sorted(gaps(think) - set(THINKBACK_GAPS))))
+    try:  # the definitions, and every archetype against them
+        defs = json.loads(people_file("defaults.json"))
+    except (Refused, ValueError) as e:
+        return out + ["defaults.json: %s" % e]
+    scale = defs.get("scale") or {}
+    if not all(isinstance(scale.get(k), int) for k in ("min", "max", "ordinary")) or not scale["min"] <= scale["ordinary"] <= scale["max"]:
+        return out + ["defaults.json: scale needs whole numbers min <= ordinary <= max"]
+    for part in ("attributes", "ways"):
+        for k, d in (defs.get(part) or {}).items():
+            if not (isinstance(d, dict) and all(isinstance(d.get(x), str) and d[x].strip() for x in ("name", "low", "high"))):
+                out.append("defaults.json: %s %s needs a name, a low line and a high line" % (part, k))
+    for path in sorted(ARCHETYPES.glob("*.json")):
+        try:
+            arch = json.loads(path.read_text(encoding="utf-8"))
+        except ValueError as e:
+            out.append("../cast/%s: not valid JSON (%s)" % (path.name, e))
+            continue
+        out += ["../" + x for x in archetype_problems(arch, defs, "cast/%s" % path.name)]
+        if arch.get("id") != path.stem:
+            out.append("../cast/%s: id must be %s, as the file is named" % (path.name, path.stem))
     return out
 
 
@@ -5400,6 +5490,9 @@ def versions(state, pid, instructions=None):
     texts = {"brief": people_file("brief.md"), "thinkback": people_file("thinkback.md"),
              "universe": people_file("universe.md"), "public:" + content.game_id(): public_knowledge(),
              "cast:" + pid: json.dumps(cast_entry(pid), sort_keys=True, ensure_ascii=False)}
+    if cast_entry(pid).get("archetype"):  # made from an archetype: which one, and the definitions it was rated against
+        texts["archetype:" + cast_entry(pid)["archetype"]] = json.dumps(archetype(cast_entry(pid)["archetype"]), sort_keys=True, ensure_ascii=False)
+        texts["definitions"] = json.dumps(definitions(), sort_keys=True, ensure_ascii=False)
     if instructions:
         texts["instructions:" + Path(instructions).stem] = agent_instructions(instructions)
     return record_texts(state, texts)
@@ -5545,7 +5638,8 @@ def pane_text(state):
         taken.append("%s%s: %s" % (q["name"], state_word, " ".join((phrase("step_done") + " " if o["done"] else "") + o["text"]
                                                                  for o in q["objectives"])))
     needs = needs_words(state, pid)
-    wants = "; ".join(cast_entry(pid).get("motivations") or []) if SETTINGS["brief"]["wants"] else ""
+    entry = cast_entry(pid)
+    wants = "; ".join(entry.get("wants_and_needs") or entry.get("motivations") or []) if SETTINGS["brief"]["wants"] else ""
     if needs or wants:  # needs, wants and what they've taken on, side by side
         lines += ["", phrase("working_on")]
         if needs:
@@ -5622,13 +5716,28 @@ def cmd_brief(args):
 def who_i_am(state, pid):
     """The "Who I am" note that opens every brief, as lines: the cast writes who they are in their own first person,
     a note to themselves, like their journal and memories. The think-back shows it too (memory.thinkback_sees)."""
-    entry = cast_entry(pid)
-    out = [phrase("who_i_am"), phrase("i_am", name=state["players"][pid]["name"], pronouns=pronouns(pid), personality=entry.get("personality", "")),
-           phrase("how_i_talk", voice=entry.get("voice", "")),
-           phrase("drives", motivations="; ".join(entry.get("motivations") or []))]
+    return note_lines(cast_entry(pid), state["players"][pid]["name"], pronouns(pid), lambda who: person_name(state, who))
+
+
+def note_lines(entry, name, their_pronouns, name_of):
+    """The Who I am note for a cast entry, as lines. One made from an archetype (PERSON-STRUCTURE-PROPOSAL.md 5.7):
+    their backstory, how they talk, what they want, steer clear of and won't do, what comes first, who they know, and
+    how they are; a hand-written one: their personality, how they talk, and what drives them."""
+    made = "archetype" in entry
+    out = [phrase("who_i_am"), phrase("i_am", name=name, pronouns=their_pronouns, personality=entry.get("backstory" if made else "personality", "")),
+           phrase("how_i_talk", voice=entry.get("voice", ""))]
+    if made:
+        out += [phrase("what_i_want", wants="; ".join(entry.get("wants_and_needs") or [])),
+                phrase("steer_clear", avoids="; ".join(entry.get("avoids_and_dislikes") or [])),
+                phrase("wont_do", wont="; ".join(entry.get("wont_do") or [])),
+                phrase("comes_first", priorities=(" %s " % phrase("then")).join(entry.get("priorities") or []))]
+    else:
+        out.append(phrase("drives", motivations="; ".join(entry.get("motivations") or [])))
     if entry.get("people"):
-        out.append(phrase("people_i_know", people="; ".join(phrase("person_i_know", who=person_name(state, k["who"]), how=k["how"])
+        out.append(phrase("people_i_know", people="; ".join(phrase("person_i_know", who=name_of(k["who"]), how=k["how"].rstrip("."))
                                                             for k in entry["people"])))
+    if made and entry.get("how_i_am"):
+        out.append(entry["how_i_am"])
     return out
 
 
