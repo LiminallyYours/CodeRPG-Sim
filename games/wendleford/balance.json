@@ -1,0 +1,15 @@
+{
+  "generation": {
+    "craft_price": {
+      "trinket": 4,
+      "light_weapon": 5,
+      "weapon": 8,
+      "tonic": 3
+    },
+    "build_price": 10,
+    "build_moves": 3
+  },
+  "work": {
+    "max_pay": 5
+  }
+}

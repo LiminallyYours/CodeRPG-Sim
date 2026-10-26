@@ -1,0 +1,8 @@
+{
+  "preset": "simulation",
+  "overrides": {
+    "rounds": {
+      "time_every": 1
+    }
+  }
+}

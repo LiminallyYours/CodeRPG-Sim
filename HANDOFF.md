@@ -2,6 +2,10 @@
 
 Where the build stands, for whoever picks it up next, human or Claude. Read `PLAN.md` (the agreed steps) and `DEVELOPING.md` (invariants, checks) with it. Update this file at the end of each stage.
 
+## The twelfth session (2026-10-26), as it goes
+- **JW set the bar for now** (`PLAN.md`, *The bar for now*): four parts (the people, the worlds, the mechanics, the reporting) working together, each just enough to test the mechanics and to extend later; no feature chasing; the number of people stays dynamic (four is only this phase's target). Step 62 was re-cut to it: no new mechanics; the generator's Build gap and three other ideas deferred to *Future discussions*.
+- **Step 62, the world: built** (`games/wendleford/`, `--sim-strict`, coverage list in `SIM-WORLD-SPEC.md` section 4), with an engine fix found playing it through (a place to let with no bed price is only its tenant's to sleep in). The cast in it is four hand-written stand-ins. **Next: its four people made with `tools/cast.py`** (JW approved about $0.25, capped at $0.35), then 64 → 63.
+
 ## Where things are (end of the eleventh session, 2026-10-26)
 - **The eleventh session built steps 54 (and 54b), 56, 57, 58, 59, 60 and 61,** in the decided order, a commit each, checks before and after; each has an *As built* note in `PLAN.md` with JW's answers to its draft. Steps that change what nobody reads yet (56–61) were checked with a scripted 7-round run in all three shipped worlds before and after: every brief, pane and think-back byte for byte the same (`same.py`, a throwaway script; write one again for any such change). Pushed at the end (JW).
   - **54, memory:** each moment ends with one line of what changed (no status copy; briefs 38% smaller on real stories by round 8, more later); a *What I've learned* list from `LEARNED:` lines at each think-back, rewritten whole (`memory.learned_max`), under *What I know*; the think-back sees the whole *Who I am* note (`memory.thinkback_sees`). **54b (JW):** the think-back asks for lasting things only, and a person may strike a line on any turn (`NO LONGER:` after their journal, `player.md`).

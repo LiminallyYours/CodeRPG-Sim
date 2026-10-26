@@ -80,6 +80,36 @@ Each lesson: what happened, then the rule or check it implies.
 
 **Ways of acting, all reachable on day 1:** use, build, influence, investigate, convince, buy, sell, trade, stay silent, go, work, give and help, grab, wait. Fight can happen but has no reason to; for a plain town that is honest, and noted rather than given an invented foe.
 
+### As built (step 62, twelfth session, 2026-10-26)
+Written by hand to the outline, re-cut to the bar for now (`PLAN.md`): no new mechanics, every mechanic already built used at least once. `games/wendleford/`, passing `validate --sim-complete --sim-strict`. Differences from the outline: **9 places** (the cottage is a place of its own, since a let is a room its tenant sleeps in); **10 townspeople** (Bet Lamb, the baker, for the square's stall); **two quests** (the wage box, and Dunn's barley, so the harvest's end is everyone's news); the bridge pays a **fixed** wage (no half rate: a wage can't change partway through a run) and a lost harvest **closes the baker's stall** from day 4 (food then costs the inn's 2); a built shed is a place to keep things only. **Money looser than the outline (JW):** a comfortable day costs 3 (a bed 2, bread 1), and one turn of work a day about covers it: the bellows 3–5, the pots 2–4 with a supper, the bridge 2–4 every turn, all easy checks (about 70%); finery 4, the cottage 8 a week, a shed 10, the box's reward 6.
+
+**What each mechanic is exercised by (read the test run against it):**
+| Mechanic | Where in Wendleford |
+|---|---|
+| Days that go on, four times of day, a round each | `world.md` `days: yes`, `settings.json` `rounds.time_every` 1 |
+| Timed events | the false lead (day 1, if the box isn't found), the clouds, the supper (if the harvest is in), the rain (sets `rain_fell`), market day, the bare bread stall (if not) |
+| Food: hunger, weakness, eating | bread (Bet), stew (Tom), apples (Dunn); the harvest's meal; the pots' supper and the harvest supper (`meet food`) |
+| Sleep: a bed, rough, none | the Wheatsheaf and the smithy loft (2 a night), the hayloft (free, rough), the cottage (its tenant) |
+| Nights paid ahead | the cast's situations (`paid_beds`) |
+| Buying at set prices, stock | Bet, Tom, Dunn; Ned's ribbon (1 in stock) and lanterns (2) on market days |
+| A place to let (scarce) | the cottage, 8 for 7 days, from Widow Mabry on Lark Lane |
+| Paid work, once a visit | the pots (wits), the bellows (might) |
+| Shared work, paid | the bridge: 8 successes in two stages, wages every turn |
+| Shared work, unpaid, a meal, who helped most | the harvest: 8 turns, no work at night, `most_harvest` honoured at the supper |
+| Quests, taken on, endings for everyone | the wage box (completed); the harvest (completed or lost) |
+| Personal flags | `heard_from_kit` (Kit's tip makes the search easier), `found_the_box` |
+| A check written in content | the ford (agility, easy), searching the wreck (wits, ordinary or easy) |
+| Making to order | Ida (finery, a trinket), Sam (trinkets, light tools) |
+| Building to order, a scarce spot | Jory, on the one plot on Lark Lane, in the mornings only |
+| A buyer | Ned (below the making prices) |
+| Townspeople with their own voice | Agnes, Jory, Kit; the other seven voiced by the referee |
+| A townsperson's plans, world turns | Kit fishing below the bridge or back at the mill |
+| Encounters | the river's edge (a penny once, things floating by) |
+| Generation | extras, characters and side quests on (the simulation preset); rooms and items off |
+| Not used, by design | curses, side scenes, the deadline clock (off in the simulation) |
+
+**Read before a run (what code can't check), 2026-10-26:** every kind of want in the cast has something for a price (a home: the cottage, a shed; fine things: Ida, Ned's ribbon; credit: the box, the honour; tinkering: the scrap heap, Sam, the wreck); eight of ten townspeople take money (Agnes pays, Kit tells for kindness or a penny); public knowledge names makers, a builder, the inn and the baker, never which places pay for work or who buys (the notice board in the square says the bridge pays: found by looking); the false lead stops once the box is found, and Ned says so after; places apart, each worth a visit; hooks of several sizes (the box small, the harvest with a deadline, the bridge ongoing, needs every day). **A known limit:** public knowledge is fixed, so it still says the box "hasn't been seen" after it's found; each person's *What I know* holds the ending.
+
 **How it is made:** written by hand in a build session from this outline; the forge for simulation worlds isn't built (phase 2), and forging a second world against this spec later is the real test of the spec. The cast: the same four people, made for this world by the generator, its first real use.
 
 ## 5. What the kit needs for it

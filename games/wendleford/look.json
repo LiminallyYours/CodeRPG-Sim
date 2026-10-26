@@ -1,0 +1,23 @@
+{
+  "palette": {
+    "accent": "#c79a3b",
+    "accent_by_time": {
+      "morning": "#d9b24e",
+      "afternoon": "#c79a3b",
+      "evening": "#a8743a",
+      "night": "#5b6b8c"
+    }
+  },
+  "stat_labels": {
+    "might": "Strength",
+    "agility": "Nimbleness",
+    "wits": "Wits"
+  },
+  "stat_short": {
+    "might": "STR",
+    "agility": "NIM",
+    "wits": "WIT"
+  },
+  "currency": "pennies",
+  "tagline": "a market town at harvest, after the flood"
+}
