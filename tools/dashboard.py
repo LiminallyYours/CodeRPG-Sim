@@ -257,6 +257,11 @@ def build_feed(entries, names, name, currency="coins"):
             add(here, "money", "%+d %s (%s); now %s." % (e.get("delta", 0), currency, e.get("reason"), e.get("balance")))
         elif kind == "order":
             add(here, "money", order_text(e, name, currency))
+        elif kind == "purchase":
+            add(here, "money", "Bought %s from %s for %s %s." % (e.get("item"), e.get("seller"), e.get("price"), currency))
+        elif kind == "let":
+            add(here, "money", "%s %s%s." % ({"taken": "Rented", "renewed": "Rented again", "ended": "No longer has"}.get(e.get("step"), e.get("step")),
+                                            e.get("room"), ", to the end of day %s" % e["until"] if e.get("until") else ""))
         elif kind == "memory":
             rounds = e.get("rounds") or []
             add(here, "memories", {"who": names.get(e.get("player"), e.get("player")), "rounds": rounds,

@@ -434,6 +434,120 @@ def buys(ident):
     return {t: p for t, p in prices.items() if t in tiers and isinstance(p, int)} if isinstance(prices, dict) else {}
 
 
+# ---------------------------------------------------------------- spending: sellers, beds and places to let
+# A character may give `sells:` (an item and its price, endless unless "<price>, <n> in stock"): `buy` buys from one
+# present. A room may give `bed_price:` (a night's bed, paid when they turn in with `sleep`) and `rent:` ("<price>
+# for <n> days", to its `landlord:`, who must be present): the first to pay is its tenant until the days run out,
+# sleeps there free, and what they leave there stays theirs, as in a place built for them. Prices are told on
+# asking: the seller's or landlord's brief has them, never anyone's pane.
+_SELLS = re.compile(r"^(\d+)(?:\s*,\s*(\d+)\s+in stock)?$")
+_RENT = re.compile(r"^(\d+)\s+for\s+(\d+)\s+days?$")
+
+
+def sells(ident):
+    """What a seller has (`sells:`), {item: {"price", "stock"}}, stock None for endless; empty for anyone else."""
+    out = {}
+    for i, v in (ent("characters", ident).get("sells") or {}).items() if isinstance(ent("characters", ident).get("sells"), dict) else ():
+        m = _SELLS.match(str(v).strip())
+        if m:
+            out[i] = {"price": int(m.group(1)), "stock": int(m.group(2)) if m.group(2) else None}
+    return out
+
+
+def stock_left(state, seller, ident):
+    """How many of a thing a seller has left this run, or None for endless."""
+    first = sells(seller).get(ident, {}).get("stock")
+    return None if first is None else state["run"].get("stock", {}).get(seller, {}).get(ident, first)
+
+
+def rent_of(room):
+    """A room's terms to let (`rent:` "<price> for <n> days", `landlord:`), {"price", "days", "landlord"}, or None."""
+    m = _RENT.match(str(room.get("rent") or "").strip())
+    return {"price": int(m.group(1)), "days": int(m.group(2)), "landlord": room.get("landlord")} if m else None
+
+
+def let_of(state, room_id):
+    """The let on a room now, {"tenant", "until"} (the last day it's theirs), or None."""
+    let = state["run"].get("lets", {}).get(room_id)
+    return let if let and day_of(state) and day_of(state) <= let["until"] else None
+
+
+def lets_tick(state):
+    """A new day: lets whose last day has gone by end; the tenant knows, and may pay again."""
+    out = []
+    for room_id, let in list(state["run"].get("lets", {}).items()):
+        if day_of(state) > let["until"]:
+            del state["run"]["lets"][room_id]
+            name = ent("rooms", room_id).get("name", room_id)
+            pl = state["players"].get(let["tenant"])
+            if pl:
+                remember(pl, "seen", phrase("let_ended", place=name), state["run"].get("round") or 0)
+            with acting(let["tenant"] if pl else None):
+                log(state, "let", room=room_id, step="ended", tenant=let["tenant"])
+            out.append("LET ENDS: %s is no longer %s's (their days ran out); they know" % (name, pl["name"] if pl else let["tenant"]))
+    return out
+
+
+def cmd_buy(args):
+    """buy <item> [<seller>]: the person buys something a seller here has, at the seller's price."""
+    state = load_state()
+    require_playing(state)
+    ident = args[0]
+    sellers = [c for c in characters_here(state) if ident in sells(c)]
+    if len(args) > 1:
+        if args[1] not in characters_here(state) or ident not in sells(args[1]):
+            raise Refused("%s doesn't sell %s here (sellers of it here: %s)" % (args[1], ident, ", ".join(sellers) or "none"))
+        seller = args[1]
+    elif len(sellers) == 1:
+        seller = sellers[0]
+    elif sellers:
+        raise Refused("say who from: buy <item> <seller> (sellers of it here: %s)" % ", ".join(sellers))
+    else:
+        raise Refused("nobody here sells %s" % ident)
+    price, left, who = sells(seller)[ident]["price"], stock_left(state, seller, ident), ent("characters", seller).get("name", seller)
+    if left == 0:
+        raise Refused("%s has no %s left" % (who, item(ident).get("name", ident)))
+    if me(state)["stats"]["coins"] < price:
+        raise Refused("%s costs %d %s, and they have %d" % (item(ident).get("name", ident), price, currency(), me(state)["stats"]["coins"]))
+    check_carry(state, ident)
+    if left is not None:
+        state["run"].setdefault("stock", {}).setdefault(seller, {})[ident] = left - 1
+    change_coins(state, -price, "purchase", ident)
+    me(state)["inventory"].append(ident)
+    log(state, "purchase", item=ident, seller=seller, price=price, left=None if left is None else left - 1)
+    save_state(state)
+    print("BOUGHT: %s from %s for %d %s. COINS -%d -> %d%s" % (item(ident).get("name", ident), who, price, currency(), price,
+          me(state)["stats"]["coins"], "; %d left" % (left - 1) if left is not None else ""))
+
+
+def cmd_rent(args):
+    """rent <room>: the person takes a place to let from its landlord, who is here: theirs for its days."""
+    state = load_state()
+    require_playing(state)
+    room_id = args[0]
+    if not ent_exists("rooms", room_id) or not rent_of(ent("rooms", room_id)):
+        raise Refused("%s isn't a place to let" % room_id)
+    if not has_days():
+        raise Refused("a let runs for days, and this world doesn't count them")
+    terms, name = rent_of(ent("rooms", room_id)), ent("rooms", room_id).get("name", room_id)
+    if terms["landlord"] not in characters_here(state):
+        raise Refused("%s's landlord (%s) isn't here" % (name, terms["landlord"]))
+    let, pid = let_of(state, room_id), actor_id(state)
+    if let and let["tenant"] != pid:
+        raise Refused("%s is let to someone else until the end of day %d" % (name, let["until"]))
+    if me(state)["stats"]["coins"] < terms["price"]:
+        raise Refused("%s is %d %s for %d days, and they have %d" % (name, terms["price"], currency(), terms["days"], me(state)["stats"]["coins"]))
+    until = (let["until"] if let else day_of(state) - 1) + terms["days"]  # paid again, it runs on from where it ends
+    state["run"].setdefault("lets", {})[room_id] = {"tenant": pid, "until": until}
+    change_coins(state, -terms["price"], "purchase", room_id)
+    log(state, "let", room=room_id, step="renewed" if let else "taken", tenant=pid, price=terms["price"], until=until,
+        landlord=terms["landlord"])
+    save_state(state)
+    print("RENTED: %s, %s's to the end of day %d, from %s for %d %s. COINS -%d -> %d. They sleep there free, and what "
+          "they leave there stays theirs." % (name, me(state)["name"], until, ent("characters", terms["landlord"]).get("name", terms["landlord"]),
+                                             terms["price"], currency(), terms["price"], me(state)["stats"]["coins"]))
+
+
 # ---------------------------------------------------------------- earning: paid work and a buyer
 # A room may give `work:` (a stat, a pay range and a DC): a player there can work once per visit, a check
 # first, and is paid in coins on a success. A character with `buys:` pays a set price per item tier for
@@ -1449,6 +1563,8 @@ def tick_move(state):
     run["moves"] += 1
     if time_steps(state) != before:  # a time of day has gone by: a night slept or not, a day eaten in or not
         out += needs_tick(state, before)
+        if has_days() and time_steps(state) % len(world()["times"]) == 0:
+            out += lets_tick(state)
     clock = run.get("clock")
     if clock and clock["left"] > 0:
         clock["left"] -= 1
@@ -1604,10 +1720,22 @@ def cmd_sleep(args):
     place = str(room_here(state).get("sleep") or "").lower()
     if place not in SLEEP_PLACES:
         raise Refused("there's nowhere to sleep here (%s); somewhere with a bed, or rough" % room_here(state).get("name", ""))
+    room, pl, paid = room_here(state), me(state), ""
+    price = room.get("bed_price") if isinstance(room.get("bed_price"), int) else 0
+    if let_of(state, room["id"]) and let_of(state, room["id"])["tenant"] == actor_id(state):
+        paid = " (their own, while the let lasts)"
+    elif pl.get("paid_beds", {}).get(room["id"]):
+        pl["paid_beds"][room["id"]] -= 1
+        paid = " (a night already paid for)"
+    elif price:
+        if pl["stats"]["coins"] < price:
+            raise Refused("a bed here is %d %s a night, and they have %d" % (price, currency(), pl["stats"]["coins"]))
+        change_coins(state, -price, "purchase", "a night's bed at %s" % room["id"])
+        paid = " for %d %s (COINS -%d -> %d)" % (price, currency(), price, pl["stats"]["coins"])
     met(state, "sleep", place, "sleep")
     save_state(state)
-    print("SLEPT: %s, %s. When the night has gone by they'll be %s." % (
-        room_here(state).get("name", ""), "in a bed" if place == "bed" else "rough", "rested" if place == "bed" else "tired, though spared worse"))
+    print("SLEPT: %s, %s%s. When the night has gone by they'll be %s." % (
+        room.get("name", ""), "in a bed" if place == "bed" else "rough", paid, "rested" if place == "bed" else "tired, though spared worse"))
 
 
 def cmd_meet(args):
@@ -1839,7 +1967,8 @@ def cast_player(entry, w, run):
     known = [k["who"] for k in entry.get("people") or [] if content.exists("characters", k["who"])]  # people they know already
     return {"name": entry["name"], "model": entry.get("model"), "status": "playing", "location": entry["home"],
             "stats": stats, "inventory": inventory, "equipped": equipped if equipped in inventory else None,
-            "map": {}, "met": known, "present": None, "worked": None, "taken_on": []}
+            "map": {}, "met": known, "present": None, "worked": None, "taken_on": [],
+            "paid_beds": {b["room"]: int(b["nights"]) for b in entry.get("paid_beds") or []}}
 
 
 def cmd_look(args):
@@ -1923,6 +2052,19 @@ def cmd_look(args):
         print("QUESTS: %s. When the player sets out to work on one, or agrees to a job: `quest take <id>`; when they set "
               "one aside: `quest leave <id>`." % "; ".join("%s (%s): %s" % (ent("quests", q).get("name", q), q, "taken on" if q in taken
                                                                              else "not taken on") for q in reach))
+    sellers = [c for c in here if sells(c)]
+    if sellers:  # for the referee: the prices are the seller's to tell when asked, never announced
+        print("SELLERS HERE: %s. If the player buys something: `buy <item>` (or `buy <item> <seller>`)." % "; ".join(
+            "%s (%s): %s" % (ent("characters", c).get("name", c), c, ", ".join("%s %d%s" % (i, s["price"], "" if stock_left(state, c, i) is None
+                                                                                  else ", %d left" % stock_left(state, c, i)) for i, s in sells(c).items()))
+            for c in sellers))
+    lets = [r for r in content.ids("rooms") if rent_of(ent("rooms", r)) and rent_of(ent("rooms", r))["landlord"] in here]
+    if lets:
+        print("LETS HERE: %s. If the player takes one: `rent <room>`." % "; ".join(
+            "%s (%s), %d %s for %d days, from %s: %s" % (ent("rooms", r).get("name", r), r, rent_of(ent("rooms", r))["price"], currency(),
+                                                        rent_of(ent("rooms", r))["days"], rent_of(ent("rooms", r))["landlord"],
+                                                        "let to %s to the end of day %d" % (state["players"][let_of(state, r)["tenant"]]["name"], let_of(state, r)["until"])
+                                                        if let_of(state, r) else "free") for r in lets))
     buyers = [c for c in here if buys(c)]
     if buyers:
         print("BUYERS HERE: %s. If the player sells something: `sell <item>`." % "; ".join(
@@ -2045,7 +2187,10 @@ def cmd_take(args):
 def stash_owner(state, room_id):
     """The player whose stash this room is, or None. Things left in a stash can be taken only by its owner."""
     meta = (state["run"]["rooms"].get(room_id) or {}).get("meta") or {}
-    return meta.get("owner") if meta.get("use") == "stash" and meta.get("owner") in state["players"] else None
+    if meta.get("use") == "stash" and meta.get("owner") in state["players"]:
+        return meta["owner"]
+    let = let_of(state, room_id)  # a place let is its tenant's while it lasts
+    return let["tenant"] if let and let["tenant"] in state["players"] else None
 
 
 def remove_from_inventory(state, ident):
@@ -2314,6 +2459,17 @@ def cmd_npc_brief(args):
         lines += ["## A little scene you're in", premise, "", part, "",
                   "This is reply %d of the scene's %d.%s" % (rec["replies"], cap, " It's the last one: bring the scene to a close."
                                                             if rec["replies"] >= cap else ""), ""]
+    wares = sells(ident)
+    if wares:  # what they sell is theirs to tell when asked, at these prices and no other
+        lines += ["## What you sell, at these prices and no other"] + ["- %s: %d %s%s" % (
+            item(i).get("name", i), s["price"], currency(), "" if stock_left(state, ident, i) is None else
+            (" (none left)" if stock_left(state, ident, i) == 0 else " (%d left)" % stock_left(state, ident, i))) for i, s in wares.items()] + [""]
+    mine = [r for r in content.ids("rooms") if rent_of(ent("rooms", r)) and rent_of(ent("rooms", r))["landlord"] == ident]
+    if mine:
+        lines += ["## What you let, on these terms and no other"] + ["- %s: %d %s for %d days, %s" % (
+            ent("rooms", r).get("name", r), rent_of(ent("rooms", r))["price"], currency(), rent_of(ent("rooms", r))["days"],
+            "let to %s to the end of day %d" % (state["players"][let_of(state, r)["tenant"]]["name"], let_of(state, r)["until"])
+            if let_of(state, r) else "free to let") for r in mine] + [""]
     rumors = state["run"]["rumors"][-3:]
     if rumors:
         lines += ["## Talk going around (you may have heard it)"] + ["- " + r for r in rumors] + [""]
@@ -3306,6 +3462,7 @@ def validate_game(kit=False, sim=False):
     validate_plans(w, flag_text, problems)
     validate_days(w, problems)
     validate_needs(w, problems)
+    validate_selling(w, problems)
     validate_scenes(problems)
     validate_cast(problems)
     validate_soundness(w, problems)
@@ -3463,7 +3620,7 @@ def validate_cast(problems):
         problems.append("cast.json: at most %d players (has %d)" % (int(limits["max_players"]), len(data)))
     seen_ids, seen_names = set(), set()
     known = {"id", "model", "pronouns", "motivations", "attributes", "hp", "coins", "inventory", "equipped", "home",
-             "knows", "people", "look"} | set(CAST_TEXT)
+             "knows", "people", "look", "paid_beds"} | set(CAST_TEXT)
     cast_ids = {e.get("id") for e in data if isinstance(e, dict)}
     for n, e in enumerate(data, 1):
         if not isinstance(e, dict):
@@ -3509,6 +3666,10 @@ def validate_cast(problems):
                     problems.append("%s: people: %r is neither another of the cast nor a character in this world" % (where, k["who"]))
         if "look" in e and not (isinstance(e["look"], str) and e["look"].strip() and len(e["look"]) <= int(limits["look_chars"])):
             problems.append("%s: look must be a line of at most %d characters" % (where, int(limits["look_chars"])))
+        for b in e.get("paid_beds") or []:  # nights already paid for: [{"room", "nights"}]
+            if not (isinstance(b, dict) and content.exists("rooms", str(b.get("room"))) and isinstance(b.get("nights"), int)
+                    and b["nights"] > 0 and isinstance(content.load("rooms", str(b["room"])).get("bed_price"), int)):
+                problems.append("%s: paid_beds: each is {\"room\": a room with a bed_price, \"nights\": a number from 1}" % where)
         if "model" in e and e["model"] not in limits["models"]:
             problems.append("%s: model must be one of %s" % (where, ", ".join(limits["models"])))
         elif "model" not in e and SETTINGS["cast"]["model"] == "own":
@@ -3579,7 +3740,7 @@ def validate_scenes(problems):
 
 _HEADING_IF = re.compile(r"^#{2,6}\s+If\s+(.+?)\s*$", re.M)
 _CODE = re.compile(r"`([^`\n]+)`")
-ITEM_COMMANDS = ("take", "drop", "gain", "lose", "equip", "use", "sell", "eat")
+ITEM_COMMANDS = ("take", "drop", "gain", "lose", "equip", "use", "sell", "eat", "buy")
 
 
 def content_files(w):
@@ -3668,6 +3829,8 @@ def command_problem(words):
     if cmd == "scene" and (args[0] not in ("start", "end") or not content.exists("scenes", args[1])
                            or args[2:] not in ([], ["reward"])):
         return "use scene start|end <scene> [reward], naming a scene the game has"
+    if cmd == "rent" and not (args[0].startswith("<") or content.exists("rooms", args[0]) and rent_of(content.load("rooms", args[0]))):
+        return "no place to let called %r" % args[0]
     if cmd == "meet" and (args[0] not in NEEDS or args[1:] not in ([], ["bed"], ["rough"]) or args[0] == "food" and args[1:]):
         return "use meet food, or meet sleep [bed|rough]"
     if cmd == "show" and args[0] != "world" and (args[0] not in content.KINDS or len(args) < 2
@@ -3747,6 +3910,33 @@ def validate_needs(w, problems):
             problems.append("world.md needs: sleep, but nowhere has `sleep: bed` or `sleep: rough`, and nothing says `meet sleep`")
     if "food" in needs and not food and "`meet food" not in text:
         problems.append("world.md needs: food, but no item is `food: yes`, and nothing says `meet food`")
+
+
+def validate_selling(w, problems):
+    """Sellers' `sells:`, rooms' `bed_price:`, `rent:` and `landlord:`."""
+    for c in content.ids("characters"):
+        meta = content.load("characters", c)
+        if meta.get("sells") is None:
+            continue
+        if not isinstance(meta["sells"], dict) or not meta["sells"]:
+            problems.append("characters/%s.md: sells: an item and its price on each indented line (item: price, or price, n in stock)" % c)
+            continue
+        for i, v in meta["sells"].items():
+            if not content.exists("items", i):
+                problems.append("characters/%s.md: sells: no item %r" % (c, i))
+            if not _SELLS.match(str(v).strip()):
+                problems.append("characters/%s.md: sells: %s: a price, or \"<price>, <n> in stock\" (got %r)" % (c, i, v))
+    for r in content.ids("rooms"):
+        room, where = content.load("rooms", r), "rooms/%s.md" % r
+        if "bed_price" in room and (not isinstance(room["bed_price"], int) or room["bed_price"] < 0 or str(room.get("sleep")).lower() != "bed"):
+            problems.append("%s: bed_price: a whole number, in a room with sleep: bed" % where)
+        if "rent" in room or "landlord" in room:
+            if not rent_of(room):
+                problems.append("%s: rent: \"<price> for <n> days\", with a landlord:" % where)
+            elif not content.exists("characters", str(room.get("landlord"))):
+                problems.append("%s: landlord: no character %r" % (where, room.get("landlord")))
+            if str(w.get("days", "no")).lower() != "yes":
+                problems.append("%s: rent: a let runs for days, so the world needs `days: yes`" % where)
 
 
 def validate_soundness(w, problems):
@@ -4879,6 +5069,7 @@ PHRASES = {
     "change_in_hand": ("things",), "change_put_away": ("things",), "change_waiting": ("things",),
     "change_building": ("things",), "change_own": ("things",), "change_met": ("people",),
     "thinkback_voice": ("voice",), "thinkback_note": (), "learned_none": (), "time_on_day": ("time", "n"),
+    "rented": ("place", "n"), "paid_bed": ("place", "nights"), "tonight": (), "nights": ("n",), "let_ended": ("place",),
     "you_need": ("needs",), "you_want": ("wants",), "taken_on": (), "food_fed": (), "food_due": (), "food_hungry": (),
     "food_weak": (), "sleep_rested": (), "sleep_tired": (), "sleep_exhausted": (), "sleep_slept": (), "sleep_time": (),
 }
@@ -5136,9 +5327,14 @@ def pane_text(state):
     carried = ["%s%s%s" % (i["name"], " " + phrase("in_hand") if i["equipped"] else "", " " + phrase("made_for_you") if i["own"] else "")
                for i in v["items"]]
     lines.append(phrase("carrying", things=", ".join(carried) if carried else phrase("nothing"), load=v["weight"], limit=v["carry_limit"]))
-    mine = [r for r, rec in state["run"]["rooms"].items() if rec["meta"].get("owner") == pid]
+    mine = [ent("rooms", r).get("name", r) for r, rec in state["run"]["rooms"].items() if rec["meta"].get("owner") == pid]
+    mine += [phrase("rented", place=ent("rooms", r).get("name", r), n=let_of(state, r)["until"])
+             for r in state["run"].get("lets", {}) if let_of(state, r) and let_of(state, r)["tenant"] == pid]
     if mine:
-        lines.append(phrase("own_places", places=", ".join(ent("rooms", r).get("name", r) for r in mine)))
+        lines.append(phrase("own_places", places=", ".join(mine)))
+    for r, n in sorted(pl.get("paid_beds", {}).items()):
+        if n:
+            lines.append(phrase("paid_bed", place=ent("rooms", r).get("name", r), nights=phrase("tonight") if n == 1 else phrase("nights", n=n)))
     going = [c for c in state["run"]["commissions"].values() if c.get("by") == pid and c["status"] == "building"]
     for c in going:
         lines.append(phrase("being_built", name=c["record"]["meta"]["name"]))
@@ -5670,6 +5866,8 @@ COMMANDS = {
     "generate": (cmd_generate, 2, "generate <extra|room|item|character|quest|craft|build> <file>   add a world-agent proposal (a JSON file)"),
     "pay": (cmd_pay, 1, "pay <order> [material]   the player pays a maker or builder for an order"),
     "work": (cmd_work, 0, "work   the player works here for pay, once per visit (a check first)"),
+    "buy": (cmd_buy, 1, "buy <item> [<seller>]   buy from a seller here, at their price"),
+    "rent": (cmd_rent, 1, "rent <room>   take a place to let from its landlord, who is here"),
     "eat": (cmd_eat, 1, "eat <item>   eat something they carry that's food (a world with needs)"),
     "sleep": (cmd_sleep, 0, "sleep   sleep here, at the world's time for sleep, in a bed or rough (a world with needs)"),
     "meet": (cmd_meet, 1, "meet food | meet sleep [bed|rough]   a need met as the content says"),

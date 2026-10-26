@@ -2571,6 +2571,123 @@ print(json.dumps({"type": "result", "is_error": False, "result": "Round done.", 
         world.write_text(world.read_text().replace("days: yes", "days: no"))
         self.assertIn("needs: need `days: yes`", self.rpg("validate", "--game", "dark_lighthouse", ok=False))
 
+    def selling_world(self, coins=10, paid_beds=None):
+        """The needs world with Pell selling at the Gull (honey cake 1, one smoked fish for 2), a bed there for 2 a
+        night, and the Gull to let from Pell (3 for 2 days); everyone with `coins` to spend."""
+        self.needs_world()
+        games = self.dir / "games" / "dark_lighthouse"
+        pell = games / "characters" / "pell.md"
+        pell.write_text(pell.read_text().replace("---\n", "---\nsells:\n  honey_cake: 1\n  smoked_fish: 2, 1 in stock\n", 1)
+                        .replace("minor: yes", "minor: no"))  # his own agent here, so his brief can be read
+        gull = games / "rooms" / "gull_tavern.md"
+        gull.write_text(gull.read_text().replace("sleep: bed\n", "sleep: bed\nbed_price: 2\nrent: 3 for 2 days\nlandlord: pell\n", 1))
+        if paid_beds:
+            cast = games / "cast.json"
+            entries = json.loads(cast.read_text())
+            entries[0]["paid_beds"] = paid_beds
+            cast.write_text(json.dumps(entries))
+        self.rpg("newgame", seed=43)
+        s = self.save()
+        for pl in s["players"].values():
+            pl["stats"]["coins"] = coins
+        self.write("state/save.json", json.dumps(s))
+
+    def test_a_seller_sells_at_their_price_while_they_have_any(self):
+        self.selling_world()
+        self.assertIn("CONTENT OK: dark_lighthouse", self.rpg("validate"))
+        look = self.rpg("look", as_="corin")
+        self.assertIn("SELLERS HERE: Pell (pell): honey_cake 1, smoked_fish 2, 1 left.", look)
+        self.assertIn("LETS HERE: The Gull (gull_tavern), 3 coins for 2 days, from pell: free.", look)
+        brief = self.rpg("npc-brief", "pell", as_="corin")
+        self.assertIn("## What you sell, at these prices and no other\n- Honey Cake: 1 coins\n- Smoked Fish: 2 coins (1 left)", brief)
+        self.assertIn("## What you let, on these terms and no other\n- The Gull: 3 coins for 2 days, free to let", brief)
+        self.assertNotIn("coins", self.rpg("pane", "corin").split("## You\n")[1].split("Carrying")[0].replace("Money: 10 coins.", ""),
+                         "no price in anyone's pane")
+        self.assertIn("BOUGHT: Honey Cake from Pell for 1 coins. COINS -1 -> 9", self.rpg("buy", "honey_cake", as_="corin"))
+        self.assertIn("COINS -2 -> 7; 0 left", self.rpg("buy", "smoked_fish", as_="corin"))
+        self.assertIn("Pell has no Smoked Fish left", self.rpg("buy", "smoked_fish", as_="corin", ok=False))
+        self.assertIn("nobody here sells brass_lens", self.rpg("buy", "brass_lens", as_="corin", ok=False))
+        self.assertIn("nobody here sells honey_cake", self.rpg("buy", "honey_cake", as_="wren", ok=False), "Pell is at the Gull")
+        self.assertEqual(self.save()["players"]["corin"]["inventory"].count("honey_cake"), 1)
+        self.rpg("buy", "honey_cake", as_="corin")
+        self.assertEqual(self.save()["players"]["corin"]["inventory"].count("honey_cake"), 2, "two of a thing")
+        s = self.save()
+        s["players"]["corin"]["stats"]["coins"] = 0
+        self.write("state/save.json", json.dumps(s))
+        self.assertIn("Honey Cake costs 1 coins, and they have 0", self.rpg("buy", "honey_cake", as_="corin", ok=False))
+        self.assertIn("(none left)", self.rpg("npc-brief", "pell", as_="corin"))
+        entries = self.log_entries()
+        self.assertEqual([(e["item"], e["price"], e["left"]) for e in entries if e["kind"] == "purchase"],
+                         [("honey_cake", 1, None), ("smoked_fish", 2, 0), ("honey_cake", 1, None)])
+        self.assertEqual({e["reason"] for e in entries if e["kind"] == "coins"}, {"purchase"})
+        audit = self.run_py("tools/audit.py", "state/log/%s.jsonl" % s["run"]["id"]).stdout
+        self.assertIn("corin bought smoked_fish from pell for 2 (0 left)", audit)
+        s["players"]["corin"]["stats"]["coins"] = 6
+        self.write("state/save.json", json.dumps(s))
+        self.assertIn("to the end of day 2", self.rpg("rent", "gull_tavern", as_="corin"))
+        self.assertIn("to the end of day 4", self.rpg("rent", "gull_tavern", as_="corin"), "paid again, it runs on from where it ends")
+        self.assertIn("corin renewed gull_tavern to the end of day 4, for 3", self.run_py("tools/audit.py", "state/log/%s.jsonl" % s["run"]["id"]).stdout)
+
+    def test_a_bed_is_paid_for_at_bedtime_and_a_place_let_is_its_tenants_till_its_days_run_out(self):
+        self.selling_world(coins=4, paid_beds=[{"room": "gull_tavern", "nights": 1}])  # Wren has tonight paid for at the Gull
+        self.assertIn("A bed is paid for at The Gull, for tonight.", self.rpg("pane", "wren"))
+        self.assertIn("landlord (pell) isn't here", self.rpg("rent", "gull_tavern", as_="wren", ok=False))
+        self.assertIn("RENTED: The Gull, Corin's to the end of day 2, from Pell for 3 coins. COINS -3 -> 1", self.rpg("rent", "gull_tavern", as_="corin"))
+        self.assertIn("Your own places: The Gull (yours to the end of day 2)", self.rpg("pane", "corin"))
+        self.rpg("move", "north", as_="wren")
+        self.assertIn("let to someone else until the end of day 2", self.rpg("rent", "gull_tavern", as_="wren", ok=False))
+        self.rpg("drop", "healing_tonic", as_="corin")
+        self.assertIn("refused", self.rpg("take", "healing_tonic", as_="wren", ok=False).lower(), "what the tenant leaves stays theirs")
+        for _ in range(3):
+            self.round_doing()
+        self.round_doing({"corin": [["sleep"]], "wren": [["sleep"]]})  # the small hours: his own bed, and her night paid ahead
+        self.assertEqual([self.save()["players"][p]["stats"]["coins"] for p in ("corin", "wren")], [1, 4], "neither paid tonight")
+        self.assertEqual(self.save()["players"]["wren"]["paid_beds"], {"gull_tavern": 0})
+        self.assertNotIn("A bed is paid for", self.rpg("pane", "wren"))
+        for _ in range(3):
+            self.round_doing()
+        self.round_doing({"wren": [["sleep"]]})  # the second night: she pays for her bed
+        self.assertEqual(self.save()["players"]["wren"]["stats"]["coins"], 2)
+        self.assertIn("COINS -2", [e for e in self.log_entries() if e["kind"] == "command" and e["command"] == "sleep"][-1]["output"])
+        self.assertIn("LET ENDS: The Gull is no longer Corin's", "\n".join([e for e in self.log_entries() if e["kind"] == "round"][-1]["events"]))
+        corin = self.save()["players"]["corin"]
+        self.assertIn("Your time at The Gull has run out: it isn't yours any more.", [m["text"] for m in corin["memory"]["recent"]])
+        self.assertNotIn("yours to the end of day", self.rpg("pane", "corin"))
+        s = self.save()
+        s["players"]["wren"]["stats"]["coins"] = 1
+        self.write("state/save.json", json.dumps(s))
+        for _ in range(3):
+            self.round_doing()
+        order = [p.split("(")[1].rstrip(")") for p in self.rpg("round", "start").split(": ", 1)[1].strip().split(", ")]
+        for pid in order:
+            self.write("proposals/reply.txt", "DO: I go to bed.\nJOURNAL: Tired.\n")
+            self.rpg("reply", pid, "proposals/reply.txt")
+            if pid == "wren":
+                self.assertIn("a bed here is 2 coins a night, and they have 1", self.rpg("sleep", as_="wren", ok=False))
+            self.write("proposals/story.txt", "You look around.")
+            self.rpg("narrate", pid, "proposals/story.txt")
+        self.rpg("round", "end")
+
+    def test_validate_holds_sellers_beds_and_lets_to_their_shape(self):
+        self.needs_world()
+        games = self.dir / "games" / "dark_lighthouse"
+        pell = games / "characters" / "pell.md"
+        pell.write_text(pell.read_text().replace("---\n", "---\nsells:\n  kipper: 1\n  honey_cake: cheap\n", 1))
+        square = games / "rooms" / "harbor_square.md"
+        square.write_text(square.read_text().replace("sleep: rough\n", "sleep: rough\nbed_price: 2\nrent: 3 a week\nlandlord: nobody\n", 1))
+        coast = games / "rooms" / "coast_road.md"
+        coast.write_text(coast.read_text() + "\nA sign (`rent coast_road`).\n")
+        cast = games / "cast.json"
+        entries = json.loads(cast.read_text())
+        entries[0]["paid_beds"] = [{"room": "coast_road", "nights": 0}]
+        cast.write_text(json.dumps(entries))
+        out = self.rpg("validate", "--game", "dark_lighthouse", ok=False)
+        for expected in ("characters/pell.md: sells: no item 'kipper'", 'sells: honey_cake: a price, or "<price>, <n> in stock"',
+                         "rooms/harbor_square.md: bed_price: a whole number, in a room with sleep: bed",
+                         'rooms/harbor_square.md: rent: "<price> for <n> days", with a landlord:',
+                         "paid_beds: each is", "no place to let called 'coast_road'"):
+            self.assertIn(expected, out)
+
     def test_a_person_strikes_what_no_longer_holds_from_what_they_learned_on_their_own_turn(self):
         self.rpg("game", "switch", "thirteenth_stroke")
         self.settings_tool("preset", "simulation")

@@ -67,6 +67,10 @@ nothing:         nothing
 in_hand:         (in hand)
 made_for_you:    (made for you)
 own_places:      Your own places: {places} (what you leave there stays yours).
+rented:          {place} (yours to the end of day {n})
+paid_bed:        A bed is paid for at {place}, {nights}.
+tonight:         for tonight
+nights:          for {n} more nights
 being_built:     Being built for you: {name}.
 waiting:         Waiting for you to pay: {thing}, from {maker}, for {price} {currency}{in_trade}.
 in_trade:        or {things} in trade
@@ -114,6 +118,7 @@ closing:         What do you do now?
 says:            {name} says: "{words}"
 finished:        {place} is finished, {direction} of {where}: {builder} built it for you.
 finished_rumor:  {place} is finished, {direction} of {where}, and folk are curious to see it.
+let_ended:       Your time at {place} has run out: it isn't yours any more.
 
 # ---- the think-back (rules/people/thinkback.md): who they are, as memory.thinkback_sees says (the whole Who I am
 # ---- note follows thinkback_note), and their list of what they've learned when it's empty
