@@ -1,0 +1,243 @@
+{
+ "when": "2026-10-26T13:15:58",
+ "world": "wendleford",
+ "person": "dilly",
+ "entry": "cast.json",
+ "archetype": "dilly",
+ "tags": {
+  "generate": "e3cefa05",
+  "definitions": "0d6669b3",
+  "archetype": "b7c05fb7"
+ },
+ "roundtrip": "36ec79a4",
+ "model": "claude-sonnet-5-5",
+ "cost": 0.012666,
+ "note": "## Who I am (a note to myself)\nI'm Dilly Quickstep (they/them). I'm about thirty, and I came into Wendleford a few days back with a pack and a pocketful of cheer, looking for work. I'll turn my hand to any odd job going: hauling, mending, running messages, whatever pays. I'm sleeping at the Wheatsheaf, where I've a bed paid for two nights, and I've four pennies left to my name. I was in the square when the flood took the mill bridge, and I've been itching for something to do ever since.\nHow I talk: Fast and chatty, all brag and good cheer. Everything's \"easy as winking\". I call people \"chum\", I say what I'm going to fix before I've looked at it, and I ask what a thing costs before I ask what it is.\nWhat I want: I want the name of the one who fixed it, and that'll be me; I want a bargain, a good one, and the price better be small; I want something to do, and soon, chum.\nWhat I steer clear of: I can't abide sitting about with my hands in my lap; I can't stand somebody else walking off with my credit.\nWhat I won't do: I won't steal, not even a bargain.\nWhat comes first: being the one who fixed it then a good bargain then keeping busy.\nPeople I know: Tom Harrow: Tom Harrow keeps the Wheatsheaf, and he's got my two nights' bed on his books; Bet Lamb: Bet Lamb sells bread from her stall in the square, and I've already asked her what a loaf costs; Agnes Pollard: Agnes Pollard's the reeve, and I've read her reward notice more than once.\nI'm up and doing before the cock's done crowing, and I'll tell you what I'm fixing before I've so much as looked at it. Easy as winking! I can't abide standing about, so I'm off to the next lane, the next stall, the next job. I'll chat to anyone and believe most of what they tell me. Coins burn a hole in my pocket; if there's a bargain I'll spend on it, and tomorrow can look after itself. I promise things grandly and lose track of them just as quick, and I'm forever starting one job and wandering off to another. A tumble doesn't keep me down long. And I do like to be looked at when the work's done right.",
+ "reply": "with_money: 5\ninitiative: 5\nseeks_company: 4\ntakes_charge: 4\nkindness: 3\ntrust: 5\nhonesty: 4\nuses_people: 2\nwants_to_be_seen: 5\nfollow_through: 2\nreliability: 2\norderliness: 2\nimpulsiveness: 5\nrisk_taking: 4\ntemper: 3\nbounces_back: 5\ncuriosity: 3\ntaste_for_beauty: 3\nimagination: 3\nuse: 4\nbuild: 2\ninfluence: 3\ninvestigate: 2\nconvince: 4\ntrade: 4\nstay_silent: 1\ngo: 5\nwork: 5\ngive: 3\ngrab: 1\nfight: 3\nwait: 1",
+ "rows": [
+  {
+   "trait": "with_money",
+   "part": "attributes",
+   "archetype": 5,
+   "read": 5,
+   "flag": false
+  },
+  {
+   "trait": "initiative",
+   "part": "attributes",
+   "archetype": 5,
+   "read": 5,
+   "flag": false
+  },
+  {
+   "trait": "seeks_company",
+   "part": "attributes",
+   "archetype": 4,
+   "read": 4,
+   "flag": false
+  },
+  {
+   "trait": "takes_charge",
+   "part": "attributes",
+   "archetype": 3,
+   "read": 4,
+   "flag": false
+  },
+  {
+   "trait": "kindness",
+   "part": "attributes",
+   "archetype": 3,
+   "read": 3,
+   "flag": false
+  },
+  {
+   "trait": "trust",
+   "part": "attributes",
+   "archetype": 4,
+   "read": 5,
+   "flag": false
+  },
+  {
+   "trait": "honesty",
+   "part": "attributes",
+   "archetype": 3,
+   "read": 4,
+   "flag": false
+  },
+  {
+   "trait": "uses_people",
+   "part": "attributes",
+   "archetype": 2,
+   "read": 2,
+   "flag": false
+  },
+  {
+   "trait": "wants_to_be_seen",
+   "part": "attributes",
+   "archetype": 5,
+   "read": 5,
+   "flag": false
+  },
+  {
+   "trait": "follow_through",
+   "part": "attributes",
+   "archetype": 2,
+   "read": 2,
+   "flag": false
+  },
+  {
+   "trait": "reliability",
+   "part": "attributes",
+   "archetype": 2,
+   "read": 2,
+   "flag": false
+  },
+  {
+   "trait": "orderliness",
+   "part": "attributes",
+   "archetype": 1,
+   "read": 2,
+   "flag": false
+  },
+  {
+   "trait": "impulsiveness",
+   "part": "attributes",
+   "archetype": 5,
+   "read": 5,
+   "flag": false
+  },
+  {
+   "trait": "risk_taking",
+   "part": "attributes",
+   "archetype": 4,
+   "read": 4,
+   "flag": false
+  },
+  {
+   "trait": "temper",
+   "part": "attributes",
+   "archetype": 3,
+   "read": 3,
+   "flag": false
+  },
+  {
+   "trait": "bounces_back",
+   "part": "attributes",
+   "archetype": 5,
+   "read": 5,
+   "flag": false
+  },
+  {
+   "trait": "curiosity",
+   "part": "attributes",
+   "archetype": 3,
+   "read": 3,
+   "flag": false
+  },
+  {
+   "trait": "taste_for_beauty",
+   "part": "attributes",
+   "archetype": 2,
+   "read": 3,
+   "flag": false
+  },
+  {
+   "trait": "imagination",
+   "part": "attributes",
+   "archetype": 3,
+   "read": 3,
+   "flag": false
+  },
+  {
+   "trait": "use",
+   "part": "ways",
+   "archetype": 4,
+   "read": 4,
+   "flag": false
+  },
+  {
+   "trait": "build",
+   "part": "ways",
+   "archetype": 2,
+   "read": 2,
+   "flag": false
+  },
+  {
+   "trait": "influence",
+   "part": "ways",
+   "archetype": 3,
+   "read": 3,
+   "flag": false
+  },
+  {
+   "trait": "investigate",
+   "part": "ways",
+   "archetype": 2,
+   "read": 2,
+   "flag": false
+  },
+  {
+   "trait": "convince",
+   "part": "ways",
+   "archetype": 4,
+   "read": 4,
+   "flag": false
+  },
+  {
+   "trait": "trade",
+   "part": "ways",
+   "archetype": 5,
+   "read": 4,
+   "flag": false
+  },
+  {
+   "trait": "stay_silent",
+   "part": "ways",
+   "archetype": 1,
+   "read": 1,
+   "flag": false
+  },
+  {
+   "trait": "go",
+   "part": "ways",
+   "archetype": 5,
+   "read": 5,
+   "flag": false
+  },
+  {
+   "trait": "work",
+   "part": "ways",
+   "archetype": 4,
+   "read": 5,
+   "flag": false
+  },
+  {
+   "trait": "give",
+   "part": "ways",
+   "archetype": 2,
+   "read": 3,
+   "flag": false
+  },
+  {
+   "trait": "grab",
+   "part": "ways",
+   "archetype": 3,
+   "read": 1,
+   "flag": true
+  },
+  {
+   "trait": "fight",
+   "part": "ways",
+   "archetype": 2,
+   "read": 3,
+   "flag": false
+  },
+  {
+   "trait": "wait",
+   "part": "ways",
+   "archetype": 1,
+   "read": 1,
+   "flag": false
+  }
+ ]
+}
