@@ -4214,5 +4214,27 @@ near: stuck
             self.assertFalse((self.dir / gone).exists(), gone)
         self.assertNotIn("salt_mines", self.rpg("game", "list"))
 
+def run_in_parallel(jobs):
+    """`--jobs N`: the tests split into N parts (at most the machine's cores), each run in a process of its own; every
+    test plays in its own temp copy, so they don't meet. Prints any failure in full, then one summary like unittest's."""
+    def each(suite):
+        for t in suite:
+            yield from each(t) if isinstance(t, unittest.TestSuite) else [t]
+    ids = [t.id().split(".", 1)[1] for t in each(unittest.defaultTestLoader.loadTestsFromModule(sys.modules[__name__]))]
+    jobs = max(1, min(jobs, os.cpu_count() or 1, len(ids)))
+    started = datetime.datetime.now()
+    procs = [subprocess.Popen([sys.executable, __file__, "-q", *ids[i::jobs]], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+             for i in range(jobs)]
+    failed = [out for out in (p.communicate()[0] for p in procs) if not re.search(r"\nOK\b[^\n]*\s*$", out)]
+    for out in failed:
+        print(out)
+    print("Ran %d tests in %.3fs (%d processes)\n\n%s" % (len(ids), (datetime.datetime.now() - started).total_seconds(), jobs,
+                                                          "FAILED (%d of %d parts)" % (len(failed), jobs) if failed else "OK"))
+    return 1 if failed else 0
+
+
 if __name__ == "__main__":
+    if "--jobs" in sys.argv:
+        i = sys.argv.index("--jobs")
+        sys.exit(run_in_parallel(int(sys.argv[i + 1])))
     unittest.main(verbosity=2)

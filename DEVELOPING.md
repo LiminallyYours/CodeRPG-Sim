@@ -27,7 +27,10 @@ Break these and the design falls apart:
 ```
 sh tools/check.sh
 ```
-It runs `rpg.py validate` (the kit's games in `games/`: content references, formats, soundness, and look/balance keys; forged worlds in `state/worlds/` aren't checked here), a compile of the Python, `tools/test_rules.py` (the engine tests, in a temp copy), `claude plugin validate mod`, `claude plugin test mod` (the mod's tests, `mod/tests/`), and a TypeScript type-check of the mod.
+It runs `rpg.py validate` (the kit's games in `games/`: content references, formats, soundness, and look/balance keys; forged worlds in `state/worlds/` aren't checked here), a compile of the Python, `tools/test_rules.py` (the engine tests, each in a temp copy of its own, in 8 processes side by side with `--jobs 8`: about 75 seconds, against about 4½ minutes one at a time; `python3 tools/test_rules.py` alone still runs them one at a time), `claude plugin validate mod`, `claude plugin test mod` (the mod's tests, `mod/tests/`), and a TypeScript type-check of the mod. About 1¼ minutes in all.
+- **One check a commit:** check the change, then commit, chained with `&&`, so a failed check stops it; the last commit's check stands as the next one's "before" (nothing changes between them).
+- **`--docs`:** only the content and the compile, for a change to the top-level documents alone (`PLAN.md`, `HANDOFF.md`, `DEVELOPING.md`, `README.md`, the proposals and specs): nothing in the tests reads them. It refuses when anything else has changed, `CLAUDE.md` (the referee's standing orders) included.
+- **`--snapshot`:** checks a copy of the project as it stands (without `.git` and `state/`), so editing can go on while it runs; the tests copy the working files as they go, and an edit midway could spoil a plain check. A commit's own check is still a plain one, run just before it, so it checks exactly what's committed.
 - **Type-check:** it needs `mod/tsconfig.json`, which Claude Code writes the first time it loads the mod; open one `claude --plugin-dir ./mod` session if it's missing. TypeScript comes through `npx`.
 - **"✘ … the plugin directory refuses a submission for":** this is about submitting to Claude Code's public plugin catalog, which wants a README and a LICENSE inside `mod/`. It doesn't affect local use.
 
