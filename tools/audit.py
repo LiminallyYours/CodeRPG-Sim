@@ -68,8 +68,9 @@ def read_jsonl(path):
 
 
 def told_text(e):
-    """What a person reads of an entry: its text, and for a memory the list of what they've learned too."""
-    return "\n".join([e.get("text", "")] + list(e.get("learned") or []))
+    """What a person reads of an entry: its text, and for a memory the list of what they've learned too (an onlookers'
+    note's `learned` is flag names for the engine, which nobody reads)."""
+    return "\n".join([e.get("text", "")] + (list(e.get("learned") or []) if e["kind"] == "memory" else []))
 
 
 def leaks(log):

@@ -1915,6 +1915,14 @@ print(json.dumps({"type": "result", "is_error": False, "result": answer, "total_
         self.assertIn("== CONTINUITY\n  r1: 1 notes, 1 story lines, 1 remembered\n  r1 marigold: mags (minor) spoken to, nothing remembered\n== ", out,
                       "Pip speaks through an agent, and Dilly's turn kept what Mags learned")
 
+    def test_audit_scans_only_what_people_read_for_leaks(self):
+        entries = [{"kind": "witnessed", "round": 1, "player": "a", "text": "She waved.", "learned": ["heard_of_shadows"]},
+                   {"kind": "memory", "round": 1, "player": "a", "text": "I waved.", "learned": ["The rules here are odd."]}]
+        hits = json.loads(self.run_py("-c", "import json, sys; sys.path.insert(0, 'tools'); import audit; "
+                                      "print(json.dumps(audit.leaks(json.loads(sys.argv[1]))))", json.dumps(entries)).stdout)
+        self.assertEqual(len(hits), 1, hits)  # the memory's learned list is read; a note's flag names aren't
+        self.assertIn("memory 'rules'", hits[0])
+
     def test_audit_reads_a_run_back(self):
         self.rpg("game", "switch", "flooded_station")  # Sol and Ade both start on the Landing
         self.settings_tool("preset", "simulation")
