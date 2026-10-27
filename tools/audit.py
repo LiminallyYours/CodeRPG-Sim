@@ -19,7 +19,7 @@ From the run's log (state/log/<run>.jsonl; the active run's by default):
                  stretch stored twice is flagged; and each line a person said no longer holds (NO LONGER:), with
                  the line it struck from their list, or that it matched none
     NEEDS        in a world with needs: each one met (who, round, food eaten or how they slept, and whether by `eat`,
-                 `sleep` or the content), and each that came due (hungry, weak, tired, worn out)
+                 `sleep` or the content), each that came due (hungry, weak, tired, worn out), and each round slept through
     EFFORT       shared work: per project, each person's turns of it (and how many moved it on), paid or not, and each
                  stage reached
     PURCHASES    each thing bought (who, from whom, for how much, how many were left) and each place let (taken,
@@ -194,6 +194,8 @@ def needs(log):
         if e["kind"] == "need":
             out.append("  r%s %s %s: %s" % (e["round"], e["player"], e["need"],
                                            "met (%s, by %s)" % (e["met"], e["by"]) if "met" in e else "now " + e.get("now", "?")))
+        elif e["kind"] == "asleep":  # gone to bed early: not asked this round
+            out.append("  r%s %s asleep through the round, in %s" % (e["round"], e["player"], e.get("room")))
     return out or ["  none"]
 
 
@@ -361,6 +363,7 @@ MECHANICS = [
     ("a night paid ahead", lambda e: printed(e, "sleep", "already paid for")),
     ("a night in a place let", lambda e: printed(e, "sleep", "while the let lasts")),
     ("a night rough", lambda e: printed(e, "sleep", ", rough")),
+    ("a night slept through, to bed early", lambda e: e["kind"] == "asleep"),
     ("eating", lambda e: ran(e, "eat")),
     ("a need met as content says", lambda e: ran(e, "meet")),
     ("a need come due (hungry, weak, tired, worn out)", lambda e: e["kind"] == "need" and e.get("now") in ("hungry", "weak", "tired", "exhausted")),

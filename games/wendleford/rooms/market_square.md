@@ -24,7 +24,7 @@ It's market day. Carts are drawn up along one side, with trestles of cheeses, eg
 Bet Lamb's stall stands bare under its awning, with a chalked board propped on it: NO FLOUR FROM THE MILL THIS WEEK.
 
 ## Details
-- The square at night: anyone may lie down under the market cross or in a doorway (`sleep`). It's hard and cold, and nobody sleeps well out here.
+- The square: anyone may lie down under the market cross or in a doorway for the night (`sleep`, from evening). It's hard and cold, and nobody sleeps well out here.
 - The notice board: two papers are pinned up in the reeve's square hand. One says: "LOST on the night of the flood, the bridge wages box: iron-bound, painted green, the size of a loaf. SIX PENNIES REWARD to whoever brings it to the reeve." The other says: "HANDS WANTED at the bridge. Wages paid by the reeve, A. Pollard."
 - The pump: cold, clean water for anyone. It fills a belly for an hour, no longer.
 - Ned's stall (on market days): what he has and what it costs, he says when asked. He's always ready to look at anything someone wants to sell.

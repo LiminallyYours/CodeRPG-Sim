@@ -1028,7 +1028,7 @@ class Engine(unittest.TestCase):
         exits = self.save()["players"][first]["map"][self.save()["players"][first]["location"]]["exits"]
         self.rpg("move", next(iter(exits)), as_=first)
         self.write("proposals/words.txt", "Anyone?")
-        self.assertIn("NOT KEPT: no one else of the cast is here to hear it", self.rpg("say", "proposals/words.txt", as_=first),
+        self.assertIn("NOT KEPT: no one else of the cast here is awake to hear it", self.rpg("say", "proposals/words.txt", as_=first),
                       "accepted quietly: nothing to retry")
         self.assertFalse((self.dir / "proposals/words.txt").exists(), "words no one heard leave nothing behind")
 
@@ -1095,7 +1095,7 @@ class Engine(unittest.TestCase):
     def round_with(self, **turns):
         """A round in its drawn order: each player named takes the turn given (a function of their id), the rest look
         around. Returns what `round end` printed."""
-        order = [p.split("(")[1].rstrip(")") for p in self.rpg("round", "start").split(": ", 1)[1].strip().split(", ")]
+        order = [p.split("(")[1].rstrip(")") for p in self.rpg("round", "start").split(": ", 1)[1].strip().splitlines()[0].split(", ")]
         for pid in order:
             (turns.get(pid) or self.take_turn)(pid)
         return self.rpg("round", "end")
@@ -2615,7 +2615,7 @@ print(json.dumps({"type": "result", "is_error": False, "result": "Round done.", 
 
     def round_doing(self, doing=None):
         """A round in which each person named runs the given commands (each a list of arguments) on their turn."""
-        for pid in [p.split("(")[1].rstrip(")") for p in self.rpg("round", "start").split(": ", 1)[1].strip().split(", ")]:
+        for pid in [p.split("(")[1].rstrip(")") for p in self.rpg("round", "start").split(": ", 1)[1].strip().splitlines()[0].split(", ")]:
             self.write("proposals/reply.txt", "DO: I look around.\nJOURNAL: Getting my bearings.\n")
             self.rpg("reply", pid, "proposals/reply.txt")
             for command in (doing or {}).get(pid, ()):
@@ -2663,7 +2663,7 @@ print(json.dumps({"type": "result", "is_error": False, "result": "Round done.", 
         self.needs_world()
         self.rpg("newgame", seed=43)
         self.rpg("move", "east", as_="wren")  # the coast road: nowhere to sleep
-        self.assertIn("isn't the time for sleep (that's the small hours); it's dusk", self.rpg("sleep", as_="corin", ok=False))
+        self.assertIn("isn't time for bed (that's deep night or the small hours); it's dusk", self.rpg("sleep", as_="corin", ok=False))
         for _ in range(3):
             self.round_doing()
         self.assertIn("IT'S THE TIME FOR SLEEP", self.rpg("look", as_="corin"))
@@ -2688,12 +2688,47 @@ print(json.dumps({"type": "result", "is_error": False, "result": "Round done.", 
         self.round_doing({"corin": [["sleep"]]})
         self.assertEqual(self.save()["players"]["corin"]["needs"]["sleep"], "rested", "a night in a bed puts it right")
 
+    def test_to_bed_early_they_sleep_through_the_night_unasked_seeing_and_hearing_nothing(self):
+        self.needs_world()
+        self.three_players()  # Wren and Tam in Harbor Square (rough), Corin at the Gull (a bed)
+        self.rpg("newgame", seed=43)
+        self.round_doing()  # dusk
+        self.assertIn("isn't time for bed (that's deep night or the small hours); it's nightfall", self.rpg("sleep", as_="corin", ok=False))
+        self.round_doing()  # nightfall
+        self.round_doing({"corin": [["sleep"]], "wren": [["sleep"]]})  # deep night: the time before the time for sleep
+        players = self.save()["players"]
+        self.assertTrue(players["corin"].get("asleep") and players["wren"].get("asleep"), "deep night, the time before the small hours")
+        start = self.rpg("round", "start")  # the small hours: they sleep through it
+        self.assertEqual(start.splitlines()[0], "ROUND 4: Tam (tam)")
+        self.assertIn("ASLEEP (they sleep through this round, not asked): ", start.splitlines()[1])
+        self.assertIn("Wren (wren)", start.splitlines()[1])
+        self.assertIn("Wren (wren, ", self.rpg("look", as_="tam"))
+        self.assertIn("ASLEEP: sees and hears nothing till morning", self.rpg("look", as_="tam"))
+        self.write("proposals/reply.txt", "DO: I call out to Wren.\nJOURNAL: Company.\n")
+        self.rpg("reply", "tam", "proposals/reply.txt")
+        self.write("proposals/words.txt", "Wren?")
+        self.assertIn("NOT KEPT: no one else of the cast here is awake", self.rpg("say", "proposals/words.txt", as_="tam"))
+        self.write("proposals/note.txt", "Tam called out across the square.")
+        self.assertIn("NOT KEPT: no one else was there to see it", self.rpg("witnessed", "proposals/note.txt", as_="tam"))
+        self.write("proposals/story.txt", "You call out.")
+        self.rpg("narrate", "tam", "proposals/story.txt")
+        self.rpg("round", "end")  # the night gone by, without them
+        players = self.save()["players"]
+        self.assertEqual([players[p]["needs"]["sleep"] for p in ("corin", "wren", "tam")], ["rested", "tired", "tired"])
+        self.assertEqual([players[p]["needs"]["sleepless"] for p in ("corin", "wren", "tam")], [0, 0, 1], "Wren slept, rough; Tam didn't")
+        self.assertFalse(any(pl.get("asleep") for pl in players.values()), "the night gone by, they're awake")
+        self.assertNotIn("Wren?", self.rpg("brief", "wren"))
+        self.assertEqual(sorted((e["round"], e["player"]) for e in self.log_entries() if e["kind"] == "asleep"), [(4, "corin"), (4, "wren")])
+        self.assertIn("Wren (wren)", self.rpg("round", "start").splitlines()[0], "morning: asked again")
+        out = self.run_py("tools/audit.py", "state/log/%s.jsonl" % self.save()["run"]["id"]).stdout
+        self.assertIn("r4 wren asleep through the round, in harbor_square", out)
+
     def test_content_can_meet_a_need_and_validate_holds_needs_to_what_meets_them(self):
         self.needs_world()
         self.rpg("newgame", seed=43)
         self.assertIn("MET: food (content)", self.rpg("meet", "food", as_="wren"))
         self.assertEqual(self.save()["players"]["wren"]["needs"]["ate"], True)
-        self.assertIn("isn't the time for sleep", self.rpg("meet", "sleep", as_="wren", ok=False))
+        self.assertIn("isn't time for bed", self.rpg("meet", "sleep", as_="wren", ok=False))
         self.assertIn("NEEDS: on (food, sleep); wants shown", self.rpg("settings"))
         self.settings_tool("set", "needs.on", "false")
         self.assertIn("nobody here needs to eat", self.rpg("eat", "honey_cake", as_="corin", ok=False))

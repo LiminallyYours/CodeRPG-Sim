@@ -277,6 +277,9 @@ def build_feed(entries, names, name, currency="coins"):
             add(here, "world", "%s (%s): %s" % (e.get("id"), e.get("when"), "; ".join(x for x in (
                 e.get("seen"), e.get("rumor") and "talk: " + e["rumor"], e.get("sets") and "now " + e["sets"]) if x)
                 if e.get("happened") else "its time came, and it didn't happen"))
+        elif kind == "asleep":  # gone to bed early: no turn this round
+            items.append({"kind": "asleep", "key": "z%d" % i, "round": e.get("round"),
+                          "text": "%s sleeps through round %s, not asked (to bed early)." % (names.get(e.get("player"), e.get("player")), e.get("round"))})
         elif kind == "run" and e.get("action") in ("pause", "resume", "end", "ended"):
             items.append({"kind": "run", "key": "run%d" % len(items), "action": e["action"], "round": e.get("round")})
         elif here is None:
@@ -1028,7 +1031,7 @@ function renderFeed(d) {
   feed.replaceChildren(...items.flatMap(item => {
     if (item.kind === "round") return [el("p", {class: "marker", text: "Round " + item.round + " begins: " + item.order.join(", then ")}), renderBetween(item)];
     if (item.kind === "round_end") return [el("p", {class: "marker", text: "Round " + item.round + " ends" + (item.world_turn ? ", and the world turns" : "")}), renderBetween(item)];
-    if (item.kind === "trade") return [el("p", {class: "marker", text: item.text})];
+    if (item.kind === "trade" || item.kind === "asleep") return [el("p", {class: "marker", text: item.text})];
     if (item.kind === "run") return [el("p", {class: "marker", text: {pause: "Pause asked", resume: "Resumed", end: "End asked", ended: "The run ended"}[item.action]})];
     if (item.kind === "ending") return [el("article", {class: "ending"},
       el("p", {class: "who", text: "An ending, round " + item.round + (item.by ? ", by " + item.by + "'s turn" : "")}),
@@ -1129,7 +1132,7 @@ function renderTurns(d) {
       if (item.kind === "ending") return [el("article", {class: "ending"},
         el("p", {class: "who", text: "An ending, round " + item.round + (item.by ? ", by " + item.by + "'s turn" : "")}),
         fold("te:" + item.key, "What everyone was told", paragraphs(item.text)))];
-      if (item.kind === "trade") return [el("p", {class: "marker", text: item.text})];
+      if (item.kind === "trade" || item.kind === "asleep") return [el("p", {class: "marker", text: item.text})];
       return [];
     }));
 }

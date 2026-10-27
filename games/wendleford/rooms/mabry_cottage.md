@@ -12,5 +12,5 @@ One room downstairs and one up, small and clean and smelling of lavender and old
 The green gate to the south lets out onto Lark Lane.
 
 ## Details
-- The bed: whoever has the cottage sleeps here (`sleep`, at night).
+- The bed: whoever has the cottage sleeps here (`sleep`, from evening).
 - The lock: whoever has the cottage has the key, and what they leave here stays theirs.

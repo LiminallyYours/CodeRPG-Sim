@@ -1703,6 +1703,7 @@ def needs_tick(state, before):
             n["sleepless"] = 0 if n["slept"] else n["sleepless"] + 1
             n["sleep"] = "rested" if n["slept"] == "bed" else "exhausted" if n["sleepless"] >= b["exhausted_after_nights"] else "tired"
             n["slept"] = None
+            pl.pop("asleep", None)  # the night has gone by: they're awake for the morning
             if n["sleep"] != old:
                 changed.append(("sleep", n["sleep"]))
         if "food" in needs and time_steps(state) % len(times) == 0:  # a new day
@@ -1726,6 +1727,7 @@ def met(state, need, how, by):
         n["ate"], n["unfed"] = True, 0  # fed: hunger and weakness end at once
     else:
         n["slept"] = how
+        me(state)["asleep"] = True  # asleep till the night has gone by: not asked, seeing and hearing nothing
     log(state, "need", need=need, met=how, by=by)
 
 
@@ -1735,9 +1737,21 @@ def require_need(need):
             "to eat" if need == "food" else "to sleep"))
 
 
+def bed_times():
+    """When a person may go to bed: the world's time for sleep (`sleep_at:`), and the time of day just before it;
+    gone to bed early, they sleep through the time for sleep."""
+    times, at = world()["times"], world().get("sleep_at")
+    return [times[times.index(at) - 1], at] if len(times) > 1 else [at]
+
+
+def awake(state, pids):
+    """Those of `pids` who aren't asleep: a sleeper sees and hears nothing till morning."""
+    return [p for p in pids if not state["players"][p].get("asleep")]
+
+
 def require_sleep_time(state):
-    if time_of_day(state) != world().get("sleep_at"):
-        raise Refused("it isn't the time for sleep (that's %s); it's %s" % (world().get("sleep_at"), time_of_day(state)))
+    if time_of_day(state) not in bed_times():
+        raise Refused("it isn't time for bed (that's %s); it's %s" % (" or ".join(bed_times()), time_of_day(state)))
     if needs_of(me(state))["slept"]:
         raise Refused("they've already slept this night (%s)" % needs_of(me(state))["slept"])
 
@@ -1760,8 +1774,9 @@ def cmd_eat(args):
 
 
 def cmd_sleep(args):
-    """sleep: the person sleeps where they are, at the world's time for sleep, in a place for it (a room's `sleep:`
-    bed, or rough). Logged; how they slept shows once the night has gone by."""
+    """sleep: the person sleeps where they are, at the world's time for sleep or the time just before it (then they
+    sleep through it), in a place for it (a room's `sleep:` bed, or rough). Asleep, they aren't asked again, and see
+    and hear nothing, till the night has gone by. Logged; how they slept shows once the night has gone by."""
     state = load_state()
     require_playing(state)
     require_need("sleep")
@@ -1787,7 +1802,7 @@ def cmd_sleep(args):
                       % let["until"] if let else "to let, and only whoever takes it (`rent`) sleeps there"))
     met(state, "sleep", place, "sleep")
     save_state(state)
-    print("SLEPT: %s, %s%s. When the night has gone by they'll be %s." % (
+    print("SLEPT: %s, %s%s. They're asleep now, not asked again till morning; when the night has gone by they'll be %s." % (
         room.get("name", ""), "in a bed" if place == "bed" else "rough", paid, "rested" if place == "bed" else "tired, though spared worse"))
 
 
@@ -2075,8 +2090,9 @@ def cmd_look(args):
         print("PEOPLE HERE: %s. Each acts on their own turn: never speak or decide for them. What the player says "
               "aloud, they hear: `say <file>`; what they see and hear of the turn: `witnessed <file>`. What they carry is "
               "theirs: the story shows only what anyone could plainly see of it." % ", ".join(
-            "%s (%s, %s%s; carrying %s)" % (state["players"][p]["name"], p, pronouns(p), looks(p), ", ".join(
-                i + (" (in hand)" if i == state["players"][p]["equipped"] else "") for i in state["players"][p]["inventory"]) or "nothing")
+            "%s (%s, %s%s; carrying %s%s)" % (state["players"][p]["name"], p, pronouns(p), looks(p), ", ".join(
+                i + (" (in hand)" if i == state["players"][p]["equipped"] else "") for i in state["players"][p]["inventory"]) or "nothing",
+                "; ASLEEP: sees and hears nothing till morning" if state["players"][p].get("asleep") else "")
             for p in others))
     offers = open_trades(state, actor_id(state))
     if offers:
@@ -2176,7 +2192,7 @@ def cmd_look(args):
             "food: %s" % food_state(me(state)) if "food" in world_needs() else "",
             "sleep: %s%s" % (n["sleep"], ", slept this night (%s)" % n["slept"] if n["slept"] else "") if "sleep" in world_needs() else "") if x),
             "; FOOD CARRIED: %s (`eat <item>`)" % ", ".join(food) if food else "",
-            "; SLEEP HERE: %s (`sleep`, at %s)" % (place, world().get("sleep_at")) if place and "sleep" in world_needs() else "",
+            "; SLEEP HERE: %s (`sleep`, at %s)" % (place, " or ".join(bed_times())) if place and "sleep" in world_needs() else "",
             "; IT'S THE TIME FOR SLEEP" if time_of_day(state) == world().get("sleep_at") else ""))
     print("ROOM TEXT:")
     print(room_text(state, room))
@@ -4467,10 +4483,18 @@ def cmd_round(args):
             for b in order[i + 1:]:
                 pair = run["before"].setdefault(a, {})
                 pair[b] = pair.get(b, 0) + 1
-        run["round"], run["round_state"] = number, {"order": order, "done": []}
+        asleep = [p for p in order if state["players"][p].get("asleep")]  # gone to bed early: they sleep through this round
+        run["round"], run["round_state"] = number, {"order": order, "done": list(asleep)}
         log(state, "round", phase="start", order=order, draw=draw)
+        for p in asleep:
+            with acting(p):
+                log(state, "asleep", room=state["players"][p]["location"])
         save_state(state)
-        print("ROUND %d: %s" % (number, ", ".join("%s (%s)" % (state["players"][p]["name"], p) for p in order)))
+        print("ROUND %d: %s" % (number, ", ".join("%s (%s)" % (state["players"][p]["name"], p) for p in order if p not in asleep)
+                                or "no one awake to act: `round end`"))
+        if asleep:
+            print("ASLEEP (they sleep through this round, not asked): %s" % ", ".join(
+                "%s (%s)" % (state["players"][p]["name"], p) for p in asleep))
         return
     if args[0] != "end":
         raise Refused("use: round start | round end")
@@ -4790,10 +4814,10 @@ def cmd_say(args):
     state = load_state()
     require_playing(state)
     words = text_arg(args[0], "words", BALANCE["turns"]["said_chars"]).strip('"“” ')  # used up, heard or not
-    listeners = players_here(state)[1:]
-    if not listeners:  # only the world's people (or no one) to hear: nothing for anyone's memory, and nothing to retry
+    listeners = awake(state, players_here(state)[1:])
+    if not listeners:  # only the world's people (or no one, or sleepers) to hear: nothing for anyone's memory, nothing to retry
         save_state(state)
-        print("NOT KEPT: no one else of the cast is here to hear it; nothing to store (the world's people answer in the story).")
+        print("NOT KEPT: no one else of the cast here is awake to hear it; nothing to store (the world's people answer in the story).")
         return
     speaker = me(state)["name"]
     for pid in listeners:
@@ -4810,7 +4834,7 @@ def passed_by(state, pid, turn):
     ends = {turn.get("room"), state["players"][pid]["location"]}
     out = {}
     for r in turn.get("passed", []):
-        here = [p for p, pl in state["players"].items() if p != pid and pl["location"] == r and pl["status"] == "playing"]
+        here = awake(state, [p for p, pl in state["players"].items() if p != pid and pl["location"] == r and pl["status"] == "playing"])
         if r not in ends and here:
             out[r] = here
     return out
@@ -4843,8 +4867,8 @@ def cmd_witnessed(args):
         onlookers = passed[within]
     else:
         rooms = {turn.get("room", me(state)["location"]), me(state)["location"]}
-        onlookers = [p for p, pl in state["players"].items()
-                     if p != pid and pl["location"] in rooms and pl["status"] == "playing"]
+        onlookers = awake(state, [p for p, pl in state["players"].items()
+                                  if p != pid and pl["location"] in rooms and pl["status"] == "playing"])
     if not onlookers:  # nobody watching: nothing to keep, and nothing to retry (unless someone was passed on the way)
         save_state(state)
         print("NOT KEPT: no one else was there to see it%s" % (

@@ -31,7 +31,7 @@ The first span is up: you could walk halfway across on new planks, if you didn't
 A new bridge of fresh yellow timber spans the river, with a rail on either side, and carts can cross again to the mill and the fields.
 
 ## Details
-- The bank: anyone may lie down on the grass above the water at night (`sleep`). It's cold and damp, and nobody sleeps well out here.
+- The bank: anyone may lie down on the grass above the water for the night (`sleep`, from evening). It's cold and damp, and nobody sleeps well out here.
 - The bridge work: the reeve pays wages in hand at the end of each spell of work on it (`work`, a Strength check: each spell helps the bridge along, whatever comes of the wages). Nothing is owed afterwards.
 - The ford: until the bridge is mended, crossing east to Dunn's fields means wading the ford: `check agility 8`. On a failure the current knocks them off their feet and they scramble back to this bank, wet through: they don't cross this time. Once the bridge is mended, anyone crosses freely.
 - The wreck: searching it means climbing out along the jammed beams with the water roaring underneath: `check wits 12`, or `check wits 8` for someone who has heard from Kit where to look (heard_from_kit). Only while box_pulled_out isn't set: on a success they find a small green iron-bound box wedged between two beams and work it free: `gain wage_box`, then `flag set box_pulled_out`. On a failure there's nothing to be seen but planks and weed, and they can try again another turn. Once box_pulled_out is set, there's nothing more in the wreck.

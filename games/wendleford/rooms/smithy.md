@@ -21,6 +21,6 @@ The open front lets out east onto the Market Square.
 
 ## Details
 - The bellows: Sam Tolley pays for someone strong to work the bellows while he's at the anvil (`work`, a Strength check).
-- The loft: a cot over the forge, warm all night. Sam lets it for the night; the price is paid when someone turns in (`sleep`, at night).
+- The loft: a cot over the forge, warm all night. Sam lets it for the night; the price is paid when someone turns in (`sleep`, from evening).
 - The scrap heap: Sam doesn't mind anyone picking through it. Most of it is rust. Among it, for anyone who looks, a coil of copper wire and a cracked brass cogwheel.
 - Sam makes tools and small things to order. What it costs and how long it takes, he says when asked.

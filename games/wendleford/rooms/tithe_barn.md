@@ -18,6 +18,6 @@ The barn is full of light and noise for the harvest supper: trestles end to end,
 When the cider goes round, Agnes Pollard stands up on a bench, calls your name over the noise, and raises her cup to you as the one who did most to bring the barley in. The whole barn drinks to you.
 
 ## Details
-- The hayloft: anyone may sleep up there, by the reeve's leave (`sleep`, at night). It's free, and dry, but it's straw and dust and mice, and nobody sleeps well on it.
+- The hayloft: anyone may sleep up there, by the reeve's leave (`sleep`, from evening). It's free, and dry, but it's straw and dust and mice, and nobody sleeps well on it.
 - The harvest supper (on the evening of day 3, if the barley is in): everyone who comes is fed: `meet food`.
 - The reeve's office: Agnes keeps the town's accounts here in the evenings, and pays the bridge wages from the cash tin.
