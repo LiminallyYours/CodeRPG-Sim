@@ -1117,6 +1117,20 @@ class Engine(unittest.TestCase):
         self.write(path, json.dumps(terms))
         return ("trade", "offer", path)
 
+    def test_a_gift_stays_open_when_the_giver_walks_off_and_can_still_be_taken(self):
+        self.three_players()  # Wren and Tam in Harbor Square
+        self.rpg("newgame", seed=44)
+        way = next(iter(self.save()["players"]["wren"]["map"]["harbor_square"]["exits"]))
+        out = []
+        ended = self.round_with(wren=lambda pid: out.extend(self.turn(pid, "I press a coin into Tam's hand and go.",
+                                                                      self.offer({"to": "tam", "give": {"coins": 1}}), ("move", way))))
+        self.assertNotIn("OFFER LAPSED", "".join(out) + ended)
+        self.assertIn("## Offered to you\n- Wren offers you 1 coins", self.rpg("pane", "tam"))
+        wren, tam = (self.save()["players"][p]["stats"]["coins"] for p in ("wren", "tam"))
+        self.round_with(tam=lambda pid: out.extend(self.turn(pid, "I keep the coin.", ("trade", "accept", "t1"))))
+        self.assertIn("ACCEPTED t1: Tam takes Wren's offer.", out[-1])
+        self.assertEqual([self.save()["players"][p]["stats"]["coins"] for p in ("wren", "tam")], [wren - 1, tam + 1])
+
     def trade_entries(self):
         return [(e["trade"], e["step"], e.get("why")) for e in self.log_entries() if e["kind"] == "trade"]
 
@@ -1191,8 +1205,9 @@ class Engine(unittest.TestCase):
         self.round_with(wren=lambda pid: self.turn(pid, "I offer Tam a coin.", self.offer({"to": "tam", "give": {"coins": 1}})))
         self.assertNotIn("OFFER LAPSED", self.round_with())
         self.assertIn("OFFER LAPSED: t3, Wren to Tam (no answer in time).", self.round_with())
-        # parted: Tam walks off
-        self.round_with(wren=lambda pid: self.turn(pid, "I offer Tam a coin.", self.offer({"to": "tam", "give": {"coins": 1}})))
+        # parted: Tam walks off (a trade; a gift would stand)
+        self.round_with(wren=lambda pid: self.turn(pid, "I offer Tam a coin for the tonic.",
+                                                    self.offer({"to": "tam", "give": {"coins": 1}, "want": {"items": ["healing_tonic"]}})))
         way = next(iter(self.save()["players"]["tam"]["map"]["harbor_square"]["exits"]))
         moved = []
         self.round_with(tam=lambda pid: moved.extend(self.turn(pid, "I walk off.", ("move", way))))

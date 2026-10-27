@@ -4951,13 +4951,18 @@ def close_trade(state, t, step, **fields):
     log(state, "trade", trade=t["id"], step=step, offered_by=t["from"], to=t["to"], give=t["give"], want=t["want"], **fields)
 
 
+def is_gift(t):
+    """An offer that asks nothing back: handed over face to face, it stays the other's to take after the two part."""
+    return is_empty(t["want"]) and not is_empty(t["give"])
+
+
 def lapse_trades(state, round_over=None):
-    """Offers whose two have parted (or either has stopped playing) lapse; when round `round_over` ends, so do those
-    it was the last round for. Returns the lines for the referee."""
+    """Offers whose two have parted (a gift excepted) or of whom either has stopped playing lapse; when round
+    `round_over` ends, so do those it was the last round for. Returns the lines for the referee."""
     lines, cap = [], int(BALANCE["trades"]["offer_rounds"])
     for t in open_trades(state):
         a, b = state["players"][t["from"]], state["players"][t["to"]]
-        if a["location"] != b["location"] or "playing" != a["status"] or "playing" != b["status"]:
+        if (a["location"] != b["location"] and not is_gift(t)) or "playing" != a["status"] or "playing" != b["status"]:
             why = "parted"
         elif round_over is not None and round_over - t["round"] >= cap:
             why = "time"
@@ -5074,7 +5079,7 @@ def accept_trade(state, t):
     what the story can tell, and leaves the offer standing."""
     giver, taker = t["from"], t["to"]
     names = {p: state["players"][p]["name"] for p in (giver, taker)}
-    if giver not in players_here(state)[1:]:
+    if giver not in players_here(state)[1:] and not is_gift(t):  # a gift was already held out to them
         raise Refused("%s isn't here any more: things change hands face to face" % names[giver])
     for pid, side in ((giver, "give"), (taker, "want")):
         with acting(pid):
