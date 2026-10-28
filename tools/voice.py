@@ -23,7 +23,6 @@ one is asked. Each call goes in the log (`rpg.py voiced`): the agent, who or wha
 the referee added, the reply, what it cost, and the instructions' version. CODERPG_CLAUDE names another program in place of `claude`.
 """
 import json
-import re
 import sys
 from pathlib import Path
 
@@ -33,13 +32,6 @@ import ask  # noqa: E402  the one call an agent is asked through
 
 AGENTS = ROOT / ".claude" / "agents"
 SCENE = ("## The scene so far", "## What just happened")  # an npc's two parts after its brief, in the referee's file
-
-
-def front_matter(agent):
-    """The model and effort an agent's file names in its front matter."""
-    m = re.match(r"^---\n(.*?)\n---\n", agent.read_text(encoding="utf-8"), re.S)
-    fields = dict(re.findall(r"^(\w+):[ \t]*(.*?)[ \t]*$", m.group(1), re.M)) if m else {}
-    return fields.get("model") or "sonnet", fields.get("effort") or None
 
 
 def refuse(why):
@@ -112,7 +104,7 @@ def main(argv):
         brief = ask.printed(out)
     prompt = brief + ("\n\n" + added if added else "")
     file = AGENTS / ("%s.md" % agent)
-    model, effort = front_matter(file)
+    model, effort = ask.front_matter(file)
     for attempt in (1, 2):
         try:
             reply, spend, exact = ask.call(model, prompt, file, effort)

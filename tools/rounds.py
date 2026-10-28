@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""Run rounds, each with a fresh referee:  python3 tools/rounds.py [n] [--model <referee's model>]
+"""Run rounds, each with a fresh referee:  python3 tools/rounds.py [n] [--model <referee's model>] [--effort <its effort>]
 
 The owner runs it in a terminal, in place of `/rounds n` in one long Claude Code session. For each round it starts
-a new headless referee, `claude -p "/rounds 1"` (Sonnet unless --model says otherwise), waits for it, and prints
+a new headless referee, `claude -p "/rounds 1"` (Sonnet unless --model says otherwise, at the effort --effort names or
+the owner's own setting), waits for it, and prints
 its one line. Each round's referee starts with nothing but CLAUDE.md, the skills and the save, so its context and
 cost stay the same from round to round, and every round is refereed under the same conditions; what the world
 needs to remember is in the save (gm-turn: notes, the story so far, the townspeople's memories). With no n, it
@@ -49,10 +50,11 @@ def played(status):
     return int(m.group(1)) if m else 0
 
 
-def referee_round(model):
+def referee_round(model, effort=None):
     """One round's referee session. Returns (its last line, session id, usd, seconds, largest context, failed)."""
     cmd = [os.environ.get("CODERPG_CLAUDE", "claude"), "-p", "/rounds 1 from-script", "--model", model, "--permission-mode", "auto",
-           "--settings", str(ROOT / ".claude" / "settings.json"), "--output-format", "stream-json", "--verbose"]
+           "--settings", str(ROOT / ".claude" / "settings.json"), "--output-format", "stream-json", "--verbose"] + (
+          ["--effort", effort] if effort else [])
     env = dict(os.environ, CODERPG_NO_REFILL="1", CLAUDE_CODE_FORCE_SESSION_PERSISTENCE="1")
     start, largest, result = time.time(), 0, {}
     errors = tempfile.TemporaryFile(mode="w+")
@@ -76,12 +78,17 @@ def referee_round(model):
 
 
 def main(argv):
-    model = "sonnet"
+    model, effort = "sonnet", None
     if "--model" in argv:
         i = argv.index("--model")
         if i + 1 >= len(argv):
             sys.exit("--model needs a model")
         model, argv = argv[i + 1], argv[:i] + argv[i + 2:]
+    if "--effort" in argv:
+        i = argv.index("--effort")
+        if i + 1 >= len(argv):
+            sys.exit("--effort needs a level")
+        effort, argv = argv[i + 1], argv[:i] + argv[i + 2:]
     if len(argv) > 1 or (argv and not argv[0].isdigit()):
         sys.exit(__doc__)
     wanted = int(argv[0]) if argv else None
@@ -101,7 +108,7 @@ def main(argv):
                 break
             before = played(status)
             number = before + 1
-            last, session, usd, seconds, largest, failed = referee_round(model)
+            last, session, usd, seconds, largest, failed = referee_round(model, effort)
             rpg("run", "referee", str(number), session, "%.6f" % usd, "%.0f" % seconds, str(largest))
             total += usd
             print("ROUND %d: $%.2f, %dm%02ds, context up to %dk. %s" % (number, usd, seconds // 60, seconds % 60, largest // 1000, last))

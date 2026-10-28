@@ -1985,6 +1985,7 @@ print(json.dumps({"type": "result", "is_error": False, "result": answer, "total_
         self.assertEqual(asked, [briefs[-1]], "the brief, byte for byte as printed and logged")
         model = "sonnet"  # the one model the settings name for everyone (cast.model)
         self.assertEqual(argv[0][argv[0].index("--model") + 1], model)
+        self.assertEqual(argv[0][argv[0].index("--effort") + 1], "high", "the effort player.md names")
         for flag in ("-p", "--safe-mode", "--no-session-persistence"):
             self.assertIn(flag, argv[0])
         self.assertEqual(argv[0][argv[0].index("--tools") + 1], "", "no tools")
@@ -2167,7 +2168,7 @@ print(json.dumps({"type": "result", "is_error": False, "result": answer, "total_
         brief = [e for e in self.log_entries() if e["kind"] == "command" and e["command"] == "npc-brief"][-1]["output"]
         self.assertTrue(brief.startswith("You are Pip"), brief[:40])
         self.assertEqual(asked, [brief + "\n\n" + scene], "the brief as printed, then the referee's two parts, byte for byte")
-        self.assertEqual((argv[0][argv[0].index("--model") + 1], argv[0][argv[0].index("--effort") + 1]), ("sonnet", "low"),
+        self.assertEqual((argv[0][argv[0].index("--model") + 1], argv[0][argv[0].index("--effort") + 1]), ("sonnet", "medium"),
                          "the model and effort npc.md names")
         self.assertEqual(argv[0][argv[0].index("--tools") + 1], "")
         system = argv[0][argv[0].index("--system-prompt") + 1]
@@ -2175,7 +2176,7 @@ print(json.dumps({"type": "result", "is_error": False, "result": answer, "total_
         self.assertNotIn("omitClaudeMd", system, "npc.md's instructions without its front matter")
         voiced = [e for e in self.log_entries() if e["kind"] == "voice"]
         self.assertEqual([(e["agent"], e["about"], e["player"], e["model"], e["effort"], e["added"], e["reply"], e["spend"]) for e in voiced],
-                         [("npc", "pip", first, "sonnet", "low", scene, reply, 0.0012)])
+                         [("npc", "pip", first, "sonnet", "medium", scene, reply, 0.0012)])
         self.assertEqual(voiced[0]["versions"], {"instructions:npc": hashlib.sha256(system.encode()).hexdigest()[:8]},
                          "the version of the instructions it was asked with")
         self.assertFalse((self.dir / "proposals" / "voiced.json").exists(), "the record is used up once logged")
@@ -2209,7 +2210,7 @@ print(json.dumps({"type": "result", "is_error": False, "result": answer, "total_
         self.assertEqual(len(asked), 2, "asked once more, then given up")
         self.assertEqual(len([e for e in self.log_entries() if e["kind"] == "voice"]), 2, "nothing logged for a call that didn't come")
         audit = self.run_py("tools/audit.py", "state/log/%s.jsonl" % self.save()["run"]["id"]).stdout
-        self.assertIn("== VOICES\n  r1 no one: world agent for turn (sonnet, low)\n  r1 no one: world agent for turn (sonnet, low), asked again\n", audit)
+        self.assertIn("== VOICES\n  r1 no one: world agent for turn (sonnet, medium)\n  r1 no one: world agent for turn (sonnet, medium), asked again\n", audit)
         self.assertIn("  world agent, sonnet: 2 replies, $0.00", audit)
 
     SENDER = """#!/usr/bin/env python3
@@ -2300,10 +2301,10 @@ print(json.dumps({"type": "result", "is_error": False, "result": "Round done.", 
                                    r"  r2: \$0\.40, \d+s, 1 calls, largest context 1001 tokens, 7 output tokens\n"
                                    r"  r3: \$0\.40, \d+s, context up to 22010 tokens; session s2 not found")
         self.settings_tool("set", "rounds.max_per_run", "4")
-        out, calls = self.run_rounds("--model", "opus")
+        out, calls = self.run_rounds("--model", "opus", "--effort", "high")
         self.assertIn("ROUND 4: $0.40", out)
         self.assertIn("STOPPED: the run has had its 4 rounds (rounds.max_per_run)", out)
-        self.assertEqual([c["argv"][c["argv"].index("--model") + 1] for c in calls], ["opus"])
+        self.assertEqual([(c["argv"][c["argv"].index("--model") + 1], c["argv"][c["argv"].index("--effort") + 1]) for c in calls], [("opus", "high")])
 
     def test_rounds_stops_for_a_pause_a_failed_session_or_a_round_left_open(self):
         self.rpg("game", "switch", "dark_lighthouse")

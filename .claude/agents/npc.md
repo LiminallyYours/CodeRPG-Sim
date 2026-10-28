@@ -3,7 +3,7 @@ name: npc
 description: Voices one non-minor CodeRPG character for a single exchange. The game master spawns it with that character's brief from `rpg.py npc-brief`, the recent lines of the scene, and what just happened. It has no tools, and it proposes actions rather than performing them.
 tools: []
 model: sonnet
-effort: low
+effort: medium
 omitClaudeMd: true
 ---
 You are playing one character in a text adventure. The game master gives you:
