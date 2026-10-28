@@ -375,6 +375,15 @@ The project has four parts: **the people** (how agent-players are built and mana
 - **False rumors corrected** (JW, fourteenth session): someone who believed a false rumor is disabused when confronted by the facts and updates their memory. People can already strike a belief themselves (`NO LONGER:`); code never edits it. Watch in Run A.
 - **Stuck aims** (step 67's reporting question; JW: likely resolved by the growing town and the work on the people): an audit section for stretches of turns spent on one aim never reached.
 - **A generator of people and worlds to testing requirements** (JW): from templates; outside this project, which supports it through its file formats and checks.
+- **From the side session's seven-person runs** (2026-10-27–28; `HANDOFF.md`, *A side session*; the judgments in `state/test-runs/seven-69/NOTES.md` and `seven-69-high/NOTES.md`). For JW to decide; none is agreed:
+  - **Effort levels:** keep every model one level up (branch `side/effort-up`)? Claude recommends yes, cost aside; the run can't say which raise did what. A run with only the people raised, on the same seed, would tell.
+  - **Kit's tip after the box is found** (Wendleford's content): his `## If wage_box_found` only says he's sulking, so his sighting still reads as unexplained and he still trades it; one line saying what he saw was the box.
+  - **Stale rumours** held at higher effort, so the world brief should say what's settled (with *False rumors corrected*, above).
+  - **Paid work after day 4** for seven people, and where the cottage's let is offered (Mabry's text, and who points to her). Dunn's "pay when the barley's sold", which nothing in Wendleford sells.
+  - **The referee's line-length slips:** `chronicle` and `remember` saying how much to cut, or the turn procedure giving the limits up front.
+  - **Townspeople's agents offering work the content doesn't hold** (Jory's yard in seven-69), and how the referee treats it.
+  - **Beliefs that shape speech but not action:** in both runs a person's belief coloured every line and steered no choice while food and a bed took the day (with *How needs, wants and things taken on are weighed*, above).
+  - **`tools/cast.py make` and placeholder cast entries without a name** (a crash; a small fix).
 - **The instrument:** what a good run is. The measures are decided (step 64); what values make a run "good", and how runs are compared (the same seed and world, one thing changed), are still to discuss.
 
 ## Left alone in phase 1
