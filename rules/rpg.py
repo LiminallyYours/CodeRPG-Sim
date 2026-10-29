@@ -553,10 +553,13 @@ def cmd_rent(args):
 # first, and is paid in coins on a success. A character with `buys:` pays a set price per item tier for
 # things made or found (anything with a tier); the world's own things have none, and aren't bought.
 
-def work_of(room):
-    """A room's paid work as {stat, low, high, dc}, or None. Validate has checked its shape."""
+def work_of(room, flags=None):
+    """A room's paid work as {stat, low, high, dc}, or None: None too when its `if:` doesn't hold under these flags
+    (given no flags, the work as written, whatever its condition). Validate has checked its shape."""
     spec = room.get("work")
     if not isinstance(spec, dict):
+        return None
+    if flags is not None and not content.condition_holds(spec.get("if"), flags):
         return None
     low, _, high = str(spec.get("pay", "")).partition("-")
     return {"stat": spec.get("stat"), "low": int(low), "high": int(high or low), "dc": resolve_dc(spec.get("dc", "normal"))}
@@ -2111,7 +2114,7 @@ def cmd_look(args):
     if spots and builders and not why_no_order(state, "build"):
         print("BUILD SPOTS HERE: %s. Builders here: %s. If the player orders something built: `world-brief build <builder>` "
               "(see gm-turn)." % ("; ".join("%s: %s" % kv for kv in spots.items()), ", ".join(builders)))
-    job = work_of(room)
+    job = work_of(room, condition_flags(state))
     if job:
         print("WORK HERE: %s vs DC %d, pays %s %s, once per visit%s. If the player works here: `work`." % (
             stat_label(job["stat"]), job["dc"], "%d-%d" % (job["low"], job["high"]) if job["high"] > job["low"] else job["low"],
@@ -2869,7 +2872,7 @@ def cmd_work(args):
     state = load_state()
     require_playing(state)
     room = room_here(state)
-    job, shared = work_of(room), project_of(room)
+    job, shared = work_of(room, condition_flags(state)), project_of(room)
     if shared and not content.condition_holds(shared["until"], condition_flags(state)):
         if not job:
             raise Refused("%s is over: there's no more of it to do" % shared["name"])
@@ -3105,6 +3108,20 @@ def _section(body, title):
     return ""
 
 
+def settled_lines(state):
+    """What this run has settled, for the world agent's off-screen turn: each quest ending told, in the words everyone
+    heard, and each shared work finished, so its rumours never say otherwise once they've left the story so far."""
+    out = []
+    for q, e in state["run"].get("endings", {}).items():
+        out.append("%s: %s" % (ent("quests", q).get("name", q), e.get("text") or e["outcome"]))
+    rooms = project_rooms()
+    for ident, rec in state["run"].get("projects", {}).items():
+        shared = project_of(ent("rooms", rooms[ident])) if ident in rooms else None
+        if shared and shared["stages"] and shared["stages"][-1][1] in rec["stages"]:
+            out.append("%s: done" % shared["name"])
+    return out
+
+
 def cmd_world_brief(args):
     """world-brief <extra|room|item|character|quest|turn>: the prompt for the world agent."""
     state = load_state()
@@ -3173,6 +3190,9 @@ def cmd_world_brief(args):
         out.append("- %s: %s" % (kind, ", ".join("%s (%s)" % (i, ent(kind, i).get("name", i)) for i in ent_ids(kind))))
     if run["chronicle"]:
         out += ["", "## The story so far"] + ["- " + c for c in run["chronicle"][-6:]]
+    settled = settled_lines(state) if request == "turn" else []
+    if settled:
+        out += ["", "## What's settled (never say otherwise)"] + ["- " + x for x in settled]
     fits, lib_data = [], None
     if request in REQUEST_KIND:
         kind = REQUEST_KIND[request]
@@ -3193,8 +3213,8 @@ def cmd_world_brief(args):
                   for c in run["characters"]]
         built = ["%s (%s)" % (r, ent("rooms", r).get("name", r)) for r in run["rooms"] if made_by("rooms", r) == "player"]
         planned = open_steps(state)
-        out += ["Time passes off-screen. Write what people around here start saying, based only on the story so far",
-                "and public knowledge, and optionally move generated people to another room that exists.",
+        out += ["Time passes off-screen. Write what people around here start saying, based only on the story so far,",
+                "public knowledge and what's settled, and optionally move generated people to another room that exists.",
                 "Generated people: %s" % (", ".join(people) or "none"),
                 "Places the player had built (people may start using them, and talking about them): %s" % (", ".join(built) or "none"),
                 "Rooms: %s" % ", ".join(ent_ids("rooms"))]
@@ -3671,10 +3691,12 @@ def validate_game(kit=False, sim=False, strict=False):
 
 
 def work_problems(spec):
-    """What's wrong with a room's `work:` (stat, pay as a range like 1-3, and optionally dc), as a list."""
+    """What's wrong with a room's `work:` (stat, pay as a range like 1-3, and optionally dc and if), as a list."""
     if not isinstance(spec, dict):
-        return ["give stat, pay (a range like 1-3) and optionally dc, each on its own indented line"]
-    out = ["unknown key %r (keys: stat, pay, dc)" % k for k in sorted(set(spec) - {"stat", "pay", "dc"})]
+        return ["give stat, pay (a range like 1-3) and optionally dc and if, each on its own indented line"]
+    out = ["unknown key %r (keys: stat, pay, dc, if)" % k for k in sorted(set(spec) - {"stat", "pay", "dc", "if"})]
+    if "if" in spec and not (isinstance(spec["if"], str) and spec["if"].strip()):
+        out.append("if must be a condition (paid work only while it holds)")
     if spec.get("stat") not in STATS:
         out.append("stat must be one of %s" % ", ".join(STATS))
     cap = int(BALANCE["work"]["max_pay"])
@@ -4080,6 +4102,8 @@ def conditions_in(meta, body):
             out.append(m.group(2))
     if meta.get("clock") and meta["clock"].get("also_if"):
         out.append(str(meta["clock"]["also_if"]))
+    if isinstance(meta.get("work"), dict) and meta["work"].get("if"):
+        out.append(str(meta["work"]["if"]))
     out += [st["when"] for st in content.plans(body) if st.get("when")]
     out += [ev["if"] for ev in content.timed(body) if ev.get("if")]
     out += _HEADING_IF.findall(body)
@@ -5254,7 +5278,7 @@ def cmd_ending(args):
         keep(state["players"][p], text, state["run"].get("round", 0))
     told = state["run"].setdefault("endings", {})
     for q, o in waiting.items():
-        told[q] = {"outcome": o, "round": state["run"].get("round", 0), "by": teller}
+        told[q] = {"outcome": o, "round": state["run"].get("round", 0), "by": teller, "text": text}
     log(state, "ending", text=text, quests=waiting, heard_by=hearers)
     save_state(state)
     print("ENDING TOLD: %s will read it on their next turn." % (", ".join(

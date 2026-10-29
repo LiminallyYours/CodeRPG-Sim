@@ -2995,6 +2995,46 @@ print(json.dumps({"type": "result", "is_error": False, "result": "Round done.", 
         self.assertEqual(self.save()["players"]["corin"]["stats"]["coins"], coins + 2)
         self.assertEqual(self.save()["run"]["projects"]["hall"], {"total": 2, "by": {"corin": 3}, "stages": ["hall_swept"]})
 
+    def test_paid_work_is_there_only_while_its_condition_holds(self):
+        self.needs_world()
+        gull = self.dir / "games" / "dark_lighthouse" / "rooms" / "gull_tavern.md"
+        gull.write_text(gull.read_text().replace("---\n", "---\nwork:\n  stat: wits\n  pay: 1\n  dc: 1\n  if: cellar_flooded\n", 1)
+                        + "\nIf the cellar floods (`flag set cellar_flooded`), the landlord pays for bailing.\n")
+        self.assertIn("CONTENT OK: dark_lighthouse", self.rpg("validate"))
+        self.rpg("newgame", seed=43)
+        self.assertNotIn("WORK HERE", self.rpg("look", as_="corin"))
+        self.assertIn("there's no paid work here", self.rpg("work", as_="corin", ok=False))
+        self.rpg("flag", "set", "cellar_flooded", as_="corin")
+        self.assertIn("WORK HERE: ", self.rpg("look", as_="corin"))
+        coins = self.save()["players"]["corin"]["stats"]["coins"]
+        self.round_doing({"corin": [["work"]]})
+        self.assertEqual(self.save()["players"]["corin"]["stats"]["coins"], coins + 1)
+        self.rpg("flag", "unset", "cellar_flooded", as_="corin")
+        self.assertNotIn("WORK HERE", self.rpg("look", as_="corin"))
+        gull.write_text(gull.read_text().replace("if: cellar_flooded", "if: cellar_drained"))
+        self.assertIn("a condition uses 'cellar_drained', but nothing in the game sets it", self.rpg("validate", ok=False))
+
+    def test_the_world_turn_is_told_what_is_settled_once_it_has_left_the_story_so_far(self):
+        self.rpg("game", "switch", "wendleford")
+        self.rpg("newgame", seed=44)
+        brief = self.rpg("world-brief", "turn", as_=False)
+        self.assertNotIn("## What's settled", brief)
+        self.assertIn("based only on the story so far,\npublic knowledge and what's settled", brief)
+        self.rpg("flag", "set", "wage_box_found", as_="hester")
+        self.write("proposals/ending.txt", "The reeve has her box back, and the reward is paid.")
+        self.rpg("ending", "proposals/ending.txt", as_="hester")
+        for i in range(7):
+            self.rpg("chronicle", "Something else happened, %d." % i, as_=False)
+        state = self.save()
+        state["run"]["projects"] = {"bridge": {"total": 8, "by": {"hobb": 8}, "stages": ["bridge_half", "bridge_mended"]},
+                                    "harvest": {"total": 4, "by": {"dilly": 4}, "stages": ["harvest_half"]}}
+        self.write("state/save.json", json.dumps(state))
+        brief = self.rpg("world-brief", "turn", as_=False)
+        self.assertIn("## What's settled (never say otherwise)\n- The Reeve's Wage Box: The reeve has her box back, and the "
+                      "reward is paid.\n- the new bridge: done\n", brief)
+        self.assertNotIn("Dunn's harvest: done", brief, "half done isn't settled")
+        self.assertNotIn("## What's settled", self.rpg("world-brief", "extra", as_="hester"), "only the world turn")
+
     def test_validate_holds_shared_work_to_its_shape(self):
         self.needs_world()
         rooms = self.dir / "games" / "dark_lighthouse" / "rooms"

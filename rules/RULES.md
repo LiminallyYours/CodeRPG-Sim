@@ -92,7 +92,7 @@ Two kinds of names are automatic and can't be set: `has_<item>` is true while yo
 - **Limits:** the owner's `crafting.max_per_run` orders per run (2, 5, 10 by preset); orders don't count toward the generation limit, and a game's `generation:` policy doesn't apply to them.
 
 ## Earning: paid work and a buyer
-- **Paid work:** a room with `work:` pays for a job done there. `work` makes a check (`check` with the room's stat and DC) and, on a success, pays a number of coins rolled in the room's range; a failure pays nothing. Either way it's once per visit: leaving and coming back is a new visit. Pay is at most `work.max_pay` (4) a time.
+- **Paid work:** a room with `work:` pays for a job done there. `work` makes a check (`check` with the room's stat and DC) and, on a success, pays a number of coins rolled in the room's range; a failure pays nothing. Either way it's once per visit: leaving and coming back is a new visit. Pay is at most `work.max_pay` (4) a time. A room's `work:` may give an `if:` condition: the work is there only while it holds (Jory's yard once the bridge is mended).
 - **A buyer** (`buys:`) pays a set price per item tier, always below what having one made costs. `sell <item>` (and the buyer's id, if two are here) hands it over for that price. Only things with a tier are bought: made to order, or found. The world's own things have none.
 - Every coin earned is logged with its reason: `work` or `sale`.
 
