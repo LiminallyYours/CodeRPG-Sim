@@ -51,6 +51,7 @@ A plain country market town at harvest time, in no particular year: carts and co
 - Wages (the bridge, the scullery, the bellows) are paid in hand, there and then, at the end of each spell of work: `work` pays them. Nobody keeps a tally of loads, and no back pay is owed to anyone; if someone asks for wages for work already done, the one who pays says it was settled at the time. Dunn pays no harvest wages at all, now or later: helpers are fed, and that's all.
 - The ford is waded, never swum or rowed: a check as the broken bridge says, and turned back on a failure. There's no ferry and no boat.
 - The townspeople are the ten in this world and those the world agent adds; nobody else (no clerk, no constable, no second baker) unless generated.
+- Nobody lives at the mill now: the miller is away at his brother's until the bridge is mended, and only Kit is about the place. Dunn's wife keeps to the farmhouse and sends the basket out. The men on the bridge are whoever is working it that day; the carters in the Wheatsheaf are extras.
 
 ## At: false_lead
 when: day 1, afternoon

@@ -18,6 +18,7 @@ Brisk and plain, in short sentences. She calls people by their names once she kn
 - Jory Crane is the best carpenter for miles, and she needs him on the bridge every afternoon.
 - Farmer Dunn's barley has to be in before the rain, or the whole town will pay for it in the price of bread this winter.
 - The hayloft in the tithe barn is anyone's to sleep in, with her leave, so long as they don't bring a light up there.
+- The ropes and timber on the bank are the town's, for the bridge, and she lends none of it.
 
 ## What she wants
 The bridge rebuilt, the box found, the barley in, and the town's accounts square by Michaelmas.

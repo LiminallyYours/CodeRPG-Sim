@@ -28,3 +28,4 @@ Bet Lamb's stall stands bare under its awning, with a chalked board propped on i
 - The notice board: two papers are pinned up in the reeve's square hand. One says: "LOST on the night of the flood, the bridge wages box: iron-bound, painted green, the size of a loaf. SIX PENNIES REWARD to whoever brings it to the reeve." The other says: "HANDS WANTED at the bridge. Wages paid by the reeve, A. Pollard: at the bridge by day, at the tithe barn after."
 - The pump: cold, clean water for anyone. It fills a belly for an hour, no longer.
 - Ned's stall (on market days): what he has and what it costs, he says when asked. He's always ready to look at anything someone wants to sell.
+- The farm carts (on market days): country folk selling to the town's households by the basket, ordered ahead; Ned's stall is the one for passers-by.

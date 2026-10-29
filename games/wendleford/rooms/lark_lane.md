@@ -4,7 +4,7 @@ exits:
   southeast: market_square
   north: mabry_cottage
 characters:
-  - jory (if time_morning or time_night)
+  - jory (if time_morning or time_night or bridge_mended)
   - mabry
 build:
   west: an empty plot between two garden walls, nettled and level, where an old cart-shed once stood
@@ -19,4 +19,5 @@ To the north, behind a green gate, is the little cottage that stood empty after 
 - The lane: anyone may lie down against a garden wall for the night (`sleep`, from evening). It's cold, and nobody sleeps well out here.
 - The empty cottage: it's Widow Mabry's to let. What she asks for it, she says when asked.
 - The empty plot: nettles and level ground, where an old cart-shed stood. Jory says he could put something up there, for a price.
-- Jory's yard: in the mornings he's here at his sawhorse; the rest of the day he's down at the bridge.
+- Jory's yard: in the mornings he's here at his sawhorse; the rest of the day he's down at the bridge, until the bridge is mended; after that he's here all day.
+- Jory's timber: his own, for what he builds; he sells none of it loose.

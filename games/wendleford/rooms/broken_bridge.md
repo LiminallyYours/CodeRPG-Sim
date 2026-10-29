@@ -5,7 +5,7 @@ exits:
   east: dunns_fields
 characters:
   - agnes (if time_morning or time_afternoon)
-  - jory (if time_afternoon or time_evening)
+  - jory (if time_afternoon and not bridge_mended or time_evening and not bridge_mended)
   - kit (if kit_fishing)
 encounters: flood_wrack
 project:
@@ -35,3 +35,4 @@ A new bridge of fresh yellow timber spans the river, with a rail on either side,
 - The bridge work: the reeve pays wages in hand at the end of each spell of work on it (`work`, a Strength check: each spell helps the bridge along, whatever comes of the wages). Nothing is owed afterwards.
 - The ford: until the bridge is mended, crossing east to Dunn's fields means wading the ford: `check agility 8`. On a failure the current knocks them off their feet and they scramble back to this bank, wet through: they don't cross this time. Once the bridge is mended, anyone crosses freely.
 - The wreck: searching it means climbing out along the jammed beams with the water roaring underneath: `check wits 12`, or `check wits 8` for someone who has heard from Kit where to look (heard_from_kit). Only while box_pulled_out isn't set: on a success they find a small green iron-bound box wedged between two beams and work it free: `gain wage_box`, then `flag set box_pulled_out`. On a failure there's nothing to be seen but planks and weed, and they can try again another turn. Once box_pulled_out is set, there's nothing more in the wreck.
+- The ropes and timber on the bank: the town's, for the bridge. The reeve lends none of it and sells none of it.

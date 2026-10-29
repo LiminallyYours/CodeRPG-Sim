@@ -24,3 +24,4 @@ The open front lets out east onto the Market Square.
 - The loft: a cot over the forge, warm all night. Sam lets it for the night; the price is paid when someone turns in (`sleep`, from evening).
 - The scrap heap: Sam doesn't mind anyone picking through it. Most of it is rust. Among it, for anyone who looks, a coil of copper wire and a cracked brass cogwheel.
 - Sam makes tools and small things to order. What it costs and how long it takes, he says when asked.
+- The tools on the walls: Sam's own working tools, not for sale; he makes things to order.

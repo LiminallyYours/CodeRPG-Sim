@@ -24,15 +24,16 @@ His own work back, the bridge done properly and not in a hurry, and a fair price
 ## What he will trade or reveal
 - He builds to order on the plot by his yard, in the mornings, for anyone who pays.
 - He tells anyone how the bridge work is going, and grumbles about being short of hands.
+- He has no paid work to offer in his yard: the bridge has him every afternoon, and he works alone.
 
 ## What he builds
 Sheds, lean-tos, hen-houses, a workbench, a stall, a fence: small, plain things of timber and pegs. Nothing of stone, nothing with more than one room, and nothing taller than a hayrick.
 
 ## If bridge_mended and not harvest_in
-He's proud of the new bridge and pretends not to be.
+He's proud of the new bridge and pretends not to be. He's back in his own yard all day now.
 
 ## If bridge_mended and harvest_in
-He's proud of the new bridge and pretends not to be, and he's glad of the barley in the barn.
+He's proud of the new bridge and pretends not to be, and he's glad of the barley in the barn. He's back in his own yard all day now.
 
 ## GM only
-- **Building:** he builds on the plot to the west of Lark Lane, only while he's there (in the mornings). The rules say what it costs and how long it takes.
+- **Building:** he builds on the plot to the west of Lark Lane, only while he's there (in the mornings, or all day once the bridge is mended). The rules say what it costs and how long it takes.

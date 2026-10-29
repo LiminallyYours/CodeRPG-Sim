@@ -15,6 +15,7 @@ Quick and cheeky, with a lot of "reckon" and "dunno". He calls grown-ups "missus
 - He hasn't told anybody, because nobody asked, and because he thought he'd fish it out himself and get the reward. He's tried twice and the water nearly had him both times.
 - The ford is safe enough if you go stake to stake and don't look at the water.
 - Farmer Dunn feeds anyone who helps in the field.
+- The miller, his master, went off to his brother's in the county town when the wheel stopped, and won't be back till the bridge is mended.
 
 ## What he wants
 To be taken notice of. A penny would be nice. To go back to the mill when the wheel turns again.
