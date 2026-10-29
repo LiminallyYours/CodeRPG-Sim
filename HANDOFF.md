@@ -13,7 +13,18 @@ Where the build stands, for whoever picks it up next, human or Claude. Read `PLA
   - **Read for 74:** 69% of chosen options served money, food, work or bed, against 93% and 87% for seven-69 and seven-69-high (the same keyword count; one seed with a changed cast, so a hint). Pastimes taken where the line was left open (Marigold, Robin), not where one was named. **The world made rumours only:** no notices and no arrivals in 12 world turns, likely because its brief says "on most world turns no one does". One `not_there`. No grabs or scuffles; 5 knocks, 8 menders, nobody below 8 health.
   - **The referee:** 38 refused commands, none harmful (chronicle lines over 200, a missing `--as`, witnessed notes for empty rooms). Hobb's round-24 turn has no outcome. Leak hits are ordinary words only.
   - **Judged in `state/test-runs/opus-74/NOTES.md`**, which ends with five items for JW: the world turn not using the board or arrivals, the ford rope, the shrine's whereabouts, repeated rumours, and no conflict.
-  - **Housekeeping:** the scratch copy and its dashboard (http://127.0.0.1:8778/) are in this session's scratch folder and stay up until the session ends. A leftover round-2 watcher's own command line matched the copier's and guard's "still running" test and held them until it was stopped; the next guard should match on the process, not the text.
+  - **Housekeeping:** the scratch copy and its dashboard (http://127.0.0.1:8778/) were in this session's scratch folder and may be gone. To view opus-74 again, copy the project to a scratch folder, put `state/test-runs/opus-74/save.json` in its `state/` and the `.jsonl` in its `state/log/`, and run `python3 tools/dashboard.py --port <n>` there. A leftover round-2 watcher's own command line matched the copier's and guard's "still running" test and held them until it was stopped; the next guard should match on the process, not the text.
+- **After the run, with JW:**
+  - **Claude's reading of opus-74** (in chat): the six followed aims of their own, and the open free-hour lines did best. The world still moves little by itself: no notices and no arrivals, likely the brief's wording. People's own sensible plans hit content that can't say yes (the rope, twice now). Conflict was absent.
+  - **The world answering unmet needs:** JW's idea, discussed and **parked by JW**. Claude's view is under *Future discussions* in `PLAN.md`.
+  - **The dashboard, rebuilt at JW's request** (`e73e495`; `PLAN.md`, after 74). Nothing moves by itself: a signal lights with each finished turn, with **Go to most recent**. One round at a time: First, Prior, Next, Current. Three tabs: **Narrative** (each turn in three lines), **World** and **Engine**. JW hasn't yet used it on a live run.
+- **Pushed at the end of the session** (JW's word): the step-74 write-up, the dashboard and this note.
+- **Next session:** ask JW what's next. On the table:
+  - the five items from opus-74's `NOTES.md`;
+  - how the dashboard reads, and anything to change in it;
+  - a run to measure the cheap fixes;
+  - the parked idea above;
+  - the older open items under *Future discussions*.
 
 ## Step 70: models and efforts (2026-10-29)
 JW's decision, built on main (`PLAN.md` step 70): **the cast on Opus at medium effort** in every preset; townspeople and the world agent Sonnet at medium; the worldsmith Opus at high; the referee unchanged (Sonnet unless `--model`, at the owner's Claude Code effort). The bench now asks as play does. Runs before this step aren't comparable with later ones on the people; estimate a run's cost before the next one (no run on Opus people yet; the worldsmith's `effort: high` is read by Claude Code itself and wasn't seen working). `ask.py`'s effort reading came from `side/effort-up`; the branch is still kept, its referee flag and other efforts not taken. Pushed with the second side session's notes, 2026-10-29.
