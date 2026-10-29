@@ -19,6 +19,7 @@ Loud and friendly. He calls everyone by name if he knows it, and "friend" if he 
 - The reeve keeps her accounts in the tithe barn of an evening; by day she's down at the bridge, and some evenings she comes in here asking after hands.
 - The miller's away at his brother's in the county town till the bridge is mended; there's only his lad Kit about the mill.
 - Widow Mabry lets her late sister's cottage on Lark Lane; you'd ask her.
+- There's a carter, Abel Tash, stuck here with a cracked wheel, drinking what he should be mending it with.
 
 ## What he wants
 Hands in the scullery, and the bridge back so the carters can get on and pay him for something other than ale.

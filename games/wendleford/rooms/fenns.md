@@ -18,3 +18,4 @@ The door to the southwest opens onto the Market Square.
 - The window: the velvet and the lace are not for sale as they are; Ida makes things up to order, but she keeps cards of ribbon and lengths of lace trim on the counter, sold as they are.
 - The counter: Ida makes clothes and finery to order. What it costs and how long it takes, she says when asked.
 - Plain sewing: Ida's eyes are going, and she pays a penny or two for a spell of hemming and seaming at the window (`work`, a Wits check).
+- The window seat: Ida likes company while she sews, lets anyone sit and talk, and will show them a stitch or two for nothing.

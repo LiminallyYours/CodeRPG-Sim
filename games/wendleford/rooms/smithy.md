@@ -25,3 +25,4 @@ The open front lets out east onto the Market Square.
 - The scrap heap: Sam doesn't mind anyone picking through it. Most of it is rust. Among it, for anyone who looks, a coil of copper wire and a cracked brass cogwheel.
 - Sam makes tools and small things to order. What it costs and how long it takes, he says when asked.
 - The tools on the walls: Sam's own working tools, not for sale; he makes things to order.
+- The bench by the door: Sam lets anyone tinker there when he isn't using it.

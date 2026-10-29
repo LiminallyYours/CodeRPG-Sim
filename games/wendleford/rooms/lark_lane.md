@@ -21,3 +21,4 @@ To the north, behind a green gate, is the little cottage that stood empty after 
 - The empty plot: nettles and level ground, where an old cart-shed stood. Jory says he could put something up there, for a price.
 - Jory's yard: in the mornings he's here at his sawhorse; the rest of the day he's down at the bridge, until the bridge is mended; after that he's here all day.
 - Jory's timber: his own, for what he builds; he sells none of it loose.
+- Mabry's step: she's glad of anyone who'll sit and shell beans with her and hear about her sister.

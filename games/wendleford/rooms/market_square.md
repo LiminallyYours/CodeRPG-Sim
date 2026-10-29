@@ -35,3 +35,4 @@ The HANDS WANTED paper has come down from the notice board: the bridge is done.
 - The pump: cold, clean water for anyone. It fills a belly for an hour, no longer.
 - Ned's stall (on market days): what he has and what it costs, he says when asked. He's always ready to look at anything someone wants to sell.
 - The farm carts (on market days): country folk selling to the town's households by the basket, ordered ahead; Ned's stall is the one for passers-by.
+- The pump: where the town's gossip gathers of a morning.

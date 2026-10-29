@@ -4,6 +4,7 @@ exits:
   west: market_square
 characters:
   - tom
+  - abel (if time_evening and not bridge_mended or time_night and not bridge_mended)
   - agnes (if agnes_at_inn and time_evening or agnes_at_inn and time_night)
 sleep: bed
 bed_price: 2
@@ -22,3 +23,4 @@ The door to the west lets out onto the Market Square.
 - Supper: a bowl of stew and a heel of bread, which Tom sells across the bar (`buy stew`).
 - The scullery: Tom is short-handed and pays for the pots to be washed (`work`, a Wits check). On a success he also gives them their supper for nothing: `meet food`.
 - The talk: whoever sits here a while hears what the town is saying.
+- The evenings: the carters sing, and there's a game of skittles in the yard behind; anyone may join in, and a good song or a good throw gets you noticed.
