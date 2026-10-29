@@ -172,11 +172,21 @@ def order_text(e, name, currency):
     return o + "%s." % step
 
 
+_ARRIVED = re.compile(r"^  arrived: (.+?) \(([a-z0-9_]+)\), (.+), at ([a-z0-9_]+)\. ")
+
+
 def world_lines(output, name):
-    """What a world turn changed, from `world-turn`'s output: its rumors and who moved where."""
+    """What a world turn changed, from `world-turn`'s output: a notice put up, someone arriving, its rumors and who
+    moved where."""
     out = []
     for line in output.splitlines():
-        if line.startswith("  rumor: "):
+        arrived = _ARRIVED.match(line)
+        if line.startswith("  notice put up at ") and ": " in line:
+            room, text = line[len("  notice put up at "):].split(": ", 1)
+            out.append("A notice put up at %s: %s" % (name(room), text))
+        elif arrived:
+            out.append("Arrived: %s, %s, at %s." % (arrived.group(1), arrived.group(3)[0].lower() + arrived.group(3)[1:], name(arrived.group(4))))
+        elif line.startswith("  rumor: "):
             out.append("Rumor: " + line[9:])
         elif line.startswith("  ") and " is now at " in line:
             who, room = line.strip().split(" is now at ", 1)

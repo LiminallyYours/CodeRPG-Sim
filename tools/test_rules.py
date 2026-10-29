@@ -2606,6 +2606,29 @@ print(json.dumps({"type": "result", "is_error": False, "result": "Round done.", 
         self.assertIn("AT gulls_quiet (day 3, dusk): not, since not lamp_lit doesn't hold; nothing happens", end)
         self.assertNotIn("gulls_quiet", self.save()["flags"])
 
+    def test_the_world_turn_is_told_what_everyone_saw_happen_as_settled_never_what_was_only_rumored(self):
+        self.days_world(self.DAYS_EVENTS + "\n## At: tinker_tale\nwhen: day 3, dusk\nrumor: A tinker went off with the lamp oil.\n")
+        self.rpg("newgame", seed=43)
+        for _ in range(8):
+            self.play_round()  # the end of round 8 brings dusk on day 3
+        brief = self.rpg("world-brief", "turn", as_=False)
+        settled = brief.split("## What's settled (never say otherwise)\n", 1)[1].split("\n\n", 1)[0]
+        self.assertEqual(settled, "- day 3, dusk: All along the harbor the gulls fall quiet at once.", "a rumor may be false: it isn't settled")
+        self.assertIn("- A tinker went off with the lamp oil.", brief.split("## Talk already going around", 1)[1], "it's talk going around")
+
+    def test_the_dashboard_and_the_audit_show_a_world_turns_arrival_and_notice(self):
+        out = ("WORLD TURN: 1 rumors, 0 moves, 1 notice\n  notice put up at gull_tavern: Lost: a grey hen. Bet.\n"
+               "  arrived: Wat Corder (wat_corder), Carter held up by the storm, at gull_tavern. Generated people are [minor]: voice "
+               "them from their file (`show characters wat_corder`).\n  rumor: The lamp burns blue.\n")
+        code = ("import json, sys; sys.path.insert(0, 'tools'); import dashboard, audit; "
+                "e = {'kind': 'command', 'command': 'world-turn', 'args': [], 'output': %r}; "
+                "print(json.dumps([dashboard.world_lines(e['output'], lambda x: {'gull_tavern': 'The Gull'}.get(x, x)), "
+                "dict(audit.coverage([e]))]))" % out)
+        lines, cover = json.loads(self.run_py("-c", code).stdout)
+        self.assertEqual(lines, ["A notice put up at The Gull: Lost: a grey hen. Bet.", "Arrived: Wat Corder, carter held up by the storm, at The Gull.",
+                                 "Rumor: The lamp burns blue."])
+        self.assertEqual((cover["someone arriving, on a world turn"], cover["a notice put up"], cover["a notice taken down"]), (1, 1, 0))
+
     def test_validate_holds_days_and_timed_events_to_their_shape(self):
         self.days_world(events="\n\n## At: early\nwhen: day 1, dusk\nseen: x\n\n## At: odd\nwhen: day 2, noon\nsets: lamp_quest_started\n"
                                "colour: blue\n\n## At: Bad Name\nwhen: day 2, dusk\n\n## At: dawn\nwhen: tomorrow\nrumor: y\n")

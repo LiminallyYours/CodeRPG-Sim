@@ -1940,8 +1940,8 @@ def timed_events(state):
             continue
         if ev.get("sets"):
             set_flag(state, ev["sets"])
-        if ev.get("seen") or ev.get("rumor"):  # settled from now on, for the world turn
-            run.setdefault("happened", []).append({"when": ev["when"], "text": ev.get("seen") or ev["rumor"]})
+        if ev.get("seen"):  # what everyone noticed is settled from now on, for the world turn; a rumor is only talk
+            run.setdefault("happened", []).append({"when": ev["when"], "text": ev["seen"]})
         for pl in state["players"].values():
             if ev.get("seen") and pl["status"] == "playing":
                 remember(pl, "seen", ev["seen"], run.get("round") or 0)
@@ -3214,7 +3214,8 @@ def _section(body, title):
 
 def settled_lines(state):
     """What this run has settled, for the world agent's off-screen turn: each quest ending told, in the words everyone
-    heard, each shared work finished, and each timed event that happened, in its own words, so its rumours never say
+    heard, each shared work finished, and each timed event that happened that everyone noticed (`seen`, never a
+    rumor: a rumor may be false), in its own words, so its rumours never say
     otherwise once they've left the story so far."""
     out = []
     for q, e in state["run"].get("endings", {}).items():

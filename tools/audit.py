@@ -383,6 +383,10 @@ MECHANICS = [
     ("the world agent asked", lambda e: e["kind"] == "voice" and e.get("agent") == "world"),
     ("a world turn", lambda e: ran(e, "world-turn")),
     ("something generated", lambda e: ran(e, "generate", "extra", "character", "quest", "room", "item")),
+    ("someone arriving, on a world turn", lambda e: ran(e, "world-turn") and "\n  arrived: " in (e.get("output") or "")),
+    ("a notice put up", lambda e: ran(e, "post") and (e.get("args") or [None])[0] != "take"
+     or ran(e, "world-turn") and "\n  notice put up at " in (e.get("output") or "")),
+    ("a notice taken down", lambda e: ran(e, "post", "take")),
     ("a timed event", lambda e: e["kind"] == "event" and e.get("happened")),
     ("an ending", lambda e: e["kind"] == "ending"),
     ("a memory condensed", lambda e: e["kind"] == "memory"),
@@ -396,7 +400,7 @@ MECHANICS = [
                        ("out_of_reach", "out of reach"), ("not_there", "reached for something that isn't there"))]
 SEEN_BY_MECHANICS = {"move", "check", "work", "sell", "sleep", "eat", "meet", "quest", "flag", "world-turn", "generate", "note",
                      "remember", "chronicle", "buy", "rent", "trade", "contest", "say", "witnessed", "pay", "outcome", "ending",
-                     "take", "drop", "gain", "lose", "coins"}
+                     "take", "drop", "gain", "lose", "coins", "post"}
 NOT_MECHANICS = {"look", "show", "npc-brief", "world-brief", "brief", "pane", "reply", "narrate", "round", "run", "memory",
                  "voiced", "project", "log", "newgame"}  # reading, and the referee's own frame for a turn
 
