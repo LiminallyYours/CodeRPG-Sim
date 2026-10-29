@@ -7,7 +7,7 @@
 
 It prints only what `reply` (or `memory store`) prints, so the referee never holds a brief: a brief is handed on
 exactly as printed because nobody retypes it. The person is `claude -p` under the owner's Claude Code login, with
-the model the cast gives them, the player agent's instructions as the whole system prompt (named to `rpg.py`, for the
+the model the cast gives them at the effort player.md names, the player agent's instructions as the whole system prompt (named to `rpg.py`, for the
 version record its log entries carry), no tools, and
 `--safe-mode`, which keeps out CLAUDE.md, skills, plugins, hooks (the meter's SessionStart would refill it) and
 MCP servers, asked from a plain folder outside this one (NEUTRAL), since Claude Code tells them the folder it runs in.
@@ -44,6 +44,13 @@ def instructions(agent=AGENT):
     text = agent.read_text(encoding="utf-8")
     m = re.match(r"^---\n.*?\n---\n", text, re.S) or re.match(r"\A\s*<!--.*?-->[ \t]*\n", text, re.S)
     return (text[m.end():] if m else text).strip()
+
+
+def front_matter(agent=AGENT):
+    """The model and effort an agent's file names in its front matter (a person's model comes from the cast)."""
+    m = re.match(r"^---\n(.*?)\n---\n", agent.read_text(encoding="utf-8"), re.S)
+    fields = dict(re.findall(r"^(\w+):[ \t]*(.*?)[ \t]*$", m.group(1), re.M)) if m else {}
+    return fields.get("model") or "sonnet", fields.get("effort") or None
 
 
 def model_in(status, pid):
@@ -98,7 +105,7 @@ def call(model, prompt, agent=AGENT, effort=None):
 def ask(model, prompt):
     """Their answer to `prompt`, exactly as given, what it cost, and the exact model that answered."""
     try:
-        return call(model, prompt)
+        return call(model, prompt, effort=front_matter()[1])
     except Failed as e:
         sys.exit("ASK FAILED: %s" % e)
 

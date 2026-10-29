@@ -65,7 +65,7 @@
       "thinkback_sees": "who_i_am"
     },
     "cast": {
-      "model": "sonnet"
+      "model": "opus"
     },
     "brief": {
       "dice_lines": false,
@@ -144,7 +144,7 @@
       "thinkback_sees": "who_i_am"
     },
     "cast": {
-      "model": "sonnet"
+      "model": "opus"
     },
     "brief": {
       "dice_lines": false,
@@ -223,7 +223,7 @@
       "thinkback_sees": "who_i_am"
     },
     "cast": {
-      "model": "sonnet"
+      "model": "opus"
     },
     "brief": {
       "dice_lines": false,
@@ -302,7 +302,7 @@
       "thinkback_sees": "who_i_am"
     },
     "cast": {
-      "model": "sonnet"
+      "model": "opus"
     },
     "brief": {
       "dice_lines": false,

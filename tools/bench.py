@@ -20,8 +20,8 @@
         ask each moment (all of them if none is named), under each variant (default: .claude/agents/player.md,
         today's instructions; a variant is a file like it, front matter optional), <n> times each (default 3),
         exactly as tools/ask.py asks a person: `claude -p` under the owner's login, the model the moment's game
-        sets (cast.model), the variant's instructions as the whole system prompt, no tools, from /tmp/here. It
-        prints each moment's replies side by side, by variant, with what they cost; keeps everything in
+        sets (cast.model) at the effort player.md names (play's, whatever a variant's front matter says), the
+        variant's instructions as the whole system prompt, no tools, from /tmp/here. It prints each moment's replies side by side, by variant, with what they cost; keeps everything in
         bench/results/<when>.json (each brief's and variant's version tag, each reply, its cost and exact model);
         and runs the audit's leak check over the briefs and its check for Claude Code's lines over the replies.
         --dry builds the briefs and prints them, and asks no one.
@@ -225,11 +225,12 @@ def cmd_run(args):
         return 0
     label = {f: (f.stem if f != TODAY else "today") for f in files}
     jobs = [(name, m, f, n) for name, m in chosen for f in files for n in range(1, times + 1)]
+    effort = ask.front_matter()[1]  # play's, whatever the variant's front matter says
 
     def one(job):
         name, m, f, n = job
         try:
-            reply, cost, exact = ask.call(model_for(m), briefs[name], f)
+            reply, cost, exact = ask.call(model_for(m), briefs[name], f, effort)
         except ask.Failed as e:
             reply, cost, exact = "(no answer: %s)" % e, 0.0, None
         return {"moment": name, "variant": label[f], "n": n, "reply": reply, "cost": cost, "exact_model": exact}
@@ -237,7 +238,7 @@ def cmd_run(args):
     with concurrent.futures.ThreadPoolExecutor(4) as ex:
         replies = list(ex.map(one, jobs))
     when = datetime.datetime.now().isoformat(timespec="seconds")
-    record = {"when": when, "times": times,
+    record = {"when": when, "times": times, "effort": effort,
               "variants": {label[f]: {"file": str(f.relative_to(ROOT)) if f.is_relative_to(ROOT) else str(f),
                                       "tag": rpg.text_tag(ask.instructions(f))} for f in files},
               "moments": {name: {"kind": m["kind"], "person": m["person"], "from": m["from"], "model": model_for(m),

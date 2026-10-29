@@ -3,6 +3,7 @@ name: worldsmith
 description: Forges a whole new CodeRPG world in the background from a player's one-sentence request. The game master spawns it with the brief that `rpg.py forge start` or `forge resume` prints. It writes only inside its draft folder (a guard hook enforces this) and checks its work with `rpg.py validate --kit-complete` until the world passes.
 tools: Read, Glob, Grep, Write, Edit, Bash
 model: opus
+effort: high
 maxTurns: 150
 omitClaudeMd: true
 hooks:
