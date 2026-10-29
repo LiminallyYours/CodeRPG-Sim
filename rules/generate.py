@@ -27,7 +27,7 @@ class Context:
     def __init__(self, *, location, taken_ids, taken_names, expand, policy, balance, count,
                  items_found_here, extras_here, characters_here, room_ids, generated_people,
                  terrains=(), terrain_here=None, moves=0, maker=None, makes=(), builder=None, build_spots=None,
-                 depth_here=0, plan_steps=None, board_rooms=()):
+                 depth_here=0, plan_steps=None, board_rooms=(), arrival_open=False):
         self.location = location                    # the player's room id
         self.taken_ids = set(taken_ids)             # every id in use, any kind
         self.taken_names = {n.lower() for n in taken_names}
@@ -50,6 +50,7 @@ class Context:
         self.depth_here = depth_here                # how many generated rooms deep the player's room is (authored: 0)
         self.plan_steps = dict(plan_steps or {})    # {character: [plan steps open now]}: who may act off-screen
         self.board_rooms = list(board_rooms)       # rooms with a notice board (`board: yes`)
+        self.arrival_open = arrival_open           # whether someone new may arrive on this world turn
 
 
 NOTICE_CHARS = 160  # a notice on a board, whoever puts it up (a person through `post`, or the world's turn)
@@ -58,7 +59,7 @@ NOTICE_CHARS = 160  # a notice on a board, whoever puts it up (a person through 
 def empty_patch():
     return {"rooms": {}, "characters": {}, "items": {}, "quests": {},
             "exits": {}, "placements": {}, "room_items": {}, "commissions": {}, "rumors": [], "moves": [], "plans": [],
-            "notices": []}
+            "notices": [], "arrival": None}
 
 
 def _allowed(ctx, kind):
@@ -425,6 +426,16 @@ def world_turn(p, ctx):
         if not text or len(text) > NOTICE_CHARS:
             raise ValueError("a notice is one short text, at most %d characters" % NOTICE_CHARS)
         patch["notices"].append({"room": n["room"], "text": text})
+    arrival = p.get("arrival")
+    if arrival is not None:
+        if not ctx.arrival_open:
+            raise ValueError("no one new arrives on this world turn (only where the world says who may, once a day, "
+                             "while the run's limit allows)")
+        _obj(arrival, "arrival")
+        if arrival.get("room") not in ctx.room_ids:
+            raise ValueError("an arrival comes to a room that exists")
+        character(arrival, ctx, patch, set(), room=arrival["room"])
+        patch["arrival"] = next(iter(patch["characters"]))
     return patch
 
 

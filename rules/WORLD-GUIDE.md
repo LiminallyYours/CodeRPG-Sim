@@ -111,6 +111,7 @@ The world's feel in a few sentences, and what doesn't belong in it. Generated ad
 - `weather`: a list of short phrases; `times` (optional): a list of times of day the clock moves through.
 - `generation`: what may be created during play. Each of `extras`, `items`, `characters`, `side_quests` is `yes` or `no`; `rooms` is `anywhere` (the world may grow from any room in a free direction), `yes` (only where rooms list `expand:`), or `no`.
 - The four body sections are required: `## Who the player is`, `## Opening`, `## Tone`, `## Public knowledge`.
+- Optional: `## Who may arrive`, for a world with days that lets the world's off-screen turn bring someone new, at most one a day: who may come, and who never. Without it, no one arrives that way.
 
 ## look.json
 

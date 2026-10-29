@@ -591,6 +591,21 @@ def project_state(state, ident):
     return state["run"].setdefault("projects", {}).setdefault(ident, {"total": 0, "by": {}, "stages": []})
 
 
+def arrival_policy():
+    """Who may arrive in this world on its off-screen turns (world.md `## Who may arrive`); none without it."""
+    return _section(world()["body"], "Who may arrive").strip()
+
+
+def arrival_open(state):
+    """Whether someone new may arrive on this world turn: the world says who may, it has days, new people are allowed,
+    the run's limit and the meter allow one more, and no one has arrived yet today."""
+    if not arrival_policy() or not day_of(state) or not policy()["characters"]:
+        return False
+    if state["run"]["generated"] >= SETTINGS["generation"]["max_per_run"] or not can_pay("generate"):
+        return False
+    return str(day_of(state)) not in state["run"].get("arrivals", {})
+
+
 def has_board(room):
     """A place with a notice board (`board: yes`), where people, and the world's off-screen turn, put up notices."""
     return str(room.get("board", "no")).lower() == "yes"
@@ -2706,7 +2721,8 @@ def gen_context(state):
         builder=maker if kind == "build" else None, build_spots=build_spots(state, room) if here else {},
         depth_here=room_depth(room),
         plan_steps={c: [st["step"] for st in steps] for c, steps in open_steps(state).items()},
-        board_rooms=[r for r in ent_ids("rooms") if has_board(ent("rooms", r))])
+        board_rooms=[r for r in ent_ids("rooms") if has_board(ent("rooms", r))],
+        arrival_open=arrival_open(state))
 
 
 def apply_patch(state, patch):
@@ -3298,10 +3314,16 @@ def cmd_world_brief(args):
                     "would, signed. Never offer work, goods or rewards the town doesn't already have."]
             out += ["- %s (%s): %s" % (r, ent("rooms", r).get("name", r), " | ".join(n["text"] for n in reversed(notices(state, r)))
                                        or "nothing put up") for r in boards] + [""]
-        out += ['JSON: {"rumors": ["<up to 3 short lines of gossip>"], "moves": [{"id": "<generated person>", "room": "<room id>"}]%s%s}'
+        arriving = arrival_open(state)
+        if arriving:
+            out += ["", "Someone new may arrive today (at most one a day; on most world turns no one does), only if it fits the",
+                    "story so far. They know only public knowledge and their own life. Who may arrive here: " + " ".join(arrival_policy().split()), ""]
+        out += ['JSON: {"rumors": ["<up to 3 short lines of gossip>"], "moves": [{"id": "<generated person>", "room": "<room id>"}]%s%s%s}'
                 % (', "plans": [{"who": "<character id>", "step": "<step>"}]' if planned else "",
                    ', "notices": [{"room": "<a room with a board>", "text": "<one notice, up to %d characters>"}]'
-                   % generate.NOTICE_CHARS if boards else "")]
+                   % generate.NOTICE_CHARS if boards else "",
+                   ', "arrival": null or {"id": "...", "name": "...", "role": "...", "personality": "...", "speech": "...", '
+                   '"knows": ["..."], "wants": "...", "tier": null, "room": "<room id where they arrive>"}' if arriving else "")]
     elif request == "extra":
         out += ["Make the unnamed person the player is addressing into someone specific, consistent with this place.",
                 "They know ONLY public knowledge, what anyone here could see, and gossip; no secrets, no clues beyond that.",
@@ -3399,12 +3421,25 @@ def cmd_world_turn(args):
             done += [l for l in lines if l not in done]
     for n in patch["notices"]:
         put_up(state, n["room"], n["text"], None)
+    who = patch["arrival"]
+    at = next((r for r, ps in patch["placements"].items() if who in ps), None)
+    if who:  # someone new, checked as any generated person is; into the run, the library and the meter's count
+        apply_patch(state, patch)
+        run.setdefault("arrivals", {})[str(day_of(state))] = who
+        charge("generate")
+        data = lib()
+        library.add(data, lib_limit(), who, "characters", "world", patch["characters"][who], (), at)
+        lib_save(data)
     run["world_turn_due"] = False
     save_state(state)
     print("WORLD TURN: %d rumors, %d moves%s" % (len(patch["rumors"]), len(patch["moves"]),
                                               ", 1 notice" if patch["notices"] else ""))
     for n in patch["notices"]:
         print("  notice put up at %s: %s" % (n["room"], n["text"]))
+    if who:
+        print("  arrived: %s (%s), %s, at %s. Generated people are [minor]: voice them from their file (`show characters %s`)."
+              % (patch["characters"][who]["meta"]["name"], who, patch["characters"][who]["meta"]["role"],
+                 at, who))
     for r in patch["rumors"]:
         print("  rumor: %s" % r)
     for mv in patch["moves"]:

@@ -3112,6 +3112,37 @@ print(json.dumps({"type": "result", "is_error": False, "result": "Round done.", 
         self.assertTrue(entry["scuffle"])
         self.assertIsNone(entry["item"])
 
+    def test_someone_new_may_arrive_once_a_day_where_the_world_says_who_may(self):
+        self.rpg("game", "switch", "wendleford")
+        self.rpg("newgame", seed=44)
+        brief = self.rpg("world-brief", "turn", as_=False)
+        self.assertIn("Someone new may arrive today (at most one a day", brief)
+        self.assertIn("Who may arrive here: Travellers on the road,", brief)
+        wat = {"id": "wat_harlow", "name": "Wat Harlow", "role": "a farmhand come for the harvest work",
+               "personality": "Big, slow and good-natured.", "speech": "Slow and broad.", "knows": ["He walked in from Coombe."],
+               "wants": "A day's work.", "tier": None}
+        self.write("proposals/wt.json", json.dumps({"rumors": [], "moves": [], "arrival": dict(wat, room="nowhere")}))
+        self.assertIn("an arrival comes to a room that exists", self.rpg("world-turn", "proposals/wt.json", as_=False, ok=False))
+        self.write("proposals/wt.json", json.dumps({"rumors": [], "moves": [], "arrival": dict(wat, room="wheatsheaf")}))
+        self.assertIn("arrived: Wat Harlow (wat_harlow), a farmhand come for the harvest work, at wheatsheaf",
+                      self.rpg("world-turn", "proposals/wt.json", as_=False))
+        run = self.save()["run"]
+        self.assertEqual((run["arrivals"], run["placements"]["wheatsheaf"], run["generated"]), ({"1": "wat_harlow"}, ["wat_harlow"], 1))
+        self.assertIn("wat_harlow [minor, generated]", self.rpg("look", as_="marigold"))
+        self.assertNotIn("Someone new may arrive", self.rpg("world-brief", "turn", as_=False), "one a day")
+        nan = dict(wat, id="nan_cole", name="Nan Cole", role="a pedlar", room="market_square")
+        self.write("proposals/wt.json", json.dumps({"rumors": [], "moves": [], "arrival": nan}))
+        self.assertIn("no one new arrives on this world turn", self.rpg("world-turn", "proposals/wt.json", as_=False, ok=False))
+        for _ in range(4):
+            self.round_doing()  # the next morning
+        self.assertIn("Someone new may arrive today", self.rpg("world-brief", "turn", as_=False))
+        self.rpg("game", "switch", "dark_lighthouse")  # a world that doesn't say who may arrive: no one does
+        self.settings_tool("preset", "simulation")
+        self.rpg("newgame", seed=44)
+        self.assertNotIn("Someone new may arrive", self.rpg("world-brief", "turn", as_=False))
+        self.write("proposals/wt.json", json.dumps({"rumors": [], "moves": [], "arrival": dict(wat, room="harbor_square")}))
+        self.assertIn("no one new arrives on this world turn", self.rpg("world-turn", "proposals/wt.json", as_=False, ok=False))
+
     def test_validate_holds_shared_work_to_its_shape(self):
         self.needs_world()
         rooms = self.dir / "games" / "dark_lighthouse" / "rooms"

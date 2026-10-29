@@ -53,6 +53,9 @@ A plain country market town at harvest time, in no particular year: carts and co
 - The townspeople are the twelve in this world and those the world agent adds; nobody else (no clerk, no constable, no second baker) unless generated.
 - Nobody lives at the mill now: the miller is away at his brother's until after the bridge is mended (he comes home on day 6 if it is), and only Kit is about the place. Dunn's wife keeps to the farmhouse and sends the basket out. The men on the bridge are whoever is working it that day; the carters in the Wheatsheaf are extras, but for Abel Tash.
 
+## Who may arrive
+Travellers on the road, carters held up by the bridge, a pedlar, farmhands come for the harvest work, a lodger at the inn. Never a constable, a second baker, a ferryman or a boat, anyone who pays back wages, or anyone who knows where the wage box is.
+
 ## At: false_lead
 when: day 1, afternoon
 if: not wage_box_found
