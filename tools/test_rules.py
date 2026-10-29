@@ -3309,6 +3309,12 @@ print(json.dumps({"type": "result", "is_error": False, "result": "Round done.", 
                          "what was decided stays, whatever the reply says")
         out, asked, _ = self.ask("make", "wendleford", "marigold", answers=["{}"], ok=False, tool="tools/cast.py")
         self.assertIn("- Already paid for: a bed at The Wheatsheaf, 1 night\n", asked[0])
+        cast = self.dir / "games" / "wendleford" / "cast.json"
+        entries = json.loads(cast.read_text())
+        cast.write_text(json.dumps(entries + [{"id": "kesh", "archetype": "hobb"}]))  # someone still to be made, with no name yet
+        out, asked, _ = self.ask("make", "wendleford", "marigold", answers=["{}"], ok=False, tool="tools/cast.py")
+        self.assertIn("- kesh: kesh (they/them)\n", asked[0] + "\n", "a placeholder is named by its id")
+        cast.write_text(json.dumps(entries))
         s = self.rpg("validate", "--game", "wendleford")
         cast = self.dir / "games" / "wendleford" / "cast.json"
         cast.write_text(cast.read_text().replace('"situation": "Sleeps', '"situation": "' + "x" * 300 + 'Sleeps', 1))

@@ -86,7 +86,8 @@ def world_text(world, ident):
     people = ["- %s: %s, %s%s" % (c, rpg.ent("characters", c).get("name", c), rpg.ent("characters", c).get("role", ""), trade(c))
               for c in rpg.content.ids("characters")]
     things = ["- %s: %s" % (i, rpg.item(i).get("name", i)) for i in rpg.content.ids("items")]
-    others = ["- %s: %s (%s)" % (e["id"], e["name"], e.get("pronouns", "they/them")) for e in rpg.content.cast() if e.get("id") != ident]
+    others = ["- %s: %s (%s)" % (e["id"], e.get("name", e["id"]), e.get("pronouns", "they/them"))  # a placeholder has no name yet
+              for e in rpg.content.cast() if e.get("id") != ident]
     return "\n".join(["# The world: %s" % w.get("title", world), "", "## Its tone", rpg._section(w["body"], "Tone").strip(), "",
                       "## What everyone around here knows", rpg.public_knowledge() or "(nothing written)", "",
                       "## Money", "%s; people starting out here usually have about %s." % (rpg.currency(), w.get("coins", "a few")), "",
@@ -252,7 +253,7 @@ def cmd_check(args):
         if not entry:
             sys.exit("%s has no %s in its cast" % (world, ident))
     arch, defs = setup(world, against or entry.get("archetype") or "")
-    names = {e["id"]: e["name"] for e in rpg.content.cast()}
+    names = {e["id"]: e.get("name", e["id"]) for e in rpg.content.cast()}
     note = rpg.note_lines(entry, entry["name"], entry.get("pronouns") or "they/them",
                           lambda who: names.get(who) or rpg.ent("characters", who).get("name", who))
     ids = [k for part in ("attributes", "ways") for k in defs[part]]
