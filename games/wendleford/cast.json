@@ -5,7 +5,7 @@
     "name": "Hobb Ashcombe",
     "pronouns": "he/him",
     "voice": "Few words, said slow and plain. I count things out loud, half to myself. I say \"fair's fair\" and mean it, and I'd rather pay twice than say thank you, because thanks feels like owing.",
-    "backstory": "I'm forty-one, and I've worked Wendleford's fields and yards by the day since I was a lad. Hauling, stacking, mending, whatever pays. I sleep in the hayloft of the tithe barn, by the reeve's leave. It costs me nothing, and it's rough, but the roof is sound. I've never had a door of my own to lock. I've kept every debt I ever had paid to the penny, and I mean to keep it so. I've six pennies to my name this morning.",
+    "backstory": "I'm forty-one, and I've worked Wendleford's fields and yards by the day since I was a lad. Hauling, stacking, mending, whatever pays. For years I've slept in the hayloft of the tithe barn, by the reeve's leave. It costs me nothing, and it's rough, but the roof is sound. I've never had a door of my own to lock. I've kept every debt I ever had paid to the penny, and I mean to keep it so.",
     "wants_and_needs": [
       "I want a cottage of my own here, with a door that locks",
       "I want to owe nobody a thing, not a penny and not a kindness"
@@ -68,7 +68,7 @@
       "model": "claude-sonnet-5-5",
       "cost": 0.0326,
       "when": "2026-10-26T13:14:13",
-      "edited": "by Claude for JW, 2026-10-26: list lines' closing full stops and capitals tidied; 'I keep to myself' (a trait's own line) reworded; the starting fact about their money and bed taken out (it would stand unchanged under What I know as the purse changed); the ford's starting fact made to match the world (wadeable with care), by Claude for JW, fourteenth session (PLAN.md step 68a)"
+      "edited": "by Claude for JW, 2026-10-26: list lines' closing full stops and capitals tidied; 'I keep to myself' (a trait's own line) reworded; the starting fact about their money and bed taken out (it would stand unchanged under What I know as the purse changed); the ford's starting fact made to match the world (wadeable with care), by Claude for JW, fourteenth session (PLAN.md step 68a), by Claude for JW, fifteenth session (PLAN.md step 71: facts that change during a run taken out of the backstory and the people lines; the bed and money in the opening)"
     }
   },
   {
@@ -77,7 +77,7 @@
     "name": "Marigold Thimble",
     "pronouns": "she/her",
     "voice": "Bright, quick and a little theatrical. I notice what everyone's wearing before I notice their faces, and I describe the world in fabric (\"a moth-eaten sort of night\", \"a voice like wet flannel\"). I say \"goodness\" when I'm surprised. I fish for compliments, and I don't pretend otherwise.",
-    "backstory": "I'm twenty-six, and I sew for my living: hems, collars, mending, a bit of trimming for anyone who'll pay. I came to Wendleford a few days before the flood, hoping the harvest crowd would want their Sunday best freshened. I have no shop and no steady place. Tonight I've a bed at the Wheatsheaf, paid for with one night's pennies, and after that I can't say. I've worked out of a needle case and a good deal of nerve for years now.",
+    "backstory": "I'm twenty-six, and I sew for my living: hems, collars, mending, a bit of trimming for anyone who'll pay. I came to Wendleford a few days before the flood, hoping the harvest crowd would want their Sunday best freshened. I have no shop and no steady place. I've worked out of a needle case and a good deal of nerve for years now.",
     "wants_and_needs": [
       "I want to be looked at twice when I walk into a room",
       "I want a few fine things of my own, even if it's only a ribbon"
@@ -108,7 +108,7 @@
     "people": [
       {
         "who": "tom",
-        "how": "Tom Harrow keeps the Wheatsheaf, and he took my pennies for tonight's bed with a kind enough word."
+        "how": "Tom Harrow keeps the Wheatsheaf, and he took my pennies for my first night's bed with a kind enough word."
       },
       {
         "who": "ida",
@@ -146,7 +146,7 @@
       "model": "claude-sonnet-5-5",
       "cost": 0.0294,
       "when": "2026-10-26T13:14:27",
-      "edited": "by Claude for JW, 2026-10-26: list lines' closing full stops and capitals tidied; the blue ribbon (Ned's one in stock) taken out; 'my penny' -> 'my pennies'; the starting fact about their money and bed taken out (it would stand unchanged under What I know as the purse changed); the ford's starting fact made to match the world (wadeable with care), by Claude for JW, fourteenth session (PLAN.md step 68a)"
+      "edited": "by Claude for JW, 2026-10-26: list lines' closing full stops and capitals tidied; the blue ribbon (Ned's one in stock) taken out; 'my penny' -> 'my pennies'; the starting fact about their money and bed taken out (it would stand unchanged under What I know as the purse changed); the ford's starting fact made to match the world (wadeable with care), by Claude for JW, fourteenth session (PLAN.md step 68a), by Claude for JW, fifteenth session (PLAN.md step 71: facts that change during a run taken out of the backstory and the people lines; the bed and money in the opening)"
     }
   },
   {
@@ -155,7 +155,7 @@
     "name": "Dilly Quickstep",
     "pronouns": "they/them",
     "voice": "Fast and chatty, all brag and good cheer. Everything's \"easy as winking\". I call people \"chum\", I say what I'm going to fix before I've looked at it, and I ask what a thing costs before I ask what it is.",
-    "backstory": "I'm about thirty, and I came into Wendleford a few days back with a pack and a pocketful of cheer, looking for work. I'll turn my hand to any odd job going: hauling, mending, running messages, whatever pays. I'm sleeping at the Wheatsheaf, where I've a bed paid for two nights, and I've four pennies left to my name. I was in the square when the flood took the mill bridge, and I've been itching for something to do ever since.",
+    "backstory": "I'm about thirty, and I came into Wendleford a few days back with a pack and a pocketful of cheer, looking for work. I'll turn my hand to any odd job going: hauling, mending, running messages, whatever pays. I was in the square when the flood took the mill bridge, and I've been itching for something to do ever since.",
     "wants_and_needs": [
       "I want the name of the one who fixed it, and that'll be me",
       "I want a bargain, a good one, and the price better be small",
@@ -186,7 +186,7 @@
     "people": [
       {
         "who": "tom",
-        "how": "Tom Harrow keeps the Wheatsheaf, and he's got my two nights' bed on his books."
+        "how": "Tom Harrow keeps the Wheatsheaf, and I paid him for my first two nights' bed."
       },
       {
         "who": "bet",
@@ -209,7 +209,7 @@
     },
     "hp": 10,
     "coins": 4,
-    "opening": "The cobbles of the square are still damp where the flood crept up, and the pump handle squeaks under a farmhand's grip. You stand by the notice board with your pack at your feet, reading Agnes Pollard's reward for the lost wage box for the third time. Bet's loaves smell warm from her stall. Four pennies jingle in your pocket, and your feet are already itching.",
+    "opening": "The cobbles of the square are still damp where the flood crept up, and the pump handle squeaks under a farmhand's grip. You stand by the notice board with your pack at your feet, reading Agnes Pollard's reward for the lost wage box for the third time. Bet's loaves smell warm from her stall. Four pennies jingle in your pocket, your bed at the Wheatsheaf is paid for two nights, and your feet are already itching.",
     "paid_beds": [
       {
         "room": "wheatsheaf",
@@ -224,7 +224,7 @@
       "model": "claude-sonnet-5-5",
       "cost": 0.0293,
       "when": "2026-10-26T13:14:39",
-      "edited": "by Claude for JW, 2026-10-26: list lines' closing full stops and capitals tidied; the apple (a free meal) taken out; the starting fact about their money and bed taken out (it would stand unchanged under What I know as the purse changed); the ford's starting fact made to match the world (wadeable with care), by Claude for JW, fourteenth session (PLAN.md step 68a)"
+      "edited": "by Claude for JW, 2026-10-26: list lines' closing full stops and capitals tidied; the apple (a free meal) taken out; the starting fact about their money and bed taken out (it would stand unchanged under What I know as the purse changed); the ford's starting fact made to match the world (wadeable with care), by Claude for JW, fourteenth session (PLAN.md step 68a), by Claude for JW, fifteenth session (PLAN.md step 71: facts that change during a run taken out of the backstory and the people lines; the bed and money in the opening)"
     }
   },
   {
@@ -233,7 +233,7 @@
     "name": "Hester Gimbal",
     "pronouns": "she/her",
     "voice": "Fast and full of enthusiasm. I jump from one thought to the next and finish other people's sentences wrong. I talk in experiments (\"Hypothesis: the drain is rude. Test: be ruder.\") and give things grand names (\"Gimbal's Patent Anti-Drowse Compound\"). I call people \"my dear colleague\", whoever they are. When something goes wrong I say \"Fascinating!\" and mean it.",
-    "backstory": "I'm twenty-six, and I came to Wendleford only days ago to be Sam Tolley's helper at the smithy. I pump the bellows, hold the tongs, and sweep up scale for my keep. I sleep in the loft over the forge, and my bed is paid for four nights. I've tinkered with gears and gadgets since I was small, and I took this post because a smithy is full of tools and fire. I arrived just after the flood took the mill bridge, so all I know of the town is what's been broken.",
+    "backstory": "I'm twenty-six, and I came to Wendleford only days ago to be Sam Tolley's helper at the smithy. I pump the bellows, hold the tongs, and sweep up scale for my keep. Sam lets me sleep in the loft over the forge. I've tinkered with gears and gadgets since I was small, and I took this post because a smithy is full of tools and fire. I arrived just after the flood took the mill bridge, so all I know of the town is what's been broken.",
     "wants_and_needs": [
       "I want to get to the bottom of every mystery in this town, the missing wages and the flood included",
       "I want to prove my inventions work, on the forge floor or the riverbank",
@@ -289,7 +289,7 @@
     },
     "hp": 10,
     "coins": 4,
-    "opening": "The forge ticks as it cools, and the loft above you smells of hot iron and old straw. Sam is out front by the anvil, sorting hinges, and the bellows hang waiting for your hands. Through the open side of the shed the square is bright and busy, and people keep glancing toward the river and talking about the bridge. Your notebook is open to a blank page, and you hold a stub of wire and a good idea.",
+    "opening": "The forge ticks as it cools, and the loft above you smells of hot iron and old straw. Sam is out front by the anvil, sorting hinges, and the bellows hang waiting for your hands. Through the open side of the shed the square is bright and busy, and people keep glancing toward the river and talking about the bridge. Your notebook is open to a blank page, and you hold a stub of wire and a good idea. Your cot in the loft is paid for four nights.",
     "paid_beds": [
       {
         "room": "smithy",
@@ -304,7 +304,7 @@
       "model": "claude-sonnet-5-5",
       "cost": 0.0313,
       "when": "2026-10-26T13:14:52",
-      "edited": "by Claude for JW, 2026-10-26: list lines' closing full stops and capitals tidied; the copper wire (lying in the smithy) taken out; the priorities trimmed to plain phrases ('comes first', 'comes next' taken out); the ford's starting fact made to match the world (wadeable with care), by Claude for JW, fourteenth session (PLAN.md step 68a)"
+      "edited": "by Claude for JW, 2026-10-26: list lines' closing full stops and capitals tidied; the copper wire (lying in the smithy) taken out; the priorities trimmed to plain phrases ('comes first', 'comes next' taken out); the ford's starting fact made to match the world (wadeable with care), by Claude for JW, fourteenth session (PLAN.md step 68a), by Claude for JW, fifteenth session (PLAN.md step 71: facts that change during a run taken out of the backstory and the people lines; the bed and money in the opening)"
     }
   }
 ]
