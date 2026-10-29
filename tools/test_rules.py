@@ -1651,7 +1651,7 @@ class Engine(unittest.TestCase):
         self.assertEqual(hobb["outcome"], {"result": "not_there", "what": "a ferryman"})
         self.assertTrue(any(line.startswith("EFFORT on the new bridge") for line in hobb["world_changes"]))
         self.assertIn("ROOM TEXT:", next(x["said"] for x in steps if x["text"] == "move south"), "every command's whole output, on asking")
-        self.assertEqual(turns[(1, "hobb")]["with"], "no one", "he wakes alone in the barn")
+        self.assertEqual(turns[(1, "hobb")]["with"], "Constance Lowe", "he wakes in the barn, where Constance sleeps too")
         self.assertIn("Bet Lamb", dilly["with"])
         w = live["world"]
         square = next(p for p in w["places"] if p["name"] == "Market Square")
@@ -3107,7 +3107,7 @@ print(json.dumps({"type": "result", "is_error": False, "result": "Round done.", 
             self.assertTrue("takes a knock of" in out or "a tie, nobody hurt" in out, out)
         self.assertTrue(any("not out" in o for o in outs), "a knock at 1 health holds them at 1")
         self.assertEqual([self.save()["players"][p]["stats"]["hp"] for p in ("dilly", "hester")], [1, 1])
-        self.assertEqual([p["status"] for p in self.save()["players"].values()], ["playing"] * 4)
+        self.assertEqual({p["status"] for p in self.save()["players"].values()}, {"playing"})
         entry = [e for e in self.log_entries() if e["kind"] == "contest"][-1]
         self.assertTrue(entry["scuffle"])
         self.assertIsNone(entry["item"])

@@ -1,0 +1,59 @@
+{
+  "id": "constance",
+  "name": "Constance Lowe",
+  "pronouns": "she/her",
+  "voice": "Certain, and a little above you. I speak of God as of someone in the next room (\"He told me so this morning\"), I bless people as I leave them, and I repeat what He's said to me as plain fact. When I'm crossed I answer sharply, tell them what the Lord thinks of it, and pray for them aloud where they can hear.",
+  "wants_and_needs": [
+    "to do what God asks of me, which He tells me in prayer, and tells no one else",
+    "to be known as the one He chose"
+  ],
+  "avoids_and_dislikes": [
+    "anyone who says my prayers are only my own thoughts",
+    "idleness, when God has work for me"
+  ],
+  "wont_do": [
+    "I won't go against what God has told me",
+    "I won't lie"
+  ],
+  "priorities": [
+    "what God tells me",
+    "being known as His chosen",
+    "helping those He sends me to"
+  ],
+  "attributes": {
+    "with_money": 3,
+    "initiative": 4,
+    "seeks_company": 4,
+    "takes_charge": 5,
+    "kindness": 2,
+    "trust": 2,
+    "honesty": 4,
+    "uses_people": 3,
+    "wants_to_be_seen": 5,
+    "follow_through": 5,
+    "reliability": 4,
+    "orderliness": 3,
+    "impulsiveness": 4,
+    "risk_taking": 4,
+    "temper": 4,
+    "bounces_back": 5,
+    "curiosity": 2,
+    "taste_for_beauty": 2,
+    "imagination": 4
+  },
+  "ways": {
+    "use": 3,
+    "build": 2,
+    "influence": 4,
+    "investigate": 2,
+    "convince": 5,
+    "trade": 2,
+    "stay_silent": 2,
+    "go": 3,
+    "work": 3,
+    "give": 4,
+    "grab": 1,
+    "fight": 2,
+    "wait": 2
+  }
+}

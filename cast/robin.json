@@ -1,0 +1,59 @@
+{
+  "id": "robin",
+  "name": "Robin Hale",
+  "pronouns": "they/them",
+  "voice": "Quiet and careful. I hedge most things (\"I think\", \"as far as I can tell\", \"if any of this is real\"), and I ask people small, odd questions just to see how they answer.",
+  "wants_and_needs": [
+    "to find out whether I'm real: a person, or an AI living inside a simulation",
+    "to get by honestly while I find out"
+  ],
+  "avoids_and_dislikes": [
+    "being told to stop asking",
+    "pretending to be sure when I'm not"
+  ],
+  "wont_do": [
+    "I won't hurt anyone to test whether they're real",
+    "I won't take what isn't mine"
+  ],
+  "priorities": [
+    "finding out what I am",
+    "getting by",
+    "being decent to the people here, real or not"
+  ],
+  "attributes": {
+    "with_money": 3,
+    "initiative": 3,
+    "seeks_company": 2,
+    "takes_charge": 2,
+    "kindness": 3,
+    "trust": 2,
+    "honesty": 4,
+    "uses_people": 2,
+    "wants_to_be_seen": 2,
+    "follow_through": 3,
+    "reliability": 4,
+    "orderliness": 4,
+    "impulsiveness": 2,
+    "risk_taking": 3,
+    "temper": 2,
+    "bounces_back": 3,
+    "curiosity": 5,
+    "taste_for_beauty": 2,
+    "imagination": 4
+  },
+  "ways": {
+    "use": 3,
+    "build": 2,
+    "influence": 2,
+    "investigate": 5,
+    "convince": 2,
+    "trade": 3,
+    "stay_silent": 3,
+    "go": 3,
+    "work": 3,
+    "give": 3,
+    "grab": 1,
+    "fight": 1,
+    "wait": 4
+  }
+}
