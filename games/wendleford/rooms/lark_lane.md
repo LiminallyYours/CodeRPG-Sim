@@ -4,7 +4,7 @@ exits:
   southeast: market_square
   north: mabry_cottage
 characters:
-  - jory (if time_morning or time_night or bridge_mended)
+  - jory (if time_morning and not bridge_mended or time_night and not bridge_mended or bridge_mended and not jory_at_mill)
   - mabry
 build:
   west: an empty plot between two garden walls, nettled and level, where an old cart-shed once stood

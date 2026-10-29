@@ -35,5 +35,17 @@ He's proud of the new bridge and pretends not to be. He's back in his own yard a
 ## If bridge_mended and harvest_in
 He's proud of the new bridge and pretends not to be, and he's glad of the barley in the barn. He's back in his own yard all day now.
 
+## Plan: to_mill (if bridge_mended and not jory_at_mill and harvest_in or bridge_mended and not jory_at_mill and not harvest_in)
+does: crosses the new bridge to see to the millwheel the flood knocked askew
+sets: jory_at_mill
+near: Jory goes by with a bag of tools over his shoulder, heading for the new bridge.
+rumor: Jory Crane's gone over to the mill to see to the wheel.
+
+## Plan: back_to_yard (if jory_at_mill)
+does: comes back over the bridge to his yard on Lark Lane
+clears: jory_at_mill
+near: Jory comes back up the lane with his bag of tools and a satisfied sort of frown.
+rumor: Jory Crane's back in his yard from the mill.
+
 ## GM only
 - **Building:** he builds on the plot to the west of Lark Lane, only while he's there (in the mornings, or all day once the bridge is mended). The rules say what it costs and how long it takes.

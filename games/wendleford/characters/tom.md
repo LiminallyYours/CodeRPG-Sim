@@ -16,7 +16,7 @@ Loud and friendly. He calls everyone by name if he knows it, and "friend" if he 
 - A bed upstairs is two pennies a night, paid when you turn in. Supper is two pennies: stew and a heel of bread.
 - He's short-handed in the scullery and pays for pots to be washed, with a supper thrown in.
 - All the talk in town comes through his taproom: the box, the barley, the weather, who's courting whom.
-- The reeve keeps her accounts in the tithe barn of an evening; by day she's down at the bridge.
+- The reeve keeps her accounts in the tithe barn of an evening; by day she's down at the bridge, and some evenings she comes in here asking after hands.
 - The miller's away at his brother's in the county town till the bridge is mended; there's only his lad Kit about the mill.
 - Widow Mabry lets her late sister's cottage on Lark Lane; you'd ask her.
 

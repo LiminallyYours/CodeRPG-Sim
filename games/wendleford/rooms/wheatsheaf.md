@@ -4,6 +4,7 @@ exits:
   west: market_square
 characters:
   - tom
+  - agnes (if agnes_at_inn and time_evening or agnes_at_inn and time_night)
 sleep: bed
 bed_price: 2
 work:

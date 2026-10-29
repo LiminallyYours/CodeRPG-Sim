@@ -3,7 +3,7 @@ name: The Tithe Barn
 exits:
   south: market_square
 characters:
-  - agnes (if time_evening or time_night)
+  - agnes (if time_evening and not agnes_at_inn or time_night and not agnes_at_inn)
 sleep: rough
 terrain: indoors
 ---

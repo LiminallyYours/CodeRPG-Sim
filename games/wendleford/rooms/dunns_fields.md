@@ -5,6 +5,8 @@ exits:
 characters:
   - dunn
   - kit (if not kit_fishing)
+  - jory (if bridge_mended and jory_at_mill)
+  - amos (if miller_home)
 project:
   id: harvest
   name: Dunn's harvest
@@ -26,6 +28,9 @@ The field is stubble, and the last of the sheaves are stacked on the cart for th
 
 ## If rain_fell and not harvest_in
 The uncut barley lies flattened and sodden, beaten into the mud by the rain.
+
+## If jory_at_mill
+Jory Crane is up a ladder at the millwheel, with a mallet and a mouthful of pegs.
 
 ## Details
 - The stooks: anyone may lie down among the barley for the night (`sleep`, from evening). It's dry enough, but cold, and nobody sleeps well out here.

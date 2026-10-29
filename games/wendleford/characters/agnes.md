@@ -47,6 +47,18 @@ She's pleased about the barley, and says the town owes those who helped bring it
 ## If rain_fell and not harvest_in
 She's grim. She's been across to see Dunn's fields, and she knows what it'll mean for the price of bread.
 
+## Plan: to_inn (if time_evening and not agnes_at_inn)
+does: walks over to the Wheatsheaf to look for hands for the bridge and hear the town's talk
+sets: agnes_at_inn
+near: The reeve's keys jingle past, and the Wheatsheaf's door swings shut behind her.
+rumor: The reeve's been in the Wheatsheaf of an evening, asking after hands for the bridge.
+
+## Plan: back_to_barn (if agnes_at_inn)
+does: goes back to her table in the tithe barn
+clears: agnes_at_inn
+near: Agnes Pollard comes out of the Wheatsheaf and crosses the square to the tithe barn.
+rumor: The reeve's gone back to her ledger in the tithe barn.
+
 ## GM only
 - **The box:** when someone hands her the wage box: `lose wage_box`, `flag set wage_box_found`, `flag set found_the_box` for the one who found it, and pay the reward: `coins +6 reward`. Only once.
 - **The hayloft:** her leave is all it takes; nothing to record.
