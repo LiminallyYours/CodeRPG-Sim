@@ -2576,6 +2576,8 @@ print(json.dumps({"type": "result", "is_error": False, "result": "Round done.", 
             self.assertIn({"round": 8, "kind": "seen", "text": "All along the harbor the gulls fall quiet at once.", "uses": 0},
                           pl["memory"]["recent"], pid)
         self.assertIn("The gulls went quiet at dusk.", self.save()["run"]["rumors"])
+        self.assertIn("## What's settled (never say otherwise)\n- day 3, dusk: All along the harbor the gulls fall quiet at once.\n",
+                      self.rpg("world-brief", "turn", as_=False), "what happened stays happened, for the world turn's talk")
         events = [e for e in self.log_entries() if e["kind"] == "event"]
         self.assertEqual([(e["id"], e["happened"], e["player"]) for e in events], [("gulls_quiet", True, None)])
         for _ in range(4):
@@ -3028,7 +3030,9 @@ print(json.dumps({"type": "result", "is_error": False, "result": "Round done.", 
         self.rpg("newgame", seed=44)
         brief = self.rpg("world-brief", "turn", as_=False)
         self.assertNotIn("## What's settled", brief)
-        self.assertIn("based only on the story so far,\npublic knowledge and what's settled", brief)
+        self.assertIn("based only on the story so far, public knowledge and what's settled, or nothing", brief)
+        self.assertIn('"rumors": ["<0 to 3 short lines of new gossip; none if nothing new>"]', brief)
+        self.assertNotIn("## Talk already going around", brief, "nothing said yet")
         self.rpg("flag", "set", "wage_box_found", as_="hester")
         self.write("proposals/ending.txt", "The reeve has her box back, and the reward is paid.")
         self.rpg("ending", "proposals/ending.txt", as_="hester")
@@ -3037,8 +3041,12 @@ print(json.dumps({"type": "result", "is_error": False, "result": "Round done.", 
         state = self.save()
         state["run"]["projects"] = {"bridge": {"total": 8, "by": {"hobb": 8}, "stages": ["bridge_half", "bridge_mended"]},
                                     "harvest": {"total": 4, "by": {"dilly": 4}, "stages": ["harvest_half"]}}
+        state["run"]["rumors"] = ["Old talk %d." % i for i in range(8)]
         self.write("state/save.json", json.dumps(state))
         brief = self.rpg("world-brief", "turn", as_=False)
+        self.assertIn("## Talk already going around (don't repeat it)\n" + "".join("- Old talk %d.\n" % i for i in range(2, 8)),
+                      brief, "the last six said, so nothing is said twice")
+        self.assertNotIn("Talk already going around", self.rpg("world-brief", "extra", as_="hester"), "only the world turn")
         self.assertIn("## What's settled (never say otherwise)\n- The Reeve's Wage Box: The reeve has her box back, and the "
                       "reward is paid.\n- the new bridge: done\n", brief)
         self.assertNotIn("Dunn's harvest: done", brief, "half done isn't settled")
@@ -3125,7 +3133,7 @@ print(json.dumps({"type": "result", "is_error": False, "result": "Round done.", 
         self.rpg("game", "switch", "wendleford")
         self.rpg("newgame", seed=44)
         brief = self.rpg("world-brief", "turn", as_=False)
-        self.assertIn("Someone new may arrive today (at most one a day", brief)
+        self.assertIn("Someone new may arrive today (at most one a day), only if it fits the", brief, "neutral: no hint that most days no one does")
         self.assertIn("Who may arrive here: Travellers on the road,", brief)
         wat = {"id": "wat_harlow", "name": "Wat Harlow", "role": "a farmhand come for the harvest work",
                "personality": "Big, slow and good-natured.", "speech": "Slow and broad.", "knows": ["He walked in from Coombe."],

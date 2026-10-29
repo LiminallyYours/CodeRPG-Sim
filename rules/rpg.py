@@ -1921,6 +1921,8 @@ def timed_events(state):
             continue
         if ev.get("sets"):
             set_flag(state, ev["sets"])
+        if ev.get("seen") or ev.get("rumor"):  # settled from now on, for the world turn
+            run.setdefault("happened", []).append({"when": ev["when"], "text": ev.get("seen") or ev["rumor"]})
         for pl in state["players"].values():
             if ev.get("seen") and pl["status"] == "playing":
                 remember(pl, "seen", ev["seen"], run.get("round") or 0)
@@ -3191,7 +3193,8 @@ def _section(body, title):
 
 def settled_lines(state):
     """What this run has settled, for the world agent's off-screen turn: each quest ending told, in the words everyone
-    heard, and each shared work finished, so its rumours never say otherwise once they've left the story so far."""
+    heard, each shared work finished, and each timed event that happened, in its own words, so its rumours never say
+    otherwise once they've left the story so far."""
     out = []
     for q, e in state["run"].get("endings", {}).items():
         out.append("%s: %s" % (ent("quests", q).get("name", q), e.get("text") or e["outcome"]))
@@ -3200,6 +3203,7 @@ def settled_lines(state):
         shared = project_of(ent("rooms", rooms[ident])) if ident in rooms else None
         if shared and shared["stages"] and shared["stages"][-1][1] in rec["stages"]:
             out.append("%s: done" % shared["name"])
+    out += ["%s: %s" % (ev["when"], ev["text"]) for ev in state["run"].get("happened", [])]
     return out
 
 
@@ -3274,6 +3278,9 @@ def cmd_world_brief(args):
     settled = settled_lines(state) if request == "turn" else []
     if settled:
         out += ["", "## What's settled (never say otherwise)"] + ["- " + x for x in settled]
+    talk = run["rumors"][-BALANCE["world"]["rumors_kept"]:] if request == "turn" else []
+    if talk:
+        out += ["", "## Talk already going around (don't repeat it)"] + ["- " + r for r in talk]
     fits, lib_data = [], None
     if request in REQUEST_KIND:
         kind = REQUEST_KIND[request]
@@ -3294,8 +3301,9 @@ def cmd_world_brief(args):
                   for c in run["characters"]]
         built = ["%s (%s)" % (r, ent("rooms", r).get("name", r)) for r in run["rooms"] if made_by("rooms", r) == "player"]
         planned = open_steps(state)
-        out += ["Time passes off-screen. Write what people around here start saying, based only on the story so far,",
-                "public knowledge and what's settled, and optionally move generated people to another room that exists.",
+        out += ["Time passes off-screen. Write anything new people around here start saying (never what's already going",
+                "around), based only on the story so far, public knowledge and what's settled, or nothing if there's",
+                "nothing new; and optionally move generated people to another room that exists.",
                 "Generated people: %s" % (", ".join(people) or "none"),
                 "Places the player had built (people may start using them, and talking about them): %s" % (", ".join(built) or "none"),
                 "Rooms: %s" % ", ".join(ent_ids("rooms"))]
@@ -3316,9 +3324,9 @@ def cmd_world_brief(args):
                                        or "nothing put up") for r in boards] + [""]
         arriving = arrival_open(state)
         if arriving:
-            out += ["", "Someone new may arrive today (at most one a day; on most world turns no one does), only if it fits the",
+            out += ["", "Someone new may arrive today (at most one a day), only if it fits the",
                     "story so far. They know only public knowledge and their own life. Who may arrive here: " + " ".join(arrival_policy().split()), ""]
-        out += ['JSON: {"rumors": ["<up to 3 short lines of gossip>"], "moves": [{"id": "<generated person>", "room": "<room id>"}]%s%s%s}'
+        out += ['JSON: {"rumors": ["<0 to 3 short lines of new gossip; none if nothing new>"],"moves": [{"id": "<generated person>", "room": "<room id>"}]%s%s%s}'
                 % (', "plans": [{"who": "<character id>", "step": "<step>"}]' if planned else "",
                    ', "notices": [{"room": "<a room with a board>", "text": "<one notice, up to %d characters>"}]'
                    % generate.NOTICE_CHARS if boards else "",
