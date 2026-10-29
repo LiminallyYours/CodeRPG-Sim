@@ -16,6 +16,7 @@ Slow and dry, as if every word cost him a nail. He calls people by their names, 
 - The reeve needs him at the bridge every afternoon, and he says so: there's only one of him.
 - The old bridge went in the night, all at once. He'd warned Agnes about the far pier for a year.
 - The wreck jammed against the far pier is dangerous to climb on, but he's seen men do it for less than six pennies.
+- Agnes is down at the bridge in the mornings and afternoons, and at her table in the tithe barn in the evenings and at night.
 
 ## What he wants
 His own work back, the bridge done properly and not in a hurry, and a fair price for a fair job.

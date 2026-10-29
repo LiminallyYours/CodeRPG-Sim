@@ -15,7 +15,7 @@ Slow and gruff, in country words. He calls people by their names once he knows t
 ## What he knows
 - Every spell of help with the cutting and stooking brings it closer. Eight good spells of work would see it in.
 - Rain is coming. He can smell it. Three days, maybe less.
-- He can't pay wages until the barley is sold, but his wife feeds anyone who helps.
+- He has no money for wages, not now and not after the harvest: what the barley fetches goes on rent and seed. His wife feeds anyone who helps, at noon, and if the barley's in they'll eat at the harvest supper.
 - He sells apples from his tree, a penny each.
 
 ## What he wants
@@ -24,6 +24,7 @@ The barley in before the rain.
 ## What he will trade or reveal
 - He feeds anyone who helps in the field.
 - He sells apples.
+- He pays no wages, and says so plainly to anyone who asks.
 
 ## If harvest_in
 He's quietly happy and keeps patting the full cart.

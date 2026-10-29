@@ -23,7 +23,7 @@ To be taken notice of. A penny would be nice. To go back to the mill when the wh
 - He tells what he saw to anyone who's kind to him, or gives him a penny, or something to eat.
 
 ## If wage_box_found
-He's sulking a bit that someone else got the reward, but he wants to hear all about it.
+He's sulking a bit that someone else got the reward, but he wants to hear all about it. He knows now that the small green thing he saw in the wreck was the box itself, and says so if anyone asks what he saw: there's nothing else down there, and his tale isn't worth a penny any more.
 
 ## Plan: fishing (if not kit_fishing)
 does: goes down to the river below the broken bridge to fish
@@ -38,4 +38,4 @@ near: Kit splashes back across the ford toward the mill, a string of nothing muc
 rumor: The miller's lad has gone back over the ford to the mill.
 
 ## GM only
-- **What he saw:** when he tells someone where the box fetched up: `flag set heard_from_kit` for them. It makes searching the wreck easier for them (the broken bridge says how).
+- **What he saw:** when he tells someone where the box fetched up: `flag set heard_from_kit` for them, and only while the box hasn't been found (not wage_box_found). It makes searching the wreck easier for them (the broken bridge says how).

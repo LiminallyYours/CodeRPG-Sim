@@ -43,7 +43,7 @@
       },
       {
         "who": "dunn",
-        "how": "I've cut and stacked barley for him in other harvests, and he paid what he said."
+        "how": "I've cut and stacked barley for him in other harvests, and he's always been straight with me about what he could pay."
       }
     ],
     "home": "tithe_barn",
@@ -68,7 +68,7 @@
       "model": "claude-sonnet-5-5",
       "cost": 0.0326,
       "when": "2026-10-26T13:14:13",
-      "edited": "by Claude for JW, 2026-10-26: list lines' closing full stops and capitals tidied; 'I keep to myself' (a trait's own line) reworded; the starting fact about their money and bed taken out (it would stand unchanged under What I know as the purse changed); the ford's starting fact made to match the world (wadeable with care), by Claude for JW, fourteenth session (PLAN.md step 68a), by Claude for JW, fifteenth session (PLAN.md step 71: facts that change during a run taken out of the backstory and the people lines; the bed and money in the opening)"
+      "edited": "by Claude for JW, 2026-10-26: list lines' closing full stops and capitals tidied; 'I keep to myself' (a trait's own line) reworded; the starting fact about their money and bed taken out (it would stand unchanged under What I know as the purse changed); the ford's starting fact made to match the world (wadeable with care), by Claude for JW, fourteenth session (PLAN.md step 68a), by Claude for JW, fifteenth session (PLAN.md step 71: facts that change during a run taken out of the backstory and the people lines; the bed and money in the opening); his people line about Dunn no longer promises pay (step 71, group 2)"
     }
   },
   {

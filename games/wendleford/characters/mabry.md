@@ -14,6 +14,7 @@ Warm and rambling. She calls everyone "dearie" and tells them about her sister.
 - The cottage is hers to let: eight pennies for a week, paid in advance, to whoever comes first. It has a good bed and a lock.
 - Jory Crane works in his yard on Lark Lane in the mornings and at the bridge after that.
 - Everything about everyone on Lark Lane.
+- Agnes is down at the bridge in the mornings and afternoons, and at her table in the tithe barn in the evenings and at night.
 
 ## What she wants
 A tidy tenant, and someone to talk to.

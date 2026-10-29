@@ -16,6 +16,7 @@ Loud and friendly. He calls everyone by name if he knows it, and "friend" if he 
 - A bed upstairs is two pennies a night, paid when you turn in. Supper is two pennies: stew and a heel of bread.
 - He's short-handed in the scullery and pays for pots to be washed, with a supper thrown in.
 - All the talk in town comes through his taproom: the box, the barley, the weather, who's courting whom.
+- The reeve keeps her accounts in the tithe barn of an evening; by day she's down at the bridge.
 
 ## What he wants
 Hands in the scullery, and the bridge back so the carters can get on and pay him for something other than ale.

@@ -48,7 +48,7 @@ A plain country market town at harvest time, in no particular year: carts and co
 - There's a market in the square every third day, when Ned Pike sets up his stall of cheap seconds.
 
 ## For the referee
-- Wages (the bridge, the scullery, the bellows) are paid in hand, there and then, at the end of each spell of work: `work` pays them. Nobody keeps a tally of loads, and no back pay is owed to anyone; if someone asks for wages for work already done, the one who pays says it was settled at the time.
+- Wages (the bridge, the scullery, the bellows) are paid in hand, there and then, at the end of each spell of work: `work` pays them. Nobody keeps a tally of loads, and no back pay is owed to anyone; if someone asks for wages for work already done, the one who pays says it was settled at the time. Dunn pays no harvest wages at all, now or later: helpers are fed, and that's all.
 - The ford is waded, never swum or rowed: a check as the broken bridge says, and turned back on a failure. There's no ferry and no boat.
 - The townspeople are the ten in this world and those the world agent adds; nobody else (no clerk, no constable, no second baker) unless generated.
 
