@@ -18,6 +18,7 @@ Loud and friendly. He calls everyone by name if he knows it, and "friend" if he 
 - All the talk in town comes through his taproom: the box, the barley, the weather, who's courting whom.
 - The reeve keeps her accounts in the tithe barn of an evening; by day she's down at the bridge.
 - The miller's away at his brother's in the county town till the bridge is mended; there's only his lad Kit about the mill.
+- Widow Mabry lets her late sister's cottage on Lark Lane; you'd ask her.
 
 ## What he wants
 Hands in the scullery, and the bridge back so the carters can get on and pay him for something other than ale.

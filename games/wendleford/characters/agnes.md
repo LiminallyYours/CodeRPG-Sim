@@ -35,6 +35,12 @@ She has the green box on her table in the tithe barn, and she's lighter for it: 
 ## If wage_box_found and found_the_box
 She's grateful to the one talking to her for finding it, and says so plainly every time she sees them.
 
+## If bridge_mended and most_bridge and not harvest_in
+She's grateful to the one talking to her as the one who did most to get the bridge up, and says so in front of anyone there.
+
+## If bridge_mended and most_bridge and harvest_in
+She's grateful to the one talking to her as the one who did most to get the bridge up, and says so in front of anyone there.
+
 ## If harvest_in
 She's pleased about the barley, and says the town owes those who helped bring it in.
 

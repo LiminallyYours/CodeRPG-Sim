@@ -62,6 +62,11 @@ rumor: Ned Pike swears a tinker with a handcart crossed the bridge the night of 
 when: day 3, morning
 seen: Long grey clouds are banking up in the west, and folk keep glancing at the sky and then across the river at Dunn's fields.
 
+## At: supper_called
+when: day 3, morning
+if: harvest_in
+rumor: Agnes has called the harvest supper for tonight in the tithe barn: everyone's welcome, and those who helped bring the barley in most of all.
+
 ## At: harvest_supper
 when: day 3, evening
 if: harvest_in
@@ -80,3 +85,7 @@ seen: It's market day again: carts rattle into the square and the stalls go up.
 when: day 4, morning
 if: not harvest_in
 seen: Bet Lamb's bread stall stands empty in the square, with a chalked board saying there's no flour to be had from the mill this week.
+
+## At: market_day_7
+when: day 7, morning
+seen: It's market day again: carts rattle into the square and the stalls go up.

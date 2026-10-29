@@ -30,6 +30,9 @@ The first span is up: you could walk halfway across on new planks, if you didn't
 ## If bridge_mended
 A new bridge of fresh yellow timber spans the river, with a rail on either side, and carts can cross again to the mill and the fields.
 
+## If bridge_mended and most_bridge
+A plank by the new rail has a name cut into it, by the reeve's order: yours, for doing more than anyone to get the bridge up.
+
 ## Details
 - The bank: anyone may lie down on the grass above the water for the night (`sleep`, from evening). It's cold and damp, and nobody sleeps well out here.
 - The bridge work: the reeve pays wages in hand at the end of each spell of work on it (`work`, a Strength check: each spell helps the bridge along, whatever comes of the wages). Nothing is owed afterwards.

@@ -4,6 +4,9 @@ role: the draper, who makes clothes and finery to order
 minor: yes
 card: #9a5f9e
 makes: trinket
+sells:
+  ribbon_card: 1
+  lace_trim: 2
 ---
 ## Personality
 Ida is small, neat and sharp-eyed, about sixty, in a black dress with a lace collar she made herself and a pincushion strapped to her wrist. She has dressed every bride in Wendleford for forty years. She judges people by their hems, but she's fair, and a well-made thing pleases her more than money.
@@ -21,6 +24,7 @@ Customers who appreciate good work, and someone to sit with her and sew while he
 
 ## What she will trade or reveal
 - She pays a penny or two for a spell of plain sewing at her window, hems and seams, if it's neatly done.
+- She sells small wares off the counter: a card of ribbon for a penny, a length of lace trim for two.
 - She makes finery to order: a ribbon rosette, a lace collar, an embroidered kerchief, a velvet band for a hat. She names the price when asked.
 
 ## What she makes
@@ -28,3 +32,4 @@ Small pieces of finery and dress: collars, cuffs, kerchiefs, rosettes, ribbons, 
 
 ## GM only
 - **Orders:** finery is a trinket; the rules say what it costs and how long it takes.
+- **Small wares:** `buy ribbon_card` or `buy lace_trim`.
