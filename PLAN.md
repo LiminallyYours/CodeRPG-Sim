@@ -384,6 +384,16 @@ The project has four parts: **the people** (how agent-players are built and mana
   - **Townspeople's agents offering work the content doesn't hold** (Jory's yard in seven-69), and how the referee treats it.
   - **Beliefs that shape speech but not action:** in both runs a person's belief coloured every line and steered no choice while food and a bed took the day (with *How needs, wants and things taken on are weighed*, above).
   - **`tools/cast.py make` and placeholder cast entries without a name** (a crash; a small fix).
+- **From the second side session** (2026-10-28; `HANDOFF.md`, *A second side session*; `state/test-runs/seven-69-edited-2/NOTES.md`; the Open sections in JW's Discussion Record). **Unsettled: hypotheses from small samples, for JW to discuss; none is agreed**, and the Discussion Record's settled models take precedence:
+  - **Answering in the moment:** step 68f carries a turn to its end, so something said to a person mid-turn can't be answered (Bet's lines in play; on the bench all 16 replies answered it when it was the last thing on the page, 1 of 16 on the next turn). Model A's "unread events go first" would cover it.
+  - **Grievances that persist:** a slight left a faint mark the next morning and nothing after. Urgency today only goes down (Discussion Record 3.4); a limited way up, or letting a person rewrite their own people-notes (Opus revised its picture of Bet unprompted), are the candidates. Inputs for JW's 3.8 stage.
+  - **Sheets:** concrete lines about what a person does beat general dispositions, and contradictions decide the outcome ("quiet and polite when crossed" beat "lashes out" in all 40 replies where both stood). Constance's archetype ratings (Temper 3, Kindness 4) argue against JW's text; a fit check between ratings and prose, needs included.
+  - **Situation over personality:** a waiting duty made every temperament choose alike; with a free morning they split, each in character. A measure worth considering: how often different personalities make the same prudent choice.
+  - **Feelings** have no place in Model C; a "how it landed" line showed the inner state cheaply. Whether it feeds the choice or only the record.
+  - **The model's own ceiling:** at high effort, on Sonnet and Opus, a coherent sheet produced real rebukes, always civil and always followed by the duty. Some of the apparent ceiling was the bench's missing effort.
+  - **A sensible plan off the content's path can stall** (seven-69-edited's ten-round rope hunt): nothing asks the world whether rope could exist.
+  - **Agnes's schedule** can be chased in a circle for rounds; a line on where she'll be, or Jory knowing.
+  - **The bench's effort:** if effort levels are raised (*Effort levels*, above), `bench.py` should ask at play's effort too, perhaps with `--model` and `--effort` for experiments (the kept patch).
 - **The instrument:** what a good run is. The measures are decided (step 64); what values make a run "good", and how runs are compared (the same seed and world, one thing changed), are still to discuss.
 
 ## Left alone in phase 1
