@@ -3,7 +3,7 @@
 How the game works. The numbers live in `balance.json`, and the arithmetic lives in `rpg.py`. This file explains both in plain language. The game master never rolls dice or does damage math in its head. It runs the matching `rpg.py` command and accepts the result.
 
 ## The player
-- **HP**: health. Reaching 0 means **defeat**, and the game is over until `/newgame`.
+- **HP**: health. Reaching 0 means **defeat**, and the game is over until `/newgame`. In a world with needs (food and sleep) nothing takes a person below 1: they're knocked down, not out, and a night's sleep mends a little (`needs.mend_bed` 2 in a bed, `needs.mend_rough` 1 rough).
 - **Might**, **Agility**, **Wits**: small modifiers, usually −1 to +3, added to d20 rolls.
   - Might: strength, force, intimidation, melee attacks, how much you can carry.
   - Agility: speed, stealth, balance, dodging (it raises your defense).
@@ -28,6 +28,8 @@ Don't roll for things that are certain, trivial, or impossible. Just narrate tho
 
 ## Contests: `contest <your stat> <their id> <their stat> --take <item>`
 When the player grabs at something another person there holds, the other holds on: nobody asks them, as nobody would. Each rolls d20 plus the attribute that fits how they go about it (Might to wrench it away or hold on tight, Agility to snatch it quickly or whisk it out of reach). The higher total wins the thing; a tie leaves it with the one holding it. Naturals count for nothing here, only the totals. Nobody is hurt, and nothing is rolled if the grab couldn't happen: they aren't here, aren't holding it, or the player couldn't carry it. The other answers on their own turn.
+
+**A scuffle** (`contest <your stat> <their id> <their stat> --scuffle`): a shove, a wrestle, a swing between two people, with no weapon. Both roll the same way; the lower total takes a knock (`unarmed_damage`, 1d2), never below 1 health; a tie, and they break apart with nobody hurt.
 
 ## Combat: `attack <character>`
 Only characters whose file gives `hp`, `defense`, `attack` and `damage` can be fought. Each `attack` is **one exchange**:

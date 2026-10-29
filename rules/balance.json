@@ -133,6 +133,8 @@
     "weak_might": -1,
     "tired_checks": -1,
     "exhausted_after_nights": 2,
-    "exhausted_checks": -1
+    "exhausted_checks": -1,
+    "mend_bed": 2,
+    "mend_rough": 1
   }
 }

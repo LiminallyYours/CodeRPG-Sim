@@ -3068,6 +3068,50 @@ print(json.dumps({"type": "result", "is_error": False, "result": "Round done.", 
         square.write_text(square.read_text().replace("board: yes", "board: maybe"))
         self.assertIn("board: yes or no", self.rpg("validate", "--game", "wendleford", ok=False))
 
+    def test_in_a_world_with_needs_nobody_goes_below_1_health_and_a_nights_sleep_mends(self):
+        self.rpg("game", "switch", "wendleford")
+        self.rpg("newgame", seed=44)
+        out = self.rpg("hurt", "20", as_="hester")
+        self.assertIn("HP 1/10 (knocked down: at the end of their strength, but not out)", out)
+        self.assertEqual(self.save()["players"]["hester"]["status"], "playing")
+        state = self.save()
+        for pid in ("hobb", "hester", "dilly"):
+            state["players"][pid]["stats"]["hp"] = 3
+        self.write("state/save.json", json.dumps(state))
+        for _ in range(3):
+            self.round_doing()
+        end = self.round_doing({"hobb": [["sleep"]], "hester": [["sleep"]]})  # the night: Hobb in the hayloft, Hester her loft
+        self.assertIn("MENDED: Hobb Ashcombe (hobb) +1 health after a night sleeping rough -> 4 of 12", end)
+        self.assertIn("MENDED: Hester Gimbal (hester) +2 health after a night in a bed -> 5 of 10", end)
+        self.assertNotIn("MENDED: Dilly", end, "no sleep, no mending")
+        self.assertNotIn("MENDED: Marigold", end, "already whole")
+        self.assertEqual({p: self.save()["players"][p]["stats"]["hp"] for p in ("hobb", "hester", "dilly", "marigold")},
+                         {"hobb": 4, "hester": 5, "dilly": 3, "marigold": 8})
+        self.rpg("game", "switch", "dark_lighthouse")  # an adventure, without needs: defeat at 0 as ever
+        self.rpg("newgame", seed=44)
+        self.assertIn("PLAYER DEFEATED (HP 0)", self.rpg("hurt", "99"))
+
+    def test_a_scuffle_knocks_the_one_who_comes_off_worse_but_never_below_1(self):
+        self.rpg("game", "switch", "wendleford")
+        self.rpg("newgame", seed=44)
+        self.rpg("move", "east", as_="hester")  # from the smithy into the square, where Dilly is
+        self.assertIn("isn't here", self.rpg("contest", "might", "hobb", "might", "--scuffle", as_="dilly", ok=False))
+        self.assertIn("usage", self.rpg("contest", "might", "hester", "might", "--scuffle", "--take", "notebook", as_="dilly", ok=False))
+        state = self.save()
+        for pid in ("dilly", "hester"):
+            state["players"][pid]["stats"]["hp"] = 1
+        self.write("state/save.json", json.dumps(state))
+        outs = [self.rpg("contest", "might", "hester", "agility", "--scuffle", as_="dilly") for _ in range(6)]
+        for out in outs:
+            self.assertRegex(out, r"SCUFFLE: Dilly Quickstep might d20 \d+ [+-]\d+ = -?\d+; Hester Gimbal agility d20 ")
+            self.assertTrue("takes a knock of" in out or "a tie, nobody hurt" in out, out)
+        self.assertTrue(any("not out" in o for o in outs), "a knock at 1 health holds them at 1")
+        self.assertEqual([self.save()["players"][p]["stats"]["hp"] for p in ("dilly", "hester")], [1, 1])
+        self.assertEqual([p["status"] for p in self.save()["players"].values()], ["playing"] * 4)
+        entry = [e for e in self.log_entries() if e["kind"] == "contest"][-1]
+        self.assertTrue(entry["scuffle"])
+        self.assertIsNone(entry["item"])
+
     def test_validate_holds_shared_work_to_its_shape(self):
         self.needs_world()
         rooms = self.dir / "games" / "dark_lighthouse" / "rooms"

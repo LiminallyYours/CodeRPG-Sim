@@ -1469,9 +1469,16 @@ def hp_line(state):
     return "HP %d/%d" % (s["hp"], s["max_hp"])
 
 
-def damage_player(state, amount):
+def damage_player(state, amount, floor=0):
+    """Damage to the acting person. In a world with needs (a life, not an adventure) nothing takes them below 1
+    health: knocked down, not out; `floor` 1 holds anywhere (a scuffle's knock)."""
     s = me(state)["stats"]
-    s["hp"] = max(0, s["hp"] - amount)
+    low = max(floor, 1 if world_needs() else 0)
+    hp = max(min(low, s["hp"]), s["hp"] - amount)
+    held = hp > s["hp"] - amount
+    s["hp"] = hp
+    if held and amount > 0 and hp > 0:
+        return "Player %s (knocked down: at the end of their strength, but not out)" % hp_line(state)
     if s["hp"] == 0:
         me(state)["status"] = "defeated"
         return "PLAYER DEFEATED (HP 0). The game is over; /newgame to start again."
@@ -1722,6 +1729,14 @@ def needs_tick(state, before):
             old = n["sleep"]
             n["sleepless"] = 0 if n["slept"] else n["sleepless"] + 1
             n["sleep"] = "rested" if n["slept"] == "bed" else "exhausted" if n["sleepless"] >= b["exhausted_after_nights"] else "tired"
+            s, mend = pl["stats"], int(b["mend_bed"] if n["slept"] == "bed" else b["mend_rough"] if n["slept"] else 0)
+            was_hp = s["hp"]
+            s["hp"] = min(s["max_hp"], s["hp"] + mend)  # a night's sleep mends a little, more in a bed
+            if s["hp"] > was_hp:
+                with acting(pid):
+                    log(state, "mended", by=s["hp"] - was_hp, slept=n["slept"], hp=s["hp"])
+                out.append("MENDED: %s (%s) +%d health after a night %s -> %d of %d" % (
+                    pl["name"], pid, s["hp"] - was_hp, "in a bed" if n["slept"] == "bed" else "sleeping rough", s["hp"], s["max_hp"]))
             n["slept"] = None
             pl.pop("asleep", None)  # the night has gone by: they're awake for the morning
             if n["sleep"] != old:
@@ -5236,17 +5251,20 @@ def accept_trade(state, t):
 # higher wins; a tie stays with the one holding it. Nobody is hurt. They answer on their own turn.
 
 def cmd_contest(args):
-    """contest <your stat> <their id> <their stat> --take <item>: grab at something another person here holds. Each
-    rolls the check die plus the stat named for them; the higher total takes it, and a tie leaves it where it is."""
+    """contest <your stat> <their id> <their stat> --take <item> | --scuffle: grab at something another person here
+    holds, or scuffle with them. Each rolls the check die plus the stat named for them. A grab: the higher total takes
+    it, and a tie leaves it where it is. A scuffle: the lower total takes a knock (never below 1 health), a tie hurts
+    nobody."""
     state = load_state()
     require_playing(state)
     pid = actor_id(state)
-    take = None
+    take, scuffle = None, "--scuffle" in args
+    args = [a for a in args if a != "--scuffle"]
     if "--take" in args:
         i = args.index("--take")
         take, args = (args[i + 1] if i + 1 < len(args) else None), args[:i] + args[i + 2:]
-    if len(args) != 3 or not take:
-        raise Refused("usage: contest <your stat> <their id> <their stat> --take <item>")
+    if len(args) != 3 or bool(take) == scuffle:
+        raise Refused("usage: contest <your stat> <their id> <their stat> --take <item> | --scuffle")
     mine, other, theirs = args[0].lower(), args[1], args[2].lower()
     for stat in (mine, theirs):
         if stat not in STATS:
@@ -5258,13 +5276,17 @@ def cmd_contest(args):
     names = {p: state["players"][p]["name"] for p in (pid, other)}
     if other not in players_here(state)[1:]:
         raise Refused("%s isn't here" % names[other])
-    if take not in state["players"][other]["inventory"]:
+    if take and take not in state["players"][other]["inventory"]:
         raise Refused("%s isn't holding %s" % (names[other], take))
-    check_carry(state, take)  # before any die is rolled: a grab that couldn't be carried off isn't tried
+    if take:
+        check_carry(state, take)  # before any die is rolled: a grab that couldn't be carried off isn't tried
     rolls = {}
     for p, stat in ((pid, mine), (other, theirs)):
         nat = dice.roll(BALANCE["check_die"])[1][0]
         rolls[p] = {"stat": stat, "d20": nat, "mod": attempt_mod(state, p, stat), "total": nat + attempt_mod(state, p, stat)}
+    if scuffle:
+        scuffle_ends(state, pid, other, names, rolls)
+        return
     winner = pid if rolls[pid]["total"] > rolls[other]["total"] else other
     if winner == pid:
         with acting(other):
@@ -5279,6 +5301,29 @@ def cmd_contest(args):
         names[other], theirs, rolls[other]["d20"], rolls[other]["mod"], rolls[other]["total"],
         "%s TAKES it  [weight %d/%d]" % (names[pid], carried_weight(state), carry_limit(state)) if winner == pid else
         "%s KEEPS hold of it%s" % (names[other], " (a tie)" if rolls[pid]["total"] == rolls[other]["total"] else "")))
+    print("Tell it as it happens, never the numbers; %s was there and sees it in the onlookers' note (`witnessed`). "
+          "They answer on their own turn." % names[other])
+
+
+def scuffle_ends(state, pid, other, names, rolls):
+    """A scuffle's end: the one with the lower total takes a knock (balance.json unarmed_damage), never below 1
+    health; on a tie they break apart and nobody is hurt."""
+    a, b = rolls[pid]["total"], rolls[other]["total"]
+    loser = None if a == b else other if a > b else pid
+    knock, hp = 0, ""
+    if loser:
+        knock = max(1, dice.roll(BALANCE["unarmed_damage"])[0])
+        with acting(loser):
+            hp = damage_player(state, knock, floor=1)
+    words, journal = turn_words(state)
+    log(state, "contest", against=other, item=None, scuffle=True, rolls=rolls,
+        winner=None if not loser else pid if loser == other else other, knocked=loser, knock=knock, words=words, journal=journal)
+    save_state(state)
+    print("SCUFFLE: %s %s d20 %d %+d = %d; %s %s d20 %d %+d = %d -> %s" % (
+        names[pid], rolls[pid]["stat"], rolls[pid]["d20"], rolls[pid]["mod"], a,
+        names[other], rolls[other]["stat"], rolls[other]["d20"], rolls[other]["mod"], b,
+        "they break apart: a tie, nobody hurt" if not loser else "%s COMES OUT ON TOP; %s takes a knock of %d. %s" % (
+            names[pid if loser == other else other], names[loser], knock, hp.replace("Player ", names[loser] + ": ", 1))))
     print("Tell it as it happens, never the numbers; %s was there and sees it in the onlookers' note (`witnessed`). "
           "They answer on their own turn." % names[other])
 
@@ -6360,7 +6405,7 @@ COMMANDS = {
     "sell": (cmd_sell, 1, "sell <item> [buyer]   the player sells something with a tier to a buyer here"),
     "say": (cmd_say, 1, "say <file>   the player's words aloud: the other players here hear them on their next turn"),
     "trade": (cmd_trade, 1, "trade offer <file> | accept <offer> | decline <offer>   the terms of an offer to another player here (a JSON file); the one it's for takes it or turns it down"),
-    "contest": (cmd_contest, 3, "contest <your stat> <their id> <their stat> --take <item>   grab at what another player here holds: both roll, the higher takes it, a tie stays with them"),
+    "contest": (cmd_contest, 3, "contest <your stat> <their id> <their stat> --take <item> | --scuffle   grab at what another player here holds (the higher takes it, a tie stays with them), or scuffle (the lower takes a knock, never below 1 health; a tie, nobody hurt)"),
     "ending": (cmd_ending, 1, "ending <file>   what everyone else comes to hear of a quest's ending, once one is decided (for no one between rounds)"),
     "voiced": (cmd_voiced, 1, "voiced <file> [--spend <usd>]   log a call tools/voice.py made to the npc or world agent"),
     "witnessed": (cmd_witnessed, 1, "witnessed <file> [<flag> ...]   what the other players there saw and heard of this turn, for their next; the personal flags they learned by it"),
