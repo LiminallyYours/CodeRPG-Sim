@@ -3104,7 +3104,7 @@ print(json.dumps({"type": "result", "is_error": False, "result": "Round done.", 
     def test_a_board_is_always_shown_with_the_notices_up_from_the_start_while_their_conditions_hold(self):
         self.rpg("game", "switch", "wendleford")
         square = self.dir / "games" / "wendleford" / "rooms" / "market_square.md"
-        start = square.read_text()
+        start = re.sub(r"notices:\n(  - .*\n)*", "", square.read_text())  # the test's own notices, not Wendleford's
         square.write_text(start.replace("board: yes\n", "board: yes\nnotices:\n  - REWARD for the box. A. Pollard, reeve. "
                                         "(if not wage_box_found)\n  - Sewing wanted. Ida Fenn.\n", 1))
         self.assertIn("CONTENT OK: wendleford", self.rpg("validate", "--game", "wendleford"))

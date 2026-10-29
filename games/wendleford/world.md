@@ -45,6 +45,7 @@ A plain country market town at harvest time, in no particular year: carts and co
 - Jory Crane, the carpenter on Lark Lane, builds sheds, lean-tos and the like for anyone who pays. Ida Fenn, the draper, makes clothes and finery to order. Sam Tolley, the smith, makes tools and small things to order.
 - The Wheatsheaf has beds and suppers. Bet Lamb sells bread from her stall in the square.
 - Widow Mabry's cottage on Lark Lane has stood empty since her sister died.
+- The wayside shrine stands where the old road leaves the square at its southwest corner, and old Mother Wick sits by it most days; folk can't agree what to make of her.
 - There's a market in the square every third day, when Ned Pike sets up his stall of cheap seconds.
 
 ## For the referee
