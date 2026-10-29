@@ -7,6 +7,7 @@ exits:
   northeast: fenns
   northwest: lark_lane
   south: broken_bridge
+board: yes
 characters:
   - bet (if not after_day_3 or harvest_in)
   - ned (if day_1 or day_4 or day_7)
@@ -31,7 +32,7 @@ The HANDS WANTED paper has come down from the notice board: the bridge is done.
 
 ## Details
 - The square: anyone may lie down under the market cross or in a doorway for the night (`sleep`, from evening). It's hard and cold, and nobody sleeps well out here.
-- The notice board: three papers are pinned up, two of them in the reeve's square hand. One says: "LOST on the night of the flood, the bridge wages box: iron-bound, painted green, the size of a loaf. SIX PENNIES REWARD to whoever brings it to the reeve." The other says: "HANDS WANTED at the bridge. Wages paid by the reeve, A. Pollard: at the bridge by day, at the tithe barn after." A third, in a shakier hand, says: "COTTAGE TO LET on Lark Lane. Ask Widow Mabry."
+- The notice board: anyone may pin up a notice of their own. Three papers are pinned up, two of them in the reeve's square hand. One says: "LOST on the night of the flood, the bridge wages box: iron-bound, painted green, the size of a loaf. SIX PENNIES REWARD to whoever brings it to the reeve." The other says: "HANDS WANTED at the bridge. Wages paid by the reeve, A. Pollard: at the bridge by day, at the tithe barn after." A third, in a shakier hand, says: "COTTAGE TO LET on Lark Lane. Ask Widow Mabry."
 - The pump: cold, clean water for anyone. It fills a belly for an hour, no longer.
 - Ned's stall (on market days): what he has and what it costs, he says when asked. He's always ready to look at anything someone wants to sell.
 - The farm carts (on market days): country folk selling to the town's households by the basket, ordered ahead; Ned's stall is the one for passers-by.

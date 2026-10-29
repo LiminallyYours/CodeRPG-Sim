@@ -591,6 +591,23 @@ def project_state(state, ident):
     return state["run"].setdefault("projects", {}).setdefault(ident, {"total": 0, "by": {}, "stages": []})
 
 
+def has_board(room):
+    """A place with a notice board (`board: yes`), where people, and the world's off-screen turn, put up notices."""
+    return str(room.get("board", "no")).lower() == "yes"
+
+
+def notices(state, room_id):
+    """The notices on a place's board, oldest first: {"text", "by" (a person's id, or None for the world's), "day", "round"}."""
+    return state["run"].get("boards", {}).get(room_id, [])
+
+
+def put_up(state, room_id, text, by):
+    """A notice on a place's board; the board keeps only its last few (balance.json world.notices_per_board)."""
+    board = state["run"].setdefault("boards", {}).setdefault(room_id, [])
+    board.append({"text": text, "by": by, "day": day_of(state), "round": state["run"].get("round", 0)})
+    del board[:-int(BALANCE["world"]["notices_per_board"])]
+
+
 def most_conditions(state, pid):
     """most_<project> for each shared work where this person's count is the highest (ties: all of them)."""
     out = []
@@ -2168,6 +2185,11 @@ def cmd_look(args):
     notes = run["notes"].get(room["id"], [])
     if notes:
         print("ESTABLISHED HERE: %s" % " | ".join(notes))
+    if has_board(room):  # newest first, numbered as `post take` takes them
+        board = list(reversed(notices(state, room["id"])))
+        print("NOTICE BOARD: %s. If the player puts up a notice: `post <file>`; takes down their own: `post take <n>`." % (
+            "; ".join('%d. "%s" (%s)' % (i + 1, n["text"], state["players"][n["by"]]["name"] if n["by"] in state["players"]
+                                         else "put up off-screen") for i, n in enumerate(board)) or "nothing put up"))
     owner = stash_owner(state, room["id"])
     if owner:
         print("STASH: %s is %s's own place; what's left here only %s can take." % (
@@ -2668,7 +2690,8 @@ def gen_context(state):
         moves=run["moves"], maker=maker if kind == "craft" else None, makes=makes(maker) if maker and kind == "craft" else (),
         builder=maker if kind == "build" else None, build_spots=build_spots(state, room) if here else {},
         depth_here=room_depth(room),
-        plan_steps={c: [st["step"] for st in steps] for c, steps in open_steps(state).items()})
+        plan_steps={c: [st["step"] for st in steps] for c, steps in open_steps(state).items()},
+        board_rooms=[r for r in ent_ids("rooms") if has_board(ent("rooms", r))])
 
 
 def apply_patch(state, patch):
@@ -3023,6 +3046,33 @@ def cmd_library(args):
     print("SUGGESTED for keeping: %s (%s). The owner decides." % (e["record"]["meta"].get("name", args[1]), e["suggested"]))
 
 
+def cmd_post(args):
+    """post <file> | post take <n>: the person puts up a notice on the board where they stand, in their own words (from
+    a file), or takes down one of their own (n as `look` numbers the board, 1 the newest)."""
+    state = load_state()
+    require_playing(state)
+    room, pid = room_here(state), actor_id(state)
+    if not has_board(room):
+        raise Refused("there's no notice board here")
+    if args[0] == "take":
+        board = list(reversed(notices(state, room["id"])))
+        if len(args) < 2 or not args[1].isdigit() or not 1 <= int(args[1]) <= len(board):
+            raise Refused("usage: post take <n>, n as `look` numbers the board's notices (1 is the newest)")
+        notice = board[int(args[1]) - 1]
+        if notice["by"] != pid:
+            raise Refused("that notice isn't theirs to take down")
+        state["run"]["boards"][room["id"]].remove(notice)
+        log(state, "notice", room=room["id"], text=notice["text"], taken=True)
+        save_state(state)
+        print("TAKEN DOWN from the board: %s" % notice["text"])
+        return
+    text = " ".join(text_arg(args[0], "notice", generate.NOTICE_CHARS).split())
+    put_up(state, room["id"], text, pid)
+    log(state, "notice", room=room["id"], text=text)
+    save_state(state)
+    print("PUT UP on the board at %s: %s" % (room.get("name", room["id"]), text))
+
+
 def cmd_note(args):
     """note <text>: record a small detail you established about this room, so it stays true."""
     state = load_state()
@@ -3227,8 +3277,16 @@ def cmd_world_brief(args):
                                                        ent("rooms", at).get("name", at) if at else "somewhere out of the way",
                                                        "; ".join("%s (%s)" % (st["step"], st["does"]) for st in steps)))
             out += ["Their rumors are taken care of: don't write gossip about what they do.", ""]
-        out += ['JSON: {"rumors": ["<up to 3 short lines of gossip>"], "moves": [{"id": "<generated person>", "room": "<room id>"}]%s}'
-                % (', "plans": [{"who": "<character id>", "step": "<step>"}]' if planned else "")]
+        boards = [r for r in ent_ids("rooms") if has_board(ent("rooms", r))]
+        if boards:
+            out += ["", "Notice boards (newest first). You may put up at most one notice, as a townsperson or a passing stranger",
+                    "would, signed. Never offer work, goods or rewards the town doesn't already have."]
+            out += ["- %s (%s): %s" % (r, ent("rooms", r).get("name", r), " | ".join(n["text"] for n in reversed(notices(state, r)))
+                                       or "nothing put up") for r in boards] + [""]
+        out += ['JSON: {"rumors": ["<up to 3 short lines of gossip>"], "moves": [{"id": "<generated person>", "room": "<room id>"}]%s%s}'
+                % (', "plans": [{"who": "<character id>", "step": "<step>"}]' if planned else "",
+                   ', "notices": [{"room": "<a room with a board>", "text": "<one notice, up to %d characters>"}]'
+                   % generate.NOTICE_CHARS if boards else "")]
     elif request == "extra":
         out += ["Make the unnamed person the player is addressing into someone specific, consistent with this place.",
                 "They know ONLY public knowledge, what anyone here could see, and gossip; no secrets, no clues beyond that.",
@@ -3324,9 +3382,14 @@ def cmd_world_turn(args):
         lines = apply_plan(state, p["who"], next(st for st in plan_steps(p["who"]) if st["step"] == p["step"]))
         if lines:
             done += [l for l in lines if l not in done]
+    for n in patch["notices"]:
+        put_up(state, n["room"], n["text"], None)
     run["world_turn_due"] = False
     save_state(state)
-    print("WORLD TURN: %d rumors, %d moves" % (len(patch["rumors"]), len(patch["moves"])))
+    print("WORLD TURN: %d rumors, %d moves%s" % (len(patch["rumors"]), len(patch["moves"]),
+                                              ", 1 notice" if patch["notices"] else ""))
+    for n in patch["notices"]:
+        print("  notice put up at %s: %s" % (n["room"], n["text"]))
     for r in patch["rumors"]:
         print("  rumor: %s" % r)
     for mv in patch["moves"]:
@@ -3598,6 +3661,8 @@ def validate_game(kit=False, sim=False, strict=False):
             need("tables", room["encounters"], where + " encounters")
         if room.get("work") is not None:
             problems.extend("%s: work: %s" % (where, x) for x in work_problems(room["work"]))
+        if "board" in room and str(room["board"]).lower() not in ("yes", "no"):
+            problems.append("%s: board: yes or no (a notice board people can put notices up on)" % where)
     for t in content.ids("tables"):
         table = content.load("tables", t)
         if not re.match(r"^\s*\d+\s+in\s+\d+\s*$", str(table.get("chance", ""))):
@@ -5433,6 +5498,7 @@ PHRASES = {
     "change_building": ("things",), "change_own": ("things",), "change_met": ("people",),
     "thinkback_voice": ("voice",), "thinkback_note": (), "learned_none": (), "time_on_day": ("time", "n"), "since_last": ("then", "now"),
     "rented": ("place", "n"), "paid_bed": ("place", "nights"), "tonight": (), "nights": ("n",), "let_ended": ("place",),
+    "board": ("notices",), "notice": ("text", "n"), "notice_undated": ("text",),
     "you_need": ("needs",), "you_want": ("wants",), "taken_on": (), "food_fed": (), "food_due": (), "food_hungry": (),
     "food_weak": (), "sleep_rested": (), "sleep_tired": (), "sleep_exhausted": (), "sleep_slept": (), "sleep_time": (),
 }
@@ -5710,6 +5776,10 @@ def pane_text(state):
                                                     for d, r in exits.items())))
     company = [c["name"] for c in v["characters_here"]] + [state["players"][o]["name"] for o in players_here(state)[1:]]
     lines.append(phrase("with_you", people=", ".join(company) if company else phrase("no_one")))
+    if has_board(ent("rooms", pl["location"])) and notices(state, pl["location"]):
+        lines.append(phrase("board", notices="; ".join(
+            phrase("notice", text=n["text"], n=n["day"]) if n.get("day") else phrase("notice_undated", text=n["text"])
+            for n in reversed(notices(state, pl["location"])))))
     lines += ["", phrase("you")] + ([phrase("you_are_named", name=pl["name"])] if is_blank(pid) else []) + [
               phrase("health", hp=stats["hp"], max_hp=stats["max_hp"],
                      stats=", ".join("%s %+d" % (labels.get(k, k.capitalize()), stat(state, pid, k)) for k in STATS)),
@@ -6300,6 +6370,7 @@ COMMANDS = {
     "talk": (cmd_talk, 1, "talk <generated person>   before voicing a generated person: counts conversations, may promote them"),
     "library": (cmd_library, 1, "library suggest <id> <why>   tell the owner a generated or player-made thing deserves keeping"),
     "note": (cmd_note, 1, "note <text>   keep a detail you established about this room"),
+    "post": (cmd_post, 1, "post <file> | post take <n>   the person puts up a notice on the board here (their words, from a file), or takes down one of their own"),
     "quest": (cmd_quest, 2, "quest take|leave <quest>   the person takes a quest on (it shows in what they're working on), or sets it aside"),
     "outcome": (cmd_outcome, 1, "outcome <%s> [<what>]   what this turn came to, for the record only (never told)" % "|".join(OUTCOMES)),
     "chronicle": (cmd_chronicle, 1, "chronicle <text>   add a line to the story so far"),

@@ -70,6 +70,7 @@
     "chronicle_lines": 12,
     "rumors_kept": 6,
     "notes_per_room": 6,
+    "notices_per_board": 8,
     "text_line_chars": 200
   },
   "meter": {

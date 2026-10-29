@@ -27,7 +27,7 @@ class Context:
     def __init__(self, *, location, taken_ids, taken_names, expand, policy, balance, count,
                  items_found_here, extras_here, characters_here, room_ids, generated_people,
                  terrains=(), terrain_here=None, moves=0, maker=None, makes=(), builder=None, build_spots=None,
-                 depth_here=0, plan_steps=None):
+                 depth_here=0, plan_steps=None, board_rooms=()):
         self.location = location                    # the player's room id
         self.taken_ids = set(taken_ids)             # every id in use, any kind
         self.taken_names = {n.lower() for n in taken_names}
@@ -49,11 +49,16 @@ class Context:
         self.build_spots = dict(build_spots or {})  # {direction: what fits there}: this room's free build spots
         self.depth_here = depth_here                # how many generated rooms deep the player's room is (authored: 0)
         self.plan_steps = dict(plan_steps or {})    # {character: [plan steps open now]}: who may act off-screen
+        self.board_rooms = list(board_rooms)       # rooms with a notice board (`board: yes`)
+
+
+NOTICE_CHARS = 160  # a notice on a board, whoever puts it up (a person through `post`, or the world's turn)
 
 
 def empty_patch():
     return {"rooms": {}, "characters": {}, "items": {}, "quests": {},
-            "exits": {}, "placements": {}, "room_items": {}, "commissions": {}, "rumors": [], "moves": [], "plans": []}
+            "exits": {}, "placements": {}, "room_items": {}, "commissions": {}, "rumors": [], "moves": [], "plans": [],
+            "notices": []}
 
 
 def _allowed(ctx, kind):
@@ -410,6 +415,16 @@ def world_turn(p, ctx):
         if any(x["who"] == pl["who"] for x in patch["plans"]):
             raise ValueError("each person does at most one thing per world turn")
         patch["plans"].append({"who": pl["who"], "step": pl["step"]})
+    notes = _list(p.get("notices"), "notices")
+    if len(notes) > 1:
+        raise ValueError("at most one notice a world turn")
+    for n in notes:
+        if not isinstance(n, dict) or n.get("room") not in ctx.board_rooms:
+            raise ValueError("a notice goes on a board: a room with one (%s)" % (", ".join(ctx.board_rooms) or "there are none"))
+        text = " ".join(str(n.get("text") or "").split())
+        if not text or len(text) > NOTICE_CHARS:
+            raise ValueError("a notice is one short text, at most %d characters" % NOTICE_CHARS)
+        patch["notices"].append({"room": n["room"], "text": text})
     return patch
 
 

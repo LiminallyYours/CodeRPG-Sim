@@ -3035,6 +3035,39 @@ print(json.dumps({"type": "result", "is_error": False, "result": "Round done.", 
         self.assertNotIn("Dunn's harvest: done", brief, "half done isn't settled")
         self.assertNotIn("## What's settled", self.rpg("world-brief", "extra", as_="hester"), "only the world turn")
 
+    def test_a_notice_board_takes_notices_from_people_and_the_world_turn_and_shows_them_there(self):
+        self.rpg("game", "switch", "wendleford")
+        self.rpg("newgame", seed=44)  # Dilly starts in the square, by the board; Hester at the smithy, which has none
+        self.write("proposals/n.txt", "WANTED: a dry corner to sleep. Ask Dilly.")
+        self.assertIn("there's no notice board here", self.rpg("post", "proposals/n.txt", as_="hester", ok=False))
+        self.assertIn("PUT UP on the board at Market Square", self.rpg("post", "proposals/n.txt", as_="dilly"))
+        self.assertIn('On the notice board: "WANTED: a dry corner to sleep. Ask Dilly." (put up on day 1).',
+                      self.rpg("brief", "dilly"))
+        self.assertNotIn("On the notice board", self.rpg("brief", "hester"), "read only at the board")
+        for i in range(8):
+            self.write("proposals/n.txt", "FOR SALE: a lantern, number %d." % i)
+            self.rpg("post", "proposals/n.txt", as_="dilly")
+        board = self.save()["run"]["boards"]["market_square"]
+        self.assertEqual(len(board), 8, "the last eight kept")
+        self.assertNotIn("dry corner", json.dumps(board))
+        self.assertIn('NOTICE BOARD: 1. "FOR SALE: a lantern, number 7." (Dilly Quickstep)', self.rpg("look", as_="dilly"))
+        wt = {"rumors": [], "moves": [], "notices": [{"room": "market_square", "text": "Lost: a grey hen. Bet Lamb."}]}
+        self.assertIn("Never offer work, goods or rewards the town doesn't already have.", self.rpg("world-brief", "turn", as_=False))
+        self.write("proposals/wt.json", json.dumps(dict(wt, notices=wt["notices"] * 2)))
+        self.assertIn("at most one notice", self.rpg("world-turn", "proposals/wt.json", as_=False, ok=False))
+        self.write("proposals/wt.json", json.dumps(dict(wt, notices=[{"room": "smithy", "text": "Lost: a hen."}])))
+        self.assertIn("a notice goes on a board", self.rpg("world-turn", "proposals/wt.json", as_=False, ok=False))
+        self.write("proposals/wt.json", json.dumps(wt))
+        self.assertIn("notice put up at market_square: Lost: a grey hen. Bet Lamb.", self.rpg("world-turn", "proposals/wt.json", as_=False))
+        look = self.rpg("look", as_="dilly")
+        self.assertIn('1. "Lost: a grey hen. Bet Lamb." (put up off-screen)', look)
+        self.assertIn("isn't theirs to take down", self.rpg("post", "take", "1", as_="dilly", ok=False))
+        self.assertIn("TAKEN DOWN from the board: FOR SALE: a lantern, number 7.", self.rpg("post", "take", "2", as_="dilly"))
+        self.assertEqual(len(self.save()["run"]["boards"]["market_square"]), 7)
+        square = self.dir / "games" / "wendleford" / "rooms" / "market_square.md"
+        square.write_text(square.read_text().replace("board: yes", "board: maybe"))
+        self.assertIn("board: yes or no", self.rpg("validate", "--game", "wendleford", ok=False))
+
     def test_validate_holds_shared_work_to_its_shape(self):
         self.needs_world()
         rooms = self.dir / "games" / "dark_lighthouse" / "rooms"

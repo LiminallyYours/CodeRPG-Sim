@@ -64,6 +64,9 @@ ways_on:         Ways on: {ways}.
 way:             {direction} to {place}
 with_you:        With you: {people}.
 no_one:          no one
+board:           On the notice board: {notices}.
+notice:          "{text}" (put up on day {n})
+notice_undated:  "{text}"
 
 # ---- the status block: themselves
 you:             ## You
