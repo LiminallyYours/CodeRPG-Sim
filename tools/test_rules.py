@@ -1511,6 +1511,14 @@ class Engine(unittest.TestCase):
                                                "commands": [{"text": "round start", "said": "ROUND 2: Corin (corin), Wren (wren)", "refused": False}]})
             self.assertEqual(live["happening"], {"stage": "between", "next": "Corin", "round": 2, "steps": live["feed"][0]["commands"]})
             self.assertIn("/api/brief/", get("/"))
+            page = get("/")
+            self.assertIn("/api/stamp", page)
+            self.assertNotIn("setInterval(load", page, "the page never reloads by itself: it lights a signal")
+            for word in ("Narrative", "World", "Engine", "First", "Prior", "Next", "Current", "Go to most recent"):
+                self.assertIn(">%s<" % word, page)
+            stamp = json.loads(get("/api/stamp"))
+            self.assertEqual(stamp, live["stamp"], "the signal's stamp and the loaded page's agree")
+            self.assertEqual((stamp["turns"], stamp["rounds_closed"], stamp["last_closed"], stamp["stop"]), (2, 1, 1, None))
             with self.assertRaises(urllib.error.HTTPError):
                 get("/api/live", Host="elsewhere.example")
             self.assertEqual(post("/api/run/pause")[0], 403, "no ask without the page's own header")
@@ -1519,6 +1527,7 @@ class Engine(unittest.TestCase):
             self.assertEqual((code, said["ok"]), (200, True))
             self.assertEqual(self.save()["run"]["stop"], "pause")
             self.assertEqual(json.loads(get("/api/live"))["run"]["stop"], "pause")
+            self.assertEqual(json.loads(get("/api/stamp"))["stop"], "pause", "a pause asked lights the signal")
             rows = list(csv.DictReader(io.StringIO(get("/export.csv"))))
             self.assertEqual(len(rows), len(self.log_of()))
         finally:

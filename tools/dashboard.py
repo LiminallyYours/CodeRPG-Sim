@@ -4,17 +4,18 @@
     python3 tools/dashboard.py [--port N]     then open http://127.0.0.1:<port>/ (the port is dashboard.port)
     python3 tools/dashboard.py --csv [run]    the run's log as CSV on stdout (the current run if none is named)
 
-It reads the save and the run's log, and refreshes every few seconds: the round and its order; each person's
-place, health, money, belongings, latest journal line, how long their brief has grown, what they've cost and the
-exact model that answered; what's happening now (who is deciding or being played, for how long, and the referee's
-latest commands); what the run has spent, for whom, and each round's time, cost, context and refusals; and a feed
-of each turn (what they did and why, the townspeople's words, onlookers' notes, trades, coins and orders, the
-chronicle, the story, and what they were told, fetched when opened), what came between rounds (the world's turn,
-memories condensed) and endings. "Everything" (or `/?view=all`) adds the referee's commands and each turn's cost.
-Three views: Run (all of the above), Turns (a card a turn, newest first: where and with whom, what they were given,
-their reasoning and choice, what happened, what changed for them and in the world, its time and cost; a card a round's
-end) and World (the town now: places, people, shared work, offers and lets, talk, orders, and the hooks: quests,
-timed events, scarce prizes, a timeline), and on every view the coverage strip (the audit's count of each mechanic).
+It reads the save and the run's log when the owner asks, never by itself: the page checks a small stamp every few
+seconds (`/api/stamp`: turns told, rounds closed, the run paused or ended) and lights a signal when there's more,
+with "Go to most recent" beside it; nothing on the page moves until a button is pressed. It shows one round at a
+time (First, Prior, Next, Current) in three views. Narrative: each turn in the order played, in three lines (who,
+where, what they were told, the options they weighed and chose, their reasoning and what they did; what came back:
+who was there, the words heard, the story they were told, what onlookers saw; and, smaller, what it came to:
+outcome, coins, trades, what changed), then what came between rounds (the world's turn, endings, memories
+condensed). World: the six now (place, health, money, belongings, journal), the mechanics used (the audit's count
+of each), and the town now (places, people, shared work, offers and lets, talk, orders, and the hooks: quests, timed
+events, scarce prizes, a timeline); the state as last loaded, whatever round is shown. Engine: what's running now,
+what the run has spent and each round's time, cost, context and refusals, and the round's backstage (each turn's
+time, cost and model, the referee's commands with all each printed, the world agent's replies).
 The town is worked out by the engine's own read functions, never a command (every command is logged).
 Its two buttons ask `rpg.py run pause` and `run end`; the dashboard never writes a game file itself.
 The log is also served as CSV, one row per entry, for analysis elsewhere (`/export.csv`, or `--csv`).
@@ -39,7 +40,6 @@ import rpg  # noqa: E402
 
 LOCK = threading.Lock()  # the engine's read functions keep the acting person and the run in globals: one reader at a time
 
-FEED_LIMIT = 240  # feed items sent to the page, newest first (a 14-round run of four is about 90)
 
 
 def read_save():
@@ -51,7 +51,7 @@ def read_save():
 
 
 def log_entries(run_id):
-    """The run's log; a line still being written is skipped until the next refresh."""
+    """The run's log; a line still being written is skipped until the next read."""
     path = rpg.LOG / ("%s.jsonl" % run_id)
     out = []
     try:
@@ -579,10 +579,28 @@ def live_now():
         "people": people,
         "meter": meter_of(entries, run.get("round")),
         "happening": happening(items, run, names.get(nxt)),
-        "feed": items[::-1][:FEED_LIMIT],
+        "feed": items[::-1],  # all of it: the page pages through every round
+        "stamp": stamp_of(save, entries),
         "coverage": audit.coverage(entries),
         "world": world_view(save, entries, names, name),
     }
+
+
+def stamp_of(save, entries):
+    """How far the run has got, for the page's update signal: the stories told (one a turn), the rounds closed, and
+    whether a pause or end is asked or the run is over."""
+    run = save["run"]
+    closed = [e.get("round") for e in entries if e["kind"] == "round" and e.get("phase") == "end"]
+    return {"run": run["id"], "turns": sum(1 for e in entries if e["kind"] == "narration"), "rounds_closed": len(closed),
+            "last_closed": closed[-1] if closed else None, "stop": run.get("stop"), "ended": bool(run.get("ended"))}
+
+
+def stamp():
+    """The stamp as the run stands now (asked every few seconds: the save and the log, no engine)."""
+    save = read_save()
+    if not save or "run" not in save:
+        return {"run": None}
+    return stamp_of(save, log_entries(save["run"]["id"]))
 
 
 def brief_at(n):
@@ -633,6 +651,8 @@ class Handler(BaseHTTPRequestHandler):
             return self.send(200, PAGE, "text/html; charset=utf-8")
         if self.path == "/api/live":
             return self.send(200, json.dumps(live(), ensure_ascii=False), "application/json")
+        if self.path == "/api/stamp":
+            return self.send(200, json.dumps(stamp(), ensure_ascii=False), "application/json")
         if self.path.startswith("/api/brief/") and self.path[11:].isdigit():
             brief = brief_at(int(self.path[11:]))
             return self.send(200, json.dumps(brief, ensure_ascii=False), "application/json") if brief else \
@@ -687,9 +707,22 @@ PAGE = r"""<!doctype html>
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--paper); color: var(--ink); font: 15px/1.5 var(--sans); }
 main { max-width: 1180px; margin: 0 auto; padding: 24px 16px 64px; }
-header { display: flex; flex-wrap: wrap; gap: 12px 32px; align-items: end; justify-content: space-between;
-         border-bottom: 1px solid var(--rule); padding-bottom: 16px; }
-h1 { font: 600 30px/1.15 var(--serif); margin: 0 0 4px; letter-spacing: 0.005em; }
+main { padding-top: 0; }
+header.top { position: sticky; top: 0; z-index: 2; background: var(--paper); padding: 16px 0 0; }
+.titles { display: flex; flex-wrap: wrap; gap: 4px 20px; align-items: baseline; }
+h1 { font: 600 26px/1.15 var(--serif); margin: 0; letter-spacing: 0.005em; }
+.topbar { display: flex; flex-wrap: wrap; gap: 10px 24px; align-items: center; justify-content: space-between; margin: 12px 0 0; }
+.pager { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.pager button { padding: 6px 12px; }
+.where { font: 600 16px var(--serif); min-width: 9em; text-align: center; font-variant-numeric: tabular-nums; }
+.signal { display: flex; gap: 10px; align-items: center; color: var(--slate); font-size: 14px; }
+.lamp { width: 12px; height: 12px; border-radius: 50%; background: var(--rule); flex: none; }
+.signal.lit { color: var(--ink); font-weight: 600; }
+.signal.lit .lamp { background: var(--brass); box-shadow: 0 0 0 4px color-mix(in srgb, var(--brass) 30%, transparent); }
+.signal.lit button { border-color: var(--brass); background: var(--brass); color: var(--paper); }
+.signal.down { color: var(--brick); }
+.signal.down .lamp { background: var(--brick); }
+button.small { font-size: 12.5px; padding: 4px 10px; }
 .facts { color: var(--slate); margin: 0; }
 .turnline { margin: 6px 0 0; }
 .turnline b { color: var(--brass); font-weight: 600; }
@@ -700,14 +733,12 @@ button.end { border-color: var(--brick); color: var(--brick); }
 button:hover:not(:disabled) { background: var(--sheet); }
 button:disabled { opacity: 0.45; cursor: default; }
 button:focus-visible, summary:focus-visible, a:focus-visible { outline: 2px solid var(--brass); outline-offset: 2px; }
-.said { color: var(--slate); font-size: 13px; width: 100%; text-align: right; min-height: 1.2em; margin: 0; }
+.said { color: var(--slate); font-size: 13px; text-align: right; min-height: 1.2em; margin: 4px 0 0; }
 .people { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 0 28px; margin: 24px 0 8px; }
 .person { border-top: 3px solid var(--who); padding: 12px 0 20px; }
 .person.now { border-top-color: var(--brass); }
 .person h2 { margin: 0; }
-.person h2 button { font: 600 19px/1.2 var(--serif); color: var(--who); border: 0; padding: 0; background: none; text-align: left; }
-.person h2 button:hover { background: none; text-decoration: underline; text-underline-offset: 3px; }
-.person h2 button[aria-pressed="true"] { text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 3px; }
+.person h2.name { font: 600 19px/1.2 var(--serif); color: var(--who); }
 .meta b { color: var(--brass); font-weight: 600; }
 .meta { color: var(--slate); font-size: 13px; margin: 2px 0 10px; }
 .warn { color: var(--brick); }
@@ -717,9 +748,6 @@ button:focus-visible, summary:focus-visible, a:focus-visible { outline: 2px soli
 .carry, .told { color: var(--slate); font-size: 13.5px; margin: 6px 0 0; }
 .journal { font: italic 17px/1.45 var(--serif); margin: 14px 0 0; }
 .journal small { display: block; font: 13px var(--sans); font-style: normal; color: var(--slate); margin-top: 4px; }
-.below { display: grid; grid-template-columns: minmax(0, 74ch) minmax(260px, 1fr); gap: 0 40px; margin-top: 28px; align-items: start; }
-aside { position: sticky; top: 16px; display: grid; gap: 16px; }
-@media (max-width: 900px) { .below { grid-template-columns: minmax(0, 1fr); } aside { position: static; order: -1; margin-bottom: 24px; } }
 .box { background: var(--sheet); border-radius: 6px; padding: 14px 16px; }
 .box h3 { font: 600 13px var(--sans); text-transform: uppercase; letter-spacing: 0.06em; color: var(--slate); margin: 0 0 8px; }
 .nowtext { font: 16px/1.45 var(--serif); margin: 0 0 6px; }
@@ -739,12 +767,6 @@ td.so-far { color: var(--slate); font-style: italic; }
 .note { font-size: 12.5px; color: var(--slate); margin: 8px 0 0; }
 .quiet { font-size: 13px; margin: 8px 0 0; color: var(--slate); }
 .quiet.still { color: var(--brick); }
-.feed h3 { font: 600 15px var(--sans); color: var(--slate); margin: 0 0 8px; display: flex; flex-wrap: wrap;
-           justify-content: space-between; align-items: center; gap: 6px 16px; }
-.feed h3 a { font-weight: 400; color: var(--ink); }
-.views { display: inline-flex; border: 1px solid var(--rule); border-radius: 6px; overflow: hidden; }
-.views button { border: 0; border-radius: 0; padding: 4px 12px; font-size: 13px; color: var(--slate); }
-.views button[aria-pressed="true"] { background: var(--ink); color: var(--paper); }
 .filter { font-size: 13.5px; color: var(--slate); margin: 0 0 12px; }
 .filter button { font-size: 13px; padding: 2px 10px; margin-left: 8px; }
 .turn { padding: 14px 16px 16px; border-left: 3px solid var(--who); margin: 0 0 14px; background: var(--sheet); border-radius: 0 6px 6px 0; }
@@ -806,48 +828,72 @@ details pre { white-space: pre-wrap; overflow-wrap: anywhere; font: 12.5px/1.5 v
 .quest h4 { font: 600 15px var(--serif); margin: 0 0 4px; }
 .st-complete { color: var(--brass); } .st-failed { color: var(--brick); } .st-open { color: var(--slate); }
 .cond { font: 12px var(--mono); color: var(--slate); }
+.narrative { max-width: 80ch; margin-top: 20px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 16px; }
+.chips button { font-size: 13px; padding: 3px 10px; border-color: var(--rule); color: var(--who, var(--ink)); }
+.chips button[aria-pressed="true"] { border-color: var(--who, var(--ink)); box-shadow: inset 0 -2px 0 var(--who, var(--ink)); }
+.turn .line { margin: 0; }
+.turn .l2 { border-top: 1px solid var(--rule); margin-top: 12px; padding-top: 10px; }
+.turn .l3 { margin: 12px 0 0 18px; padding-left: 10px; border-left: 2px solid var(--rule); font-size: 13.5px; }
+.turn .l3 p, .turn .l3 li { font-size: 13.5px; }
+.turn .label { display: block; margin: 10px 0 4px; }
+.turn .who { cursor: pointer; }
+.story.open { font: 16px/1.6 var(--serif); margin: 6px 0 0; }
+.story.open p { margin: 0 0 10px; }
+.engine { display: grid; grid-template-columns: minmax(260px, 1fr) minmax(0, 2fr); gap: 24px; margin-top: 20px; align-items: start; }
+.engine-side { display: grid; gap: 16px; }
+@media (max-width: 900px) { .engine { grid-template-columns: minmax(0, 1fr); } }
+.backstage h3 { font: 600 15px var(--sans); color: var(--slate); margin: 0 0 8px; }
+.backstage .turn { margin-bottom: 10px; }
 </style>
 </head>
 <body>
 <main>
-  <header>
-    <div>
+  <header class="top">
+    <div class="titles">
       <h1 id="title">Run dashboard</h1>
       <p class="facts" id="facts"></p>
-      <p class="turnline" id="now"></p>
     </div>
-    <div class="controls">
-      <button id="pause" type="button">Pause after this round</button>
-      <button id="end" type="button" class="end">End the run</button>
-      <p class="said" id="said" aria-live="polite"></p>
+    <div class="topbar">
+      <nav class="pager" aria-label="Rounds">
+        <button type="button" id="first">First</button>
+        <button type="button" id="prior">Prior</button>
+        <span class="where" id="where">No rounds yet</span>
+        <button type="button" id="next">Next</button>
+        <button type="button" id="current">Current</button>
+      </nav>
+      <div class="signal" id="signal">
+        <span class="lamp" aria-hidden="true"></span>
+        <span id="signal-text" aria-live="polite">Up to date</span>
+        <button type="button" id="latest" disabled>Go to most recent</button>
+      </div>
+      <div class="controls">
+        <button id="pause" type="button" class="small">Pause after this round</button>
+        <button id="end" type="button" class="small end">End the run</button>
+      </div>
     </div>
+    <p class="said" id="said" aria-live="polite"></p>
+    <nav class="tabs" role="group" aria-label="Views">
+      <button type="button" id="tab-narrative" aria-pressed="true">Narrative</button>
+      <button type="button" id="tab-world" aria-pressed="false">World</button>
+      <button type="button" id="tab-engine" aria-pressed="false">Engine</button>
+    </nav>
   </header>
-  <nav class="tabs" role="group" aria-label="Views">
-    <button type="button" id="tab-run" aria-pressed="true">Run</button>
-    <button type="button" id="tab-turns" aria-pressed="false">Turns</button>
-    <button type="button" id="tab-world" aria-pressed="false">World</button>
-  </nav>
-  <div class="coverage" id="coverage"></div>
-  <div id="view-turns" hidden><div class="cards" id="cards"></div></div>
-  <div id="view-world" class="world" hidden></div>
-  <div id="view-run">
-  <section class="people" id="people" aria-label="The people"></section>
-  <div class="below">
-    <section class="feed" aria-label="What happened">
-      <h3><span>What happened, newest first</span>
-        <span class="views" role="group" aria-label="How much to show">
-          <button type="button" id="view-people" aria-pressed="true">People</button>
-          <button type="button" id="view-all" aria-pressed="false">Everything</button>
-        </span>
-        <a href="/export.csv" id="csv">Download the whole log as CSV</a></h3>
-      <p class="filter" id="filter" hidden></p>
-      <div id="feed"></div>
-    </section>
-    <aside aria-label="The run as it goes">
-      <section class="box" aria-label="Now"><h3>Now</h3><div id="happening"></div></section>
-      <section class="box" aria-label="The run so far"><h3>The run so far</h3><div id="meter"></div></section>
-    </aside>
+  <div id="view-narrative"></div>
+  <div id="view-world" hidden>
+    <section class="people" id="people" aria-label="The people"></section>
+    <div class="coverage" id="coverage"></div>
+    <div class="world" id="world"></div>
   </div>
+  <div id="view-engine" hidden>
+    <div class="engine">
+      <div class="engine-side">
+        <section class="box" aria-label="Now"><h3>Now</h3><p class="turnline" id="now"></p><div id="happening"></div></section>
+        <section class="box" aria-label="The run so far"><h3>The run so far</h3><div id="meter"></div>
+          <p class="note"><a href="/export.csv" id="csv">Download the whole log as CSV</a></p></section>
+      </div>
+      <section class="backstage" aria-labelledby="backstage-title"><h3 id="backstage-title">Backstage</h3><div id="backstage"></div></section>
+    </div>
   </div>
 </main>
 <script>
@@ -855,12 +901,11 @@ const INKS = ["#1F6F78", "#6E3B6E", "#4E6B2F", "#9A4A1C", "#3A4FA0", "#9C3D5A"];
 const INKS_DARK = ["#5FB7BF", "#C98BC9", "#9DBB72", "#E09A66", "#8EA0EA", "#E58AA6"];
 const dark = matchMedia("(prefers-color-scheme: dark)");
 const opened = new Set(), briefs = new Map();
-let inkOf = {}, last = null, only = null, everything = false, tab = "run";
+const TABS = ["narrative", "world", "engine"];
+let inkOf = {}, last = null, only = null, tab = "narrative", at = null, loadedAt = null;
 const steps = new Map();
-try { tab = localStorage.getItem("dashboard-tab") || "run"; } catch (e) {}
-{ const m = /[?&]tab=(run|turns|world)\b/.exec(location.search); if (m) tab = m[1]; }
-try { everything = localStorage.getItem("dashboard-view") === "all"; } catch (e) {}
-if (/[?&]view=(all|people)\b/.test(location.search)) everything = /view=all/.test(location.search);  // a view that can be bookmarked
+try { const t = localStorage.getItem("dashboard-tab"); if (TABS.includes(t)) tab = t; } catch (e) {}
+{ const m = /[?&]tab=(narrative|world|engine)\b/.exec(location.search); if (m) tab = m[1]; }  // a view that can be bookmarked
 
 function el(tag, attrs = {}, ...kids) {
   const n = document.createElement(tag);
@@ -910,7 +955,7 @@ function briefFold(item) {
 }
 
 function commandList(cmds) {
-  if (!everything || !cmds || !cmds.length) return null;
+  if (!cmds || !cmds.length) return null;
   return el("ul", {class: "cmds", "aria-label": "The referee's commands"}, ...cmds.map(c =>
     el("li", {class: c.refused ? "refused" : ""}, c.text, c.said ? el("span", {text: c.said}) : null)));
 }
@@ -941,7 +986,7 @@ function renderHappening(h, d) {
 
 function renderMeter(m, d) {
   const s = m.spend, box = document.getElementById("meter");
-  const rows = m.rounds.slice(0, 10).map(r => el("tr", {},
+  const rows = m.rounds.map(r => el("tr", {},
     el("td", {text: r.round}), el("td", {class: r.open ? "so-far" : "", text: took(r.seconds)}),
     el("td", {class: r.open ? "so-far" : "", text: money(r.spend)}), el("td", {text: r.context ? Math.round(r.context / 1000) + "k" : ""}),
     el("td", {class: r.refused ? "warn" : "", text: r.refused || ""})));
@@ -960,43 +1005,9 @@ function renderMeter(m, d) {
       "Last logged " + took(m.quiet) + " ago."}) : null].filter(Boolean));
 }
 
-function renderTurn(item) {
-  const options = item.options && item.options.length ?  // what they weighed before choosing: theirs alone, like the journal
-    el("ul", {class: "options", "aria-label": "The options they weighed"}, ...item.options.map(o =>
-      el("li", {class: o.chosen ? "chosen" : ""}, o.text, o.for ? el("span", {text: " (for: " + o.for + ")"}) : null,
-         o.chosen ? el("b", {text: " chosen"}) : null))) : null;
-  const voices = (item.voices || []).map(v => v.agent === "npc" ?
-    el("p", {class: "voice"}, el("b", {text: v.about}), quote(v.said)) :
-    everything ? fold("v:" + item.key + v.about, "The world agent, for " + v.about, el("pre", {text: v.reply})) : null);
-  const notes = (item.notes || []).map((n, i) => fold("n:" + item.key + i, "What " + (n.seen_by.join(" and ") || "no one") + " saw", paragraphs(n.text)));
-  const story = item.story != null ? fold(item.key, "The story they were told", paragraphs(item.story)) : null;
-  const cost = everything && (item.spend || item.seconds != null) ?
-    el("p", {class: "cost", text: [item.seconds != null ? took(item.seconds) + " from brief to story" : "",
-      item.spend ? money(item.spend) + " for their reply and the agents asked" : "",
-      item.exact_model || ""].filter(Boolean).join(" · ")}) : null;
-  return el("article", {class: "turn", style: "--who:" + (inkOf[item.name] || "var(--slate)")},
-    el("p", {class: "who"}, item.name, el("span", {text: ", round " + item.round})),
-    item.do ? null : el("p", {class: "waiting", text: "Deciding…"}),
-    options,
-    item.do ? el("p", {class: "do", text: item.do}) : null,
-    item.journal ? el("p", {class: "why", text: item.journal}) : null,
-    ...(item.no_longer || []).map(x => el("p", {class: "cost", text: "No longer holds, they say: " + x.said +
-      (x.struck ? " (struck from what they've learned)" : " (not on their list)")})),
-    item.heard_by.length ? el("p", {class: "heard", text: "Heard by " + item.heard_by.join(" and ")}) : null,
-    ...voices,
-    ...(item.trades || []).map(t => el("p", {class: "trade", text: t})),
-    ...(item.money || []).map(t => el("p", {class: "trade", text: t})),
-    ...(item.made || []).map(t => el("p", {class: "trade", text: "New in the world: " + t})),
-    ...(item.chronicle || []).map(t => el("p", {class: "chron"}, el("b", {text: "Chronicle: "}), t)),
-    ...notes,
-    story || (item.do ? el("p", {class: "heard", text: "Their turn is still being played."}) : null),
-    briefFold(item),
-    cost,
-    commandList(item.commands));
-}
-
-// what came between turns or after a round ended: the chronicle, the world's turn, memories condensed, and the referee's session
-function renderBetween(item) {
+// what came between turns or after a round ended: the chronicle, the world's turn, memories condensed; backstage (the
+// Engine view), the world agent's replies, the referee's session and its commands
+function renderBetween(item, backstage) {
   const ref = item.referee;
   return el("div", {class: "between"},
     ...(item.chronicle || []).map(t => el("p", {class: "chron"}, el("b", {text: "Chronicle: "}), t)),
@@ -1009,35 +1020,11 @@ function renderBetween(item) {
       el("div", {}, paragraphs(m.text), m.learned ? el("div", {class: "story"},
         el("p", {text: "What they've learned" + (m.learned_given ? "" : " (left as it was)") + ":"}),
         el("ul", {}, ...m.learned.map(x => el("li", {text: x})))) : null))),
-    ...(item.voices || []).filter(v => everything && v.agent !== "npc").map((v, i) =>
+    ...(item.voices || []).filter(v => backstage && v.agent !== "npc").map((v, i) =>
       fold("v:" + item.key + i, "The world agent, for " + v.about + (v.spend ? " (" + money(v.spend) + ")" : ""), el("pre", {text: v.reply}))),
-    everything && ref ? el("p", {class: "cost", text: "The referee's session: " + [took(ref.seconds), money(ref.spend),
+    backstage && ref ? el("p", {class: "cost", text: "The referee's session: " + [took(ref.seconds), money(ref.spend),
       ref.context ? Math.round(ref.context / 1000) + "k context" : ""].filter(Boolean).join(" · ")}) : null,
-    commandList(item.commands));
-}
-
-function renderFeed(d) {
-  const feed = document.getElementById("feed"), filter = document.getElementById("filter");
-  if (only) {
-    filter.hidden = false;
-    filter.replaceChildren("Showing only " + only + "'s turns.", el("button", {type: "button", id: "all-people"}, "Show everyone"));
-    document.getElementById("all-people").addEventListener("click", () => { only = null; render(last); });
-  } else filter.hidden = true;
-  if (!d.feed.length) {
-    feed.replaceChildren(el("p", {class: "empty", text: "Nothing has happened yet. The first round starts with /rounds."}));
-    return;
-  }
-  const items = d.feed.filter(item => !only || item.kind !== "turn" || item.name === only);
-  feed.replaceChildren(...items.flatMap(item => {
-    if (item.kind === "round") return [el("p", {class: "marker", text: "Round " + item.round + " begins: " + item.order.join(", then ")}), renderBetween(item)];
-    if (item.kind === "round_end") return [el("p", {class: "marker", text: "Round " + item.round + " ends" + (item.world_turn ? ", and the world turns" : "")}), renderBetween(item)];
-    if (item.kind === "trade" || item.kind === "asleep") return [el("p", {class: "marker", text: item.text})];
-    if (item.kind === "run") return [el("p", {class: "marker", text: {pause: "Pause asked", resume: "Resumed", end: "End asked", ended: "The run ended"}[item.action]})];
-    if (item.kind === "ending") return [el("article", {class: "ending"},
-      el("p", {class: "who", text: "An ending, round " + item.round + (item.by ? ", by " + item.by + "'s turn" : "")}),
-      fold(item.key, "What everyone was told" + (item.heard_by.length ? " (" + item.heard_by.join(", ") + " by a note)" : ""), paragraphs(item.text)))];
-    return [renderTurn(item)];
-  }));
+    backstage ? commandList(item.commands) : null);
 }
 
 // every mechanic the kit has and how often this run has used it (the audit's COVERAGE, the same function)
@@ -1069,72 +1056,104 @@ function stepsFold(item) {
 const CAME = {done: "done", partly: "partly done", failed: "failed a check", refused: "refused by someone",
               out_of_reach: "out of reach", not_there: "reached for something that isn't there"};
 
+// a turn in three lines: who and what they decided; what came back to them; and, smaller, what it came to
 function turnCard(item) {
-  const chosen = (item.options || []).find(o => o.chosen);
-  const reasoning = (item.options && item.options.length) || item.journal || (item.no_longer || []).length ?
-    fold("why:" + item.key, "Their reasoning", el("div", {},
-      item.options && item.options.length ? el("ul", {class: "options"}, ...item.options.map(o =>
-        el("li", {class: o.chosen ? "chosen" : ""}, o.text, o.for ? el("span", {text: " (for: " + o.for + ")"}) : null,
-           o.chosen ? el("b", {text: " chosen"}) : null))) : null,
-      item.journal ? el("p", {class: "why", text: item.journal}) : null,
-      ...(item.no_longer || []).map(x => el("p", {class: "cost", text: "No longer holds, they say: " + x.said +
-        (x.struck ? " (struck from what they've learned)" : " (not on their list)")})))) : null;
+  const options = item.options && item.options.length ?
+    el("ul", {class: "options", "aria-label": "The options they weighed"}, ...item.options.map(o =>
+      el("li", {class: o.chosen ? "chosen" : ""}, o.text, o.for ? el("span", {text: " (for: " + o.for + ")"}) : null,
+         o.chosen ? el("b", {text: " chosen"}) : null))) : null;
+  const who = el("p", {class: "who", title: only === item.name ? "Show everyone" : "Show only " + item.name},
+    el("span", {text: [item.position ? "Turn " + item.position : null, "Round " + item.round].filter(Boolean).join(" · ") + " · "}),
+    item.name, el("span", {text: item.where ? " · " + item.where : ""}));
+  who.addEventListener("click", () => { only = only === item.name ? null : item.name; draw(); });
+  const decided = el("div", {class: "line l1"}, who, briefFold(item),
+    options ? el("span", {class: "label", text: "The options they weighed"}) : null, options,
+    item.journal ? el("span", {class: "label", text: "Their reasoning"}) : null,
+    item.journal ? el("p", {class: "why", text: item.journal}) : null,
+    ...(item.no_longer || []).map(x => el("p", {class: "cost", text: "No longer holds, they say: " + x.said +
+      (x.struck ? " (struck from what they've learned)" : " (not on their list)")})),
+    el("span", {class: "label", text: "What they did"}),
+    item.do ? el("p", {class: "do", text: item.do}) : el("p", {class: "waiting", text: "Deciding…"}));
   const voices = (item.voices || []).filter(v => v.agent === "npc").map(v => el("p", {class: "voice"}, el("b", {text: v.about}), quote(v.said)));
   const notes = (item.notes || []).map((n, i) => fold("tn:" + item.key + i, "What " + (n.seen_by.join(" and ") || "no one") + " saw", paragraphs(n.text)));
-  const happened = item.do ? fold("what:" + item.key, "What happened", el("div", {},
-    item.heard_by.length ? el("p", {class: "heard", text: "Their words were heard by " + item.heard_by.join(" and ")}) : null,
+  const back = item.do ? el("div", {class: "line l2"},
+    el("span", {class: "label", text: "What came back"}),
+    el("p", {class: "heard", text: (item.with ? "There with them: " + item.with + "." : "No one else there.") +
+      (item.heard_by.length ? " Their words were heard by " + item.heard_by.join(" and ") + "." : "")}),
     ...voices,
+    item.story != null ? el("div", {class: "story open"}, ...item.story.split(/\n\s*\n/).map(t => el("p", {text: t}))) :
+      el("p", {class: "waiting", text: "Their turn is still being played."}),
+    ...notes) : null;
+  const small = [
+    item.outcome ? el("p", {class: "came"}, "Came to: ", el("b", {text: CAME[item.outcome.result] || item.outcome.result}),
+                      item.outcome.what ? ": " + item.outcome.what : "") : null,
+    item.changed ? el("p", {}, el("b", {class: "label", text: "For them "}), item.changed.replace(/^What changed: /, "")) : null,
     ...(item.trades || []).map(x => el("p", {class: "trade", text: x})),
     ...(item.money || []).map(x => el("p", {class: "trade", text: x})),
     ...(item.made || []).map(x => el("p", {class: "trade", text: "New in the world: " + x})),
-    ...notes,
-    item.story != null ? fold("ts:" + item.key, "The story they were told", paragraphs(item.story)) : el("p", {class: "heard", text: "Their turn is still being played."}),
-    stepsFold(item))) : null;
-  const head = ["Round " + item.round + (item.position ? ", turn " + item.position : ""), item.where].filter(Boolean).join(" · ");
-  return el("article", {class: "turn", style: "--who:" + (inkOf[item.name] || "var(--slate)")},
-    el("p", {class: "who"}, item.name, el("span", {text: " · " + head + (item.with ? " · with " + item.with : "")})),
-    item.do ? el("p", {class: "do", text: item.do}) : el("p", {class: "waiting", text: "Deciding…"}),
-    item.outcome ? el("p", {class: "came"}, "Came to: ", el("b", {text: CAME[item.outcome.result] || item.outcome.result}),
-                      item.outcome.what ? ": " + item.outcome.what : "") : null,
-    chosen ? el("p", {class: "cost", text: "The option they chose: " + chosen.text}) : null,
-    briefFold(item), reasoning, happened,
-    item.changed ? el("p", {class: "changed"}, el("b", {text: "For them "}), item.changed.replace(/^What changed: /, "")) : null,
-    item.world_changes && item.world_changes.length ? el("div", {}, el("p", {class: "changed"}, el("b", {text: "In the world"})),
+    item.world_changes && item.world_changes.length ? el("div", {}, el("b", {class: "label", text: "In the world"}),
       el("ul", {class: "changes"}, ...item.world_changes.map(x => el("li", {text: x})))) : null,
-    item.spend || item.seconds != null ? el("p", {class: "cost", text: [item.seconds != null ? took(item.seconds) + " from brief to story" : "",
-      item.spend ? money(item.spend) + " for their reply and the agents asked" : ""].filter(Boolean).join(" · ")}) : null);
+    ...(item.chronicle || []).map(t => el("p", {class: "chron"}, el("b", {text: "Chronicle: "}), t))].filter(Boolean);
+  return el("article", {class: "turn", style: "--who:" + (inkOf[item.name] || "var(--slate)")},
+    decided, back, small.length ? el("div", {class: "line l3"}, ...small) : null);
 }
 
-function roundCard(item) {
-  const ref = item.referee;
-  const was = everything;
-  everything = true;  // a round's card shows the world agent and the referee's session whichever feed view is chosen
-  const between = renderBetween(Object.assign({}, item, {commands: []}));  // the referee's housekeeping stays in the Run view's Everything
-  everything = was;
-  return [el("p", {class: "marker", text: item.kind === "round" ? "Round " + item.round + " begins: " + item.order.join(", then ") :
-    "Round " + item.round + " ends" + (item.world_turn ? ", and the world turns" : "") + (ref ? " · the referee: " +
-    [took(ref.seconds), money(ref.spend)].filter(Boolean).join(", ") : "")}), between];
+// a turn backstage: its time, cost and model, the referee's commands, and the world agent's replies for it
+function backstageCard(item) {
+  return el("article", {class: "turn", style: "--who:" + (inkOf[item.name] || "var(--slate)")},
+    el("p", {class: "who"}, item.name, el("span", {text: " · round " + item.round + (item.position ? ", turn " + item.position : "")})),
+    el("p", {class: "cost", text: [item.seconds != null ? took(item.seconds) + " from brief to story" : "still being played",
+      item.spend ? money(item.spend) + " for their reply and the agents asked" : "", item.exact_model || "",
+      item.brief_chars != null ? "told " + count(item.brief_chars) + " characters" : ""].filter(Boolean).join(" · ")}),
+    ...(item.voices || []).filter(v => v.agent !== "npc").map((v, i) =>
+      fold("bv:" + item.key + i, "The world agent, for " + v.about + (v.spend ? " (" + money(v.spend) + ")" : ""), el("pre", {text: v.reply}))),
+    commandList(item.commands), stepsFold(item));
 }
 
-function renderTurns(d) {
-  const box = document.getElementById("cards");
-  const items = d.feed.filter(item => !only || item.kind !== "turn" || item.name === only);
-  if (!items.length) { box.replaceChildren(el("p", {class: "empty", text: "No turns yet."})); return; }
-  box.replaceChildren(...(only ? [el("p", {class: "filter"}, "Showing only " + only + "'s turns. Click the name again for everyone.")] : []),
-    ...items.flatMap(item => {
-      if (item.kind === "turn") {
-        const card = turnCard(item);
-        card.querySelector(".who").addEventListener("click", () => { only = only === item.name ? null : item.name; render(last); });
-        card.querySelector(".who").style.cursor = "pointer";
-        return [card];
-      }
-      if (item.kind === "round" || item.kind === "round_end") return roundCard(item);
-      if (item.kind === "ending") return [el("article", {class: "ending"},
-        el("p", {class: "who", text: "An ending, round " + item.round + (item.by ? ", by " + item.by + "'s turn" : "")}),
-        fold("te:" + item.key, "What everyone was told", paragraphs(item.text)))];
-      if (item.kind === "trade" || item.kind === "asleep") return [el("p", {class: "marker", text: item.text})];
-      return [];
+const roundOf = item => item.round == null ? null : Number(item.round);
+function roundsIn(d) { return [...new Set(d.feed.map(roundOf).filter(r => r != null))].sort((a, b) => a - b); }
+function shownRound(d) { return d.feed.filter(item => roundOf(item) === at).reverse(); }  // the order things happened
+
+function renderNarrative(d) {
+  const box = document.getElementById("view-narrative");
+  if (!d.feed.length || at == null) { box.replaceChildren(el("p", {class: "empty", text: "Nothing has happened yet. The first round starts with /rounds."})); return; }
+  const chips = el("div", {class: "chips", role: "group", "aria-label": "Whose turns"},
+    ...[null, ...d.people.map(p => p.name)].map(n => {
+      const b = el("button", {type: "button", "aria-pressed": String(only === n), style: n ? "--who:" + inkOf[n] : ""}, n || "Everyone");
+      b.addEventListener("click", () => { only = n; draw(); });
+      return b;
     }));
+  const out = shownRound(d).flatMap(item => {
+    if (item.kind === "turn") return !only || item.name === only ? [turnCard(item)] : [];
+    if (item.kind === "round") return [el("p", {class: "marker", text: "Round " + item.round + ": " + item.order.join(", then ")}), renderBetween(item, false)];
+    if (item.kind === "round_end") return [el("p", {class: "marker", text: "Round " + item.round + " ends" + (item.world_turn ? ", and the world turns" : "")}), renderBetween(item, false)];
+    if (item.kind === "trade" || item.kind === "asleep") return [el("p", {class: "marker", text: item.text})];
+    if (item.kind === "run") return [el("p", {class: "marker", text: {pause: "Pause asked", resume: "Resumed", end: "End asked", ended: "The run ended"}[item.action]})];
+    if (item.kind === "ending") return [el("article", {class: "ending"},
+      el("p", {class: "who", text: "An ending, round " + item.round + (item.by ? ", by " + item.by + "'s turn" : "")}),
+      fold("te:" + item.key, "What everyone was told" + (item.heard_by.length ? " (" + item.heard_by.join(", ") + " by a note)" : ""), paragraphs(item.text)))];
+    return [];
+  });
+  box.replaceChildren(el("div", {class: "narrative"}, chips, ...out));
+}
+
+function renderEngine(d) {
+  renderHappening(d.happening, d);
+  renderMeter(d.meter, d);
+  const nowLine = document.getElementById("now"), now = d.people.find(p => p.now);
+  nowLine.replaceChildren();
+  if (d.run.open) {
+    nowLine.append("Round " + d.run.round + ": " + d.run.order.join(", then ") + ". ");
+    if (now) nowLine.append(el("b", {text: now.name}), now.replied ? " is acting." : " is deciding.");
+    else nowLine.append("Everyone has had their turn.");
+  }
+  document.getElementById("backstage-title").textContent = at == null ? "Backstage" : "Round " + at + ", backstage";
+  document.getElementById("backstage").replaceChildren(...shownRound(d).flatMap(item => {
+    if (item.kind === "turn") return [backstageCard(item)];
+    if (item.kind === "round" || item.kind === "round_end") return [el("p", {class: "marker", text: item.kind === "round" ?
+      "Round " + item.round + " begins" : "Round " + item.round + " ends"}), renderBetween(item, true)];
+    return [];
+  }));
 }
 
 const list = (xs, empty) => xs && xs.length ? xs.join(", ") : (empty == null ? "none" : empty);
@@ -1145,7 +1164,7 @@ function table(heads, rows) {
 }
 
 function renderWorld(d) {
-  const w = d.world, h = w.hooks, out = document.getElementById("view-world");
+  const w = d.world, h = w.hooks, out = document.getElementById("world");
   const quests = h.quests.map(q => el("div", {class: "quest"},
     el("h4", {}, q.name + (q.side ? " (a side job)" : ""), " ", el("span", {class: "st-" + q.state, text: q.state})),
     el("p", {text: "From " + (q.giver || "no one") + ". Taken on by: " + list(q.taken_on, "no one yet") + "."}),
@@ -1181,52 +1200,44 @@ function renderWorld(d) {
 
 function setTab(which) {
   tab = which;
-  for (const t of ["run", "turns", "world"]) {
+  for (const t of TABS) {
     document.getElementById("tab-" + t).setAttribute("aria-pressed", String(t === which));
     document.getElementById("view-" + t).hidden = t !== which;
   }
   try { localStorage.setItem("dashboard-tab", which); } catch (e) {}
-  if (last) render(last);
+  draw();
 }
 
-function render(d) {
+// everything drawn from the data as last loaded: nothing here asks the server
+function draw() {
+  const d = last;
+  if (!d) return;
   const people = document.getElementById("people");
   if (!d.game) {
     document.getElementById("title").textContent = "Run dashboard";
     document.getElementById("facts").textContent = "";
     document.getElementById("now").textContent = "";
     people.replaceChildren(el("p", {class: "empty", text: "No run yet. Start one with /newgame, then /rounds."}));
-    document.getElementById("feed").replaceChildren();
-    document.getElementById("happening").replaceChildren();
-    document.getElementById("meter").replaceChildren();
-    for (const id of ["coverage", "cards", "view-world"]) document.getElementById(id).replaceChildren();
+    for (const id of ["view-narrative", "happening", "meter", "backstage", "coverage", "world"]) document.getElementById(id).replaceChildren();
+    at = null;
+    drawPager([]);
     setButtons(null);
     return;
   }
   const inks = dark.matches ? INKS_DARK : INKS;
   inkOf = {};
   d.people.forEach((p, i) => inkOf[p.name] = inks[i % inks.length]);
-  document.title = d.game.title + ": round " + d.run.round;
+  document.title = d.game.title + ": round " + (at == null ? d.run.round : at);
   document.getElementById("title").textContent = d.game.title;
-  document.getElementById("facts").textContent = runLine(d);
-  const now = d.people.find(p => p.now);
-  const nowLine = document.getElementById("now");
-  nowLine.replaceChildren();
-  if (d.run.open) {
-    nowLine.append("Round " + d.run.round + ": " + d.run.order.join(", then ") + ". ");
-    if (now) nowLine.append(el("b", {text: now.name}), now.replied ? " is acting." : " is deciding.");
-    else nowLine.append("Everyone has had their turn.");
-  }
+  document.getElementById("facts").textContent = runLine(d) + (loadedAt ? " Loaded at " + loadedAt + "." : "");
+  drawPager(roundsIn(d));
   people.replaceChildren(...d.people.map(p => {
     const pct = p.max_hp ? Math.max(0, Math.min(100, 100 * p.hp / p.max_hp)) : 0;
-    const name = el("button", {type: "button", "aria-pressed": String(only === p.name),
-      title: only === p.name ? "Show everyone's turns" : "Show only " + p.name + "'s turns"}, p.name);
-    name.addEventListener("click", () => { only = only === p.name ? null : p.name; render(last); });
     const versions = p.exact_models.length > 1 ?
       el("span", {class: "warn", text: ", answered as " + p.exact_models.join(", then ")}) :
       p.exact_models.length ? ", " + p.exact_models[0] : "";
     return el("article", {class: "person" + (p.now ? " now" : ""), style: "--who:" + inkOf[p.name]},
-      el("h2", {}, name),
+      el("h2", {class: "name", text: p.name}),
       el("p", {class: "meta"}, modelName(p.model), versions, p.status !== "playing" ? ", " + p.status : "",
          p.now ? el("b", {text: p.replied ? ", acting now" : ", deciding now"}) : null),
       el("p", {class: "stat", text: p.place}),
@@ -1240,13 +1251,30 @@ function render(d) {
       p.journal ? el("p", {class: "journal"}, quote(p.journal),
                      el("small", {text: "Journal, round " + p.journal_round})) : null);
   }));
-  renderHappening(d.happening, d);
-  renderMeter(d.meter, d);
-  renderFeed(d);
   renderCoverage(d);
-  if (tab === "turns") renderTurns(d);
-  if (tab === "world") renderWorld(d);
+  renderWorld(d);
+  renderNarrative(d);
+  renderEngine(d);
   setButtons(d.run);
+}
+
+// the pager: First, Prior, the round shown, Next, Current (the latest round loaded)
+function drawPager(rounds) {
+  const i = rounds.indexOf(at), first = rounds[0], latest = rounds[rounds.length - 1];
+  document.getElementById("where").textContent = at == null ? "No rounds yet" : "Round " + at + " of " + latest;
+  document.getElementById("first").disabled = document.getElementById("prior").disabled = at == null || i <= 0;
+  document.getElementById("next").disabled = document.getElementById("current").disabled = at == null || i >= rounds.length - 1;
+}
+
+function go(which) {
+  if (!last || !last.game) return;
+  const rounds = roundsIn(last), i = rounds.indexOf(at);
+  const to = {first: rounds[0], prior: rounds[Math.max(0, i - 1)], next: rounds[Math.min(rounds.length - 1, i + 1)],
+              current: rounds[rounds.length - 1]}[which];
+  if (to == null || to === at) return;
+  at = to;
+  draw();
+  window.scrollTo(0, 0);
 }
 
 function setButtons(r) {
@@ -1257,25 +1285,49 @@ function setButtons(r) {
   end.textContent = r && (r.ended || r.stop === "end") ? (r.ended ? "Run ended" : "End asked") : "End the run";
 }
 
-function setView(all) {
-  everything = all;
-  document.getElementById("view-people").setAttribute("aria-pressed", String(!all));
-  document.getElementById("view-all").setAttribute("aria-pressed", String(all));
-  try { localStorage.setItem("dashboard-view", all ? "all" : "people"); } catch (e) {}
-  if (last) render(last);
-}
-
-async function refresh() {
+// load the run as it stands; the page stays on the round shown unless asked to go to the most recent
+async function load(toLatest) {
   try {
     const res = await fetch("/api/live", {cache: "no-store"});
     last = await res.json();
-    render(last);
-    document.getElementById("said").classList.remove("stale");
   } catch (e) {
-    const said = document.getElementById("said");
-    said.textContent = "Can't reach the dashboard server. Is tools/dashboard.py still running?";
-    said.classList.add("stale");
+    signal("down", "Can't reach the dashboard server. Is tools/dashboard.py still running?");
+    return;
   }
+  loadedAt = new Date().toLocaleTimeString("en-GB");
+  const rounds = last.game ? roundsIn(last) : [];
+  if (toLatest || at == null || !rounds.includes(at)) at = rounds.length ? rounds[rounds.length - 1] : null;
+  signal("", "Up to date");
+  draw();
+  if (toLatest) window.scrollTo(0, 0);
+}
+
+function signal(state, text) {
+  const box = document.getElementById("signal");
+  box.className = "signal" + (state ? " " + state : "");
+  document.getElementById("signal-text").textContent = text;
+  document.getElementById("latest").disabled = state !== "lit";
+}
+
+// every few seconds, ask only how far the run has got; light the signal if it's further than the page
+async function check() {
+  if (!last) return;
+  let s;
+  try { s = await (await fetch("/api/stamp", {cache: "no-store"})).json(); } catch (e) {
+    signal("down", "Can't reach the dashboard server. Is tools/dashboard.py still running?");
+    return;
+  }
+  const was = last.stamp || {run: null}, news = [];
+  if (s.run !== was.run) news.push(s.run ? "A new run has started" : "The run is gone");
+  else if (s.run) {
+    const turns = s.turns - was.turns, rounds = s.rounds_closed - was.rounds_closed;
+    if (turns > 0) news.push(turns === 1 ? "1 new turn" : turns + " new turns");
+    if (rounds > 0) news.push(rounds === 1 ? "round " + s.last_closed + " finished" : rounds + " rounds finished");
+    if (s.ended !== was.ended || s.stop !== was.stop) news.push(s.ended ? "the run has ended" : s.stop === "pause" ? "a pause is asked" :
+      s.stop === "end" ? "an end is asked" : "the run goes on");
+  }
+  if (news.length) { const t = news.join(", "); signal("lit", t[0].toUpperCase() + t.slice(1)); }
+  else signal("", "Up to date");
 }
 
 async function ask(what) {
@@ -1289,21 +1341,25 @@ async function ask(what) {
   } catch (e) {
     said.textContent = "Couldn't ask: the dashboard server didn't answer.";
   }
-  refresh();
+  load(false);
 }
 
 document.getElementById("pause").addEventListener("click", () => ask("pause"));
 document.getElementById("end").addEventListener("click", () => {
   if (confirm("End the run? The round in progress finishes, then the run closes for good.")) ask("end");
 });
-for (const which of ["run", "turns", "world"]) document.getElementById("tab-" + which).addEventListener("click", () => setTab(which));
+for (const t of TABS) document.getElementById("tab-" + t).addEventListener("click", () => setTab(t));
+for (const w of ["first", "prior", "next", "current"]) document.getElementById(w).addEventListener("click", () => go(w));
+document.getElementById("latest").addEventListener("click", () => load(true));
+document.addEventListener("keydown", e => {  // ← and → page through the rounds
+  if (e.altKey || e.ctrlKey || e.metaKey || /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;
+  if (e.key === "ArrowLeft") go("prior");
+  if (e.key === "ArrowRight") go("next");
+});
+dark.addEventListener("change", draw);
 setTab(tab);
-document.getElementById("view-people").addEventListener("click", () => setView(false));
-document.getElementById("view-all").addEventListener("click", () => setView(true));
-setView(everything);
-dark.addEventListener("change", () => last && render(last));
-refresh();
-setInterval(refresh, 3000);
+load(true);
+setInterval(check, 3000);
 </script>
 </body>
 </html>
