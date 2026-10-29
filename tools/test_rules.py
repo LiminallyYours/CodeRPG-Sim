@@ -2895,6 +2895,22 @@ print(json.dumps({"type": "result", "is_error": False, "result": "Round done.", 
         names = [name for name, _ in audit_module.coverage([])]
         self.assertEqual(len(names), len(set(names)), "each mechanic counted once")
 
+    def test_content_can_ask_whether_a_place_is_let_for_as_long_as_it_is(self):
+        self.selling_world(coins=4)
+        gull = self.dir / "games" / "dark_lighthouse" / "rooms" / "gull_tavern.md"
+        gull.write_text(gull.read_text() + "\n## If let_gull_tavern\nA chalked board by the door says the rooms are taken.\n")
+        self.assertIn("CONTENT OK: dark_lighthouse", self.rpg("validate"))
+        self.assertNotIn("let_gull_tavern", self.rpg("look", as_="wren"))
+        self.rpg("rent", "gull_tavern", as_="corin")
+        self.assertIn("let_gull_tavern", self.rpg("look", as_="wren").split("ALSO TRUE: ")[1].splitlines()[0], "true for everyone")
+        self.assertIn("the rooms are taken", self.rpg("show", "rooms", "gull_tavern", as_="wren"))
+        self.assertIn("let_", self.rpg("flag", "set", "let_gull_tavern", as_="wren", ok=False), "automatic, never set")
+        for _ in range(8):
+            self.round_doing()  # the end of day 2 goes by: the let ends
+        self.assertNotIn("let_gull_tavern", self.rpg("look", as_="wren"))
+        gull.write_text(gull.read_text().replace("## If let_gull_tavern", "## If let_lamp_room"))
+        self.assertIn("condition 'let_lamp_room': no place to let called 'lamp_room'", self.rpg("validate", ok=False))
+
     def test_a_place_to_let_with_no_bed_price_is_only_its_tenants_to_sleep_in(self):
         self.selling_world(coins=6)
         gull = self.dir / "games" / "dark_lighthouse" / "rooms" / "gull_tavern.md"

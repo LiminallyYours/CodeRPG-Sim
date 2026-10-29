@@ -1135,11 +1135,11 @@ def migrate(state):
 def condition_flags(state):
     """The names content conditions are checked against: the shared story flags and the acting player's own
     (the world's `personal_flags`), plus the automatic kinds that are true while they hold: has_<item>
-    (carrying it), met_<character> (seen them in a room), and the clock's (time_conditions)."""
-    if no_one(state):  # a world turn between rounds: the shared story flags alone, and the time
-        return list(state["flags"]) + time_conditions(state)
+    (carrying it), met_<character> (seen them in a room), and those everyone shares (shared_conditions)."""
+    if no_one(state):  # a world turn between rounds: the shared story flags alone, the time and the lets
+        return list(state["flags"]) + shared_conditions(state)
     return (list(state["flags"]) + list(me(state).get("flags", [])) + ["has_" + i for i in me(state)["inventory"]]
-            + ["met_" + c for c in me(state).get("met", [])] + time_conditions(state) + most_conditions(state, actor_id(state)))
+            + ["met_" + c for c in me(state).get("met", [])] + shared_conditions(state) + most_conditions(state, actor_id(state)))
 
 
 def personal_flags():
@@ -1181,7 +1181,7 @@ def quest_view(ident, flags):
             "side": is_generated("quests", ident), "objectives": shown}
 
 
-AUTOMATIC = ("has_", "met_", "time_", "day_", "after_day_", "most_")  # condition names the code holds true, never set
+AUTOMATIC = ("has_", "met_", "time_", "day_", "after_day_", "most_", "let_")  # condition names the code holds true, never set
 
 
 def has_days():
@@ -1214,6 +1214,12 @@ def time_conditions(state):
     if day:
         out += ["day_%d" % day] + ["after_day_%d" % k for k in range(1, day)]
     return out
+
+
+def shared_conditions(state):
+    """The automatic conditions everyone shares: the clock's (time_conditions), and let_<room> for each place let
+    to someone now (until their last day goes by)."""
+    return time_conditions(state) + ["let_" + r for r in state["run"].get("lets", {}) if let_of(state, r)]
 
 
 def when_text(state):
@@ -1926,7 +1932,7 @@ def timed_events(state):
         if ev["id"] in fired or when_of(ev.get("when")) != now:
             continue
         fired.append(ev["id"])  # its time has come, whether or not it happens: it never comes again
-        holds = content.condition_holds(ev.get("if"), list(state["flags"]) + time_conditions(state))
+        holds = content.condition_holds(ev.get("if"), list(state["flags"]) + shared_conditions(state))
         with acting(None):
             log(state, "event", id=ev["id"], when=ev["when"], happened=holds, sets=ev.get("sets"), seen=ev.get("seen"), rumor=ev.get("rumor"))
         if not holds:
@@ -2536,8 +2542,8 @@ def cmd_flag(args):
     if not re.fullmatch(r"[a-z0-9_]+", name):
         raise Refused("flag names are lowercase letters, digits and underscores")
     if name.startswith(AUTOMATIC):
-        raise Refused("has_, met_, time_, day_ and after_day_ names are automatic (carrying an item, having met "
-                      "someone, the time and the day) and can't be set")
+        raise Refused("has_, met_, time_, day_, after_day_, most_ and let_ names are automatic (carrying an item, having met "
+                      "someone, the time and the day, doing most on shared work, a place let) and can't be set")
     if action == "set":
         set_flag(state, name)
     elif action == "unset":
@@ -4270,7 +4276,7 @@ def command_problem(words):
         return "no character %r" % args[0]
     if cmd == "flag" and (args[0] not in ("set", "unset") or not re.fullmatch(r"[a-z0-9_]+", args[1])
                           or args[1].startswith(AUTOMATIC)):
-        return "use flag set|unset <name> (has_, met_, time_, day_ and after_day_ are automatic)"
+        return "use flag set|unset <name> (has_, met_, time_, day_, after_day_, most_ and let_ are automatic)"
     if cmd == "coins" and (not re.fullmatch(r"[+-]\d+", args[0]) or args[1] not in COIN_REASONS):
         return "use coins +N <reason> or coins -N <reason> (%s)" % ", ".join(COIN_REASONS)
     if cmd == "check" and (args[0] not in STATS or not (args[1].isdigit() or args[1] in ("easy", "normal", "hard"))):
@@ -4444,6 +4450,9 @@ def validate_soundness(w, problems):
                 elif term.startswith("most_"):
                     if term[5:] not in project_rooms():
                         problems.append("%s: condition %r: no shared work called %r" % (where, term, term[5:]))
+                elif term.startswith("let_"):
+                    if not content.exists("rooms", term[4:]) or not rent_of(content.load("rooms", term[4:])):
+                        problems.append("%s: condition %r: no place to let called %r" % (where, term, term[4:]))
                 elif term.startswith(("time_", "day_", "after_day_")):
                     problem = time_condition_problem(w, term)
                     if problem:

@@ -401,7 +401,7 @@ def world_view(save, entries, names, name):
     beds paid ahead, rumors and who has heard them, orders, and the hooks: quests, timed events, scarce prizes and
     a timeline. Called under LOCK, with rpg's run set to this save's."""
     run, view, players = save["run"], save.get("view", {}), save["players"]
-    shared = list(save["flags"]) + rpg.time_conditions(save)  # the shared flags and the clock: what decides where things are
+    shared = list(save["flags"]) + rpg.shared_conditions(save)  # the shared flags, the clock and the lets: what decides where things are
     places = []
     for r in list(rpg.content.ids("rooms")) + [r for r in run.get("rooms", {}) if not rpg.content.exists("rooms", r)]:
         room = rpg.ent("rooms", r)
