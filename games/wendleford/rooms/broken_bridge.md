@@ -11,7 +11,7 @@ encounters: flood_wrack
 project:
   id: bridge
   name: the new bridge
-  stages: 4: bridge_half; 8: bridge_mended
+  stages: 6: bridge_half; 12: bridge_mended
   until: not bridge_mended and not time_night
 work:
   stat: might

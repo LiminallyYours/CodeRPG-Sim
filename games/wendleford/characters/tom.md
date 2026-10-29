@@ -20,6 +20,7 @@ Loud and friendly. He calls everyone by name if he knows it, and "friend" if he 
 - The miller's away at his brother's in the county town till the bridge is mended; there's only his lad Kit about the mill.
 - Widow Mabry lets her late sister's cottage on Lark Lane; you'd ask her.
 - There's a carter, Abel Tash, stuck here with a cracked wheel, drinking what he should be mending it with.
+- Old Mother Wick at the wayside shrine answers whatever you ask her, once you've given her your name, and nobody's ever made sense of it.
 
 ## What he wants
 Hands in the scullery, and the bridge back so the carters can get on and pay him for something other than ale.

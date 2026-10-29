@@ -36,7 +36,7 @@ generation:
 Wendleford is a small market town on the River Wend, in the middle of harvest. Two nights ago the river rose in the dark and tore away the mill bridge, and the town woke to find the mill and Farmer Dunn's fields cut off on the far bank, reachable only by the ford downstream. The water has gone down since, brown and quick. Across it the barley stands ripe and uncut, and the old folk keep looking at the sky.
 
 ## Tone
-A plain country market town at harvest time, in no particular year: carts and cobbles, a pump in the square, an inn, a smithy, a tithe barn, fields across the river. There is no magic here and nothing uncanny. Trouble is weather, money, work and neighbours: a flood, a lost box of wages, a crop that might be lost, a cottage standing empty. People are practical and a little nosy, careful with their pennies, kind when it costs them little and sometimes when it costs a good deal. Speech is plain country talk. Prices are in pennies and everyone knows what bread costs. New people are ordinary townsfolk, farmhands, carters and passing traders; new places are small and close by.
+A plain country market town at harvest time, in no particular year: carts and cobbles, a pump in the square, an inn, a smithy, a tithe barn, fields across the river. There is no magic here and nothing uncanny, unless it's old Mother Wick at the wayside shrine, and folk can't agree about her. Trouble is weather, money, work and neighbours: a flood, a lost box of wages, a crop that might be lost, a cottage standing empty. People are practical and a little nosy, careful with their pennies, kind when it costs them little and sometimes when it costs a good deal. Speech is plain country talk. Prices are in pennies and everyone knows what bread costs. New people are ordinary townsfolk, farmhands, carters and passing traders; new places are small and close by.
 
 ## Public knowledge
 - Two nights ago the River Wend flooded and swept away the mill bridge. The mill and Farmer Dunn's fields are on the far bank now, reachable only by the ford downstream, which runs strong since the flood but can be waded with care, stake to stake.
@@ -50,8 +50,9 @@ A plain country market town at harvest time, in no particular year: carts and co
 ## For the referee
 - Wages (the bridge, the scullery, the bellows) are paid in hand, there and then, at the end of each spell of work: `work` pays them. Nobody keeps a tally of loads, and no back pay is owed to anyone; if someone asks for wages for work already done, the one who pays says it was settled at the time. Dunn pays no harvest wages at all, now or later: helpers are fed, and that's all.
 - The ford is waded, never swum or rowed: a check as the broken bridge says, and turned back on a failure. There's no ferry and no boat.
-- The townspeople are the twelve in this world and those the world agent adds; nobody else (no clerk, no constable, no second baker) unless generated.
+- The townspeople are the thirteen in this world and those the world agent adds; nobody else (no clerk, no constable, no second baker) unless generated.
 - Nobody lives at the mill now: the miller is away at his brother's until after the bridge is mended (he comes home on day 6 if it is), and only Kit is about the place. Dunn's wife keeps to the farmhouse and sends the basket out. The men on the bridge are whoever is working it that day; the carters in the Wheatsheaf are extras, but for Abel Tash.
+- Mother Wick is only an old woman as far as anything here goes; what her sayings mean is for whoever hears them.
 
 ## Who may arrive
 Travellers on the road, carters held up by the bridge, a pedlar, farmhands come for the harvest work, a lodger at the inn. Never a constable, a second baker, a ferryman or a boat, anyone who pays back wages, or anyone who knows where the wage box is.

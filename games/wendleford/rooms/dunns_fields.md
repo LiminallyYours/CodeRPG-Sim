@@ -10,7 +10,7 @@ characters:
 project:
   id: harvest
   name: Dunn's harvest
-  stages: 4: harvest_half; 8: harvest_in
+  stages: 6: harvest_half; 12: harvest_in
   until: not harvest_in and not rain_fell and not time_night
   meal: yes
 sleep: rough

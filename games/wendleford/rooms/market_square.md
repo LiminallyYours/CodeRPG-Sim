@@ -7,6 +7,7 @@ exits:
   northeast: fenns
   northwest: lark_lane
   south: broken_bridge
+  southwest: wayside_shrine
 board: yes
 characters:
   - bet (if not after_day_3 or harvest_in)
