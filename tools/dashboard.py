@@ -1171,8 +1171,8 @@ function badge(item) {
   return el("span", {class: "badge " + tone, text});
 }
 
-// a turn, its labels in the margin: what they decided (where, the options, their reasoning), what they did and what
-// came back, and the bookkeeping (what it came to, the ledger, and the folds)
+// a turn, its labels in the margin: what they decided (where, what they were told, folded, the options, their
+// reasoning), what they did and what came back, and the bookkeeping (what it came to, the ledger, what others saw)
 function turnCard(item) {
   const name = el("h3", {tabindex: "0", title: only === item.name ? "Show everyone" : "Show only " + item.name, text: item.name});
   const pick = () => { only = only === item.name ? null : item.name; draw(); };
@@ -1192,12 +1192,12 @@ function turnCard(item) {
     ...(item.chronicle || []).map(t => el("p", {}, el("span", {class: "inl", text: "Chronicle"}), t))].filter(Boolean);
   const ledger = [...(item.trades || []), ...(item.money || []), ...(item.made || []).map(x => "New in the world: " + x),
                   ...(item.world_changes || [])];
-  const also = [briefFold(item), ...notes].filter(Boolean);
+  const told = briefFold(item);
   const reasoning = [item.journal ? el("p", {class: "why", text: item.journal}) : null,
     ...(item.no_longer || []).map(x => el("p", {class: "cost", text: "No longer holds, they say: " + x.said +
       (x.struck ? " (struck from what they've learned)" : " (not on their list)")}))].filter(Boolean);
   const rows = [
-    place ? kv("Where", place) : [], options ? kv("Weighed", options) : [], reasoning.length ? kv("Reasoning", ...reasoning) : [],
+    place ? kv("Where", place) : [], told ? kv("Told", told) : [], options ? kv("Weighed", options) : [], reasoning.length ? kv("Reasoning", ...reasoning) : [],
     rule(),
     kv("Did", item.do ? el("p", {class: "do", text: item.do}) : el("p", {class: "waiting", text: "Deciding…"})),
     item.do ? kv("Came back",
@@ -1206,10 +1206,10 @@ function turnCard(item) {
       ...voices,
       item.story != null ? el("div", {class: "story"}, ...item.story.split(/\n\s*\n/).map(t => el("p", {text: t}))) :
         el("p", {class: "waiting", text: "Their turn is still being played."})) : [],
-    result.length || ledger.length || also.length ? rule() : [],
+    result.length || ledger.length || notes.length ? rule() : [],
     result.length ? kv("Result", el("div", {class: "result"}, ...result)) : [],
     ledger.length ? kv("Ledger", el("ul", {class: "ledger"}, ...ledger.map(x => el("li", {text: x})))) : [],
-    also.length ? kv("Also", ...also) : []].flat();
+    notes.length ? kv("Also", ...notes) : []].flat();
   return el("article", {class: "t2", style: "--who:" + (inkOf[item.name] || "var(--slate)")},
     el("header", {class: "head"}, el("span", {class: "k", text: item.position ? "Turn " + item.position : ""}), name, badge(item)),
     el("div", {class: "lg"}, ...rows));
