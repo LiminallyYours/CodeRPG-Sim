@@ -195,12 +195,18 @@ def changes_in(e):
     return lines or [clip(" ".join([e.get("command", "")] + [str(a) for a in e.get("args", [])]), 120)]
 
 
-def where_of(brief):
-    """The brief's Where you are: the place, the time and the weather on one line; who was with them on another."""
+def where_of(brief, places=()):
+    """The brief's Where you are: the place, the time and the weather on one line ("where"), and the same as its parts
+    ("place", "time", "weather"), the place known by its name (a name may hold a comma: "Fenn's, the Draper"), the time
+    of day up to the next comma; who was with them on another line."""
     head, with_you = rpg.phrase("where_you_are"), rpg.phrase("with_you", people="\0").split("\0")[0]
     lines = brief.split(head + "\n", 1)[1].splitlines() if head + "\n" in brief else []
     with_line = next((line for line in lines[:6] if line.startswith(with_you)), None)
-    return {"where": lines[0].rstrip(".") if lines else None,
+    where = lines[0].rstrip(".") if lines else None
+    place = next((p for p in sorted(places, key=len, reverse=True) if where and (where == p or where.startswith(p + ", "))), None)
+    rest = where[len(place) + 2:] if place and where != place else ""
+    time, _, weather = rest.partition(", ")
+    return {"where": where, "place": place or where, "time": time or None, "weather": weather or None,
             "with": with_line[len(with_you):].rstrip(".") if with_line else None}
 
 
@@ -208,13 +214,13 @@ def add(item, key, value):
     item.setdefault(key, []).append(value)
 
 
-def build_feed(entries, names, name, currency="coins"):
+def build_feed(entries, names, name, currency="coins", places=()):
     """What happened, oldest first: each turn (from their brief: what they did, why, the story they were told, the
     words others heard, what the townspeople said, the onlookers' notes, trades, grabs, coins and orders, what was
     made, the chronicle, and the referee's commands), the round markers, with what came between rounds (world
     turns, memories condensed, the referee's session), and endings. A turn takes the entries of its round that are
     its person's or no one's, from its brief until the next turn or the round's end; anything else goes to the
-    latest round marker."""
+    latest round marker. `places` are the place names a brief's Where you are may begin with."""
     items, turn, bucket = [], None, None
 
     def new_turn(e, i):
@@ -222,7 +228,8 @@ def build_feed(entries, names, name, currency="coins"):
         t = {"kind": "turn", "key": "%s:%s" % (e.get("round"), pid), "round": e.get("round"), "player": pid,
              "name": names.get(pid, pid), "model": None, "exact_model": None, "do": "", "journal": "", "options": None,
              "story": None, "brief_at": None, "brief_chars": None, "heard_by": [], "trades": [], "spend": 0.0,
-             "seconds": None, "t": e.get("t"), "position": e.get("order_position"), "where": None, "with": None,
+             "seconds": None, "t": e.get("t"), "position": e.get("order_position"), "where": None, "place": None, "time": None,
+             "weather": None, "with": None,
              "first": i, "last": i, "changed": None, "outcome": None, "world_changes": []}
         items.append(t)
         return t
@@ -232,7 +239,7 @@ def build_feed(entries, names, name, currency="coins"):
         fresh = turn is not None and turn["player"] == e.get("player") and turn["round"] == e.get("round") and not turn["do"]
         if kind == "brief" and e.get("player"):
             turn = turn if fresh else new_turn(e, i)
-            turn.update(brief_at=i, brief_chars=len(e.get("text", "")), **where_of(e.get("text", "")))
+            turn.update(brief_at=i, brief_chars=len(e.get("text", "")), **where_of(e.get("text", ""), places))
             continue
         if kind == "action":
             turn = turn if fresh else new_turn(e, i)
@@ -566,7 +573,7 @@ def live_now():
         })
     cap = int(rpg.SETTINGS["rounds"]["max_per_run"])
     currency = look.get("currency", "coins")
-    items = build_feed(entries, names, name, currency)
+    items = build_feed(entries, names, name, currency, [name(r) for r in rpg.ent_ids("rooms")])
     return {
         "game": {"id": save["game"], "title": save.get("adventure", save["game"])},
         "seed": run.get("seed"), "currency": currency,
@@ -695,27 +702,40 @@ PAGE = r"""<!doctype html>
 <style>
 :root {
   --paper: #E8EDF1; --sheet: #F4F7F9; --ink: #1C2A4A; --slate: #5B6B80; --rule: #C9D2DB;
-  --brass: #8C6D1F; --brick: #A63D2B;
+  --brass: #8C6D1F; --brick: #A63D2B; --good: #2E6B3F; --part: #8A5300; --bad: #A63D2B;
+  --gut: 7.5rem; --gap: 20px;
   --serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
   --sans: system-ui, -apple-system, "Segoe UI", sans-serif;
   --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
 }
 @media (prefers-color-scheme: dark) {
   :root { --paper: #151C27; --sheet: #1C2532; --ink: #DCE3EA; --slate: #94A3B5; --rule: #2E3A4B;
-          --brass: #D2AE52; --brick: #E07A66; }
+          --brass: #D2AE52; --brick: #E07A66; --good: #7CC38C; --part: #E2A955; --bad: #E07A66; }
 }
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--paper); color: var(--ink); font: 15px/1.5 var(--sans); }
 main { max-width: 1180px; margin: 0 auto; padding: 24px 16px 64px; }
 main { padding-top: 0; }
 header.top { position: sticky; top: 0; z-index: 2; background: var(--paper); padding: 16px 0 0; }
-.titles { display: flex; flex-wrap: wrap; gap: 4px 20px; align-items: baseline; }
+.titles { display: flex; flex-wrap: wrap; gap: 2px 16px; align-items: baseline; }
 h1 { font: 600 26px/1.15 var(--serif); margin: 0; letter-spacing: 0.005em; }
-.topbar { display: flex; flex-wrap: wrap; gap: 10px 24px; align-items: center; justify-content: space-between; margin: 12px 0 0; }
+.daytime { font: italic 16px/1.4 var(--serif); margin: 0; }
+/* the header's rows, and a turn's, carry their labels in a margin column */
+.rows { margin: 10px 0 0; border-top: 1px solid var(--rule); }
+.row { display: grid; grid-template-columns: var(--gut) minmax(0, 1fr) auto; gap: 6px var(--gap); align-items: center;
+       padding: 6px 0; border-bottom: 1px solid var(--rule); }
+.row.lit { background: color-mix(in srgb, var(--brass) 11%, transparent); }
+.row > .k, .lg > .k, .head > .k { font: 700 11px/1.5 var(--sans); text-transform: uppercase; letter-spacing: 0.09em;
+       color: var(--slate); text-align: right; }
+.row > .v { font-size: 14px; min-width: 0; }
+.state { font-weight: 600; }
+.state.going { color: var(--good); }
+.state.pausing { color: var(--part); }
+.state.ended { color: var(--slate); }
 .pager { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
 .pager button { padding: 6px 12px; }
-.where { font: 600 16px var(--serif); min-width: 9em; text-align: center; font-variant-numeric: tabular-nums; }
-.signal { display: flex; gap: 10px; align-items: center; color: var(--slate); font-size: 14px; }
+.where { font: 600 20px/1 var(--serif); margin: 0 10px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.signal { display: flex; gap: 10px; align-items: center; color: var(--slate); font-size: 14px; flex-wrap: wrap; }
 .lamp { width: 12px; height: 12px; border-radius: 50%; background: var(--rule); flex: none; }
 .signal.lit { color: var(--ink); font-weight: 600; }
 .signal.lit .lamp { background: var(--brass); box-shadow: 0 0 0 4px color-mix(in srgb, var(--brass) 30%, transparent); }
@@ -732,8 +752,9 @@ button { font: 500 14px var(--sans); padding: 8px 14px; border-radius: 6px; curs
 button.end { border-color: var(--brick); color: var(--brick); }
 button:hover:not(:disabled) { background: var(--sheet); }
 button:disabled { opacity: 0.45; cursor: default; }
-button:focus-visible, summary:focus-visible, a:focus-visible { outline: 2px solid var(--brass); outline-offset: 2px; }
-.said { color: var(--slate); font-size: 13px; text-align: right; min-height: 1.2em; margin: 4px 0 0; }
+button:focus-visible, summary:focus-visible, a:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.said { color: var(--slate); font-size: 13px; text-align: right; margin: 4px 0 0; }
+.said:empty { margin: 0; }
 .people { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 0 28px; margin: 24px 0 8px; }
 .person { border-top: 3px solid var(--who); padding: 12px 0 20px; }
 .person.now { border-top-color: var(--brass); }
@@ -802,7 +823,7 @@ details pre { white-space: pre-wrap; overflow-wrap: anywhere; font: 12.5px/1.5 v
 .stale { color: var(--brick); }
 .tabs { display: flex; gap: 0; margin: 16px 0 0; border-bottom: 1px solid var(--rule); flex-wrap: wrap; }
 .tabs button { border: 0; border-radius: 0; border-bottom: 3px solid transparent; padding: 8px 16px; color: var(--slate); }
-.tabs button[aria-pressed="true"] { color: var(--ink); border-bottom-color: var(--brass); background: none; }
+.tabs button[aria-pressed="true"] { color: var(--ink); border-bottom-color: var(--ink); background: none; font-weight: 600; }
 .coverage { margin: 12px 0 0; font-size: 13.5px; }
 .coverage ul { columns: 2 280px; column-gap: 32px; list-style: none; padding: 0; margin: 8px 0 0; }
 .coverage li { display: flex; justify-content: space-between; gap: 12px; padding: 1px 0; break-inside: avoid; }
@@ -828,18 +849,73 @@ details pre { white-space: pre-wrap; overflow-wrap: anywhere; font: 12.5px/1.5 v
 .quest h4 { font: 600 15px var(--serif); margin: 0 0 4px; }
 .st-complete { color: var(--brass); } .st-failed { color: var(--brick); } .st-open { color: var(--slate); }
 .cond { font: 12px var(--mono); color: var(--slate); }
-.narrative { max-width: 80ch; margin-top: 20px; }
+.narrative { max-width: calc(80ch + var(--gut) + var(--gap)); margin-top: 20px; }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 16px; }
-.chips button { font-size: 13px; padding: 3px 10px; border-color: var(--rule); color: var(--who, var(--ink)); }
-.chips button[aria-pressed="true"] { border-color: var(--who, var(--ink)); box-shadow: inset 0 -2px 0 var(--who, var(--ink)); }
-.turn .line { margin: 0; }
-.turn .l2 { border-top: 1px solid var(--rule); margin-top: 12px; padding-top: 10px; }
-.turn .l3 { margin: 12px 0 0 18px; padding-left: 10px; border-left: 2px solid var(--rule); font-size: 13.5px; }
-.turn .l3 p, .turn .l3 li { font-size: 13.5px; }
-.turn .label { display: block; margin: 10px 0 4px; }
-.turn .who { cursor: pointer; }
-.story.open { font: 16px/1.6 var(--serif); margin: 6px 0 0; }
-.story.open p { margin: 0 0 10px; }
+.chips button { font-size: 13px; padding: 3px 10px 3px 8px; border-color: var(--rule); display: inline-flex; align-items: center; gap: 6px; }
+.chips button i { width: 9px; height: 9px; border-radius: 50%; background: var(--who); flex: none; }
+.chips button[aria-pressed="true"] { border-color: var(--ink); background: var(--sheet); }
+.lg { display: grid; grid-template-columns: var(--gut) minmax(0, 1fr); gap: 12px var(--gap); }
+.lg > .k { padding-top: 4px; }
+.lg > .v { min-width: 0; overflow-wrap: break-word; }
+.lg > .v > p { margin: 0; }
+.lg > .v > * + * { margin-top: 6px; }
+.lg > .rule { grid-column: 1 / -1; height: 1px; background: color-mix(in srgb, var(--rule) 70%, transparent); margin: 2px 0; }
+.rhead { display: grid; grid-template-columns: var(--gut) minmax(0, 1fr); gap: var(--gap); align-items: end;
+         margin: 8px 0 0; padding-bottom: 10px; border-bottom: 2px solid var(--ink); }
+.rhead .num { text-align: right; font: 700 11px var(--sans); text-transform: uppercase; letter-spacing: 0.09em; color: var(--slate); }
+.rhead .num b { display: block; font: 600 46px/0.9 var(--serif); color: var(--ink); letter-spacing: 0; margin-top: 2px; }
+.rhead .order { margin: 0; font-size: 14px; color: var(--slate); }
+.rhead .order b { color: var(--who); font-weight: 600; }
+.t2 { padding: 20px 0 22px; border-bottom: 1px solid var(--rule); }
+.t2 .head { display: grid; grid-template-columns: var(--gut) minmax(0, 1fr) auto; gap: 4px var(--gap); align-items: center; margin: 0 0 14px; }
+.t2 h3 { font: 600 23px/1.2 var(--serif); color: var(--who); margin: 0; display: flex; align-items: center; gap: 10px; cursor: pointer; min-width: 0; }
+.t2 h3::before { content: ""; width: 12px; height: 12px; border-radius: 2px; background: var(--who); flex: none; }
+.badge { display: inline-flex; align-items: center; gap: 7px; font: 600 12.5px/1.2 var(--sans); padding: 5px 10px 5px 8px; border-radius: 999px;
+         color: var(--tone); background: color-mix(in srgb, var(--tone) 13%, transparent); justify-self: end; }
+.badge::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--tone); flex: none; }
+.badge.good { --tone: var(--good); }
+.badge.part { --tone: var(--part); }
+.badge.part::before { background: linear-gradient(90deg, var(--tone) 50%, transparent 50%); box-shadow: inset 0 0 0 1.5px var(--tone); }
+.badge.bad { --tone: var(--bad); }
+.badge.bad::before, .badge.none::before { background: transparent; box-shadow: inset 0 0 0 2px var(--tone); }
+.badge.none { --tone: var(--slate); }
+.place b { font-weight: 600; }
+.place span { color: var(--slate); }
+.opts { list-style: none; margin: 0; padding: 0; display: grid; gap: 5px; font-size: 14px; color: var(--slate); }
+.opts li { padding-left: 22px; position: relative; }
+.opts li::before { content: "○"; position: absolute; left: 3px; top: 0; color: var(--slate); }
+.opts li.chosen { color: var(--ink); font-weight: 500; }
+.opts li.chosen::before { content: "✓"; color: var(--ink); font-weight: 700; }
+.opts .for { font-size: 13px; font-style: italic; font-weight: 400; color: var(--slate); }
+.t2 .do { font-size: 17.5px; line-height: 1.55; margin: 0; }
+.t2 .why, .t2 .waiting { margin: 0; }
+.t2 .heard { margin: 0; }
+.t2 .story p { font: 16px/1.6 var(--serif); margin: 0 0 10px; }
+.t2 .story p:last-child { margin-bottom: 0; }
+.result p { font-size: 14px; margin: 0; }
+.result p + p { margin-top: 3px; }
+.inl { font: 700 11px var(--sans); text-transform: uppercase; letter-spacing: 0.09em; color: var(--slate); margin-right: 6px; }
+.ledger { list-style: none; margin: 0; padding: 0; font: 12.5px/1.5 var(--mono); color: var(--slate); overflow-wrap: anywhere; }
+.ledger li + li { margin-top: 2px; }
+.between2 { padding: 18px 0; border-bottom: 1px solid var(--rule); }
+.between2 .chron { font: 15.5px/1.55 var(--serif); color: var(--ink); margin: 0; }
+.lg > .v > details { margin: 1px 0; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+@media (max-width: 600px) {
+  header.top { position: static; }  /* stacked, the header would cover half a phone's screen */
+  .row { grid-template-columns: minmax(0, 1fr); gap: 6px; padding: 10px 2px; }
+  .row > .k { text-align: left; }
+  .row > :empty { display: none; }
+  .where { width: 100%; margin: 0 0 4px; order: -1; }
+  .lg { grid-template-columns: minmax(0, 1fr); gap: 3px; }
+  .lg > .k { text-align: left; padding-top: 12px; }
+  .lg > .k:first-child { padding-top: 0; }
+  .lg > .rule { margin: 10px 0 0; }
+  .t2 .head { grid-template-columns: minmax(0, 1fr) auto; }
+  .t2 .head > .k { grid-column: 1 / -1; text-align: left; }
+  .rhead { grid-template-columns: auto minmax(0, 1fr); gap: 14px; }
+  .rhead .num { text-align: left; }
+}
 .engine { display: grid; grid-template-columns: minmax(260px, 1fr) minmax(0, 2fr); gap: 24px; margin-top: 20px; align-items: start; }
 .engine-side { display: grid; gap: 16px; }
 @media (max-width: 900px) { .engine { grid-template-columns: minmax(0, 1fr); } }
@@ -852,24 +928,36 @@ details pre { white-space: pre-wrap; overflow-wrap: anywhere; font: 12.5px/1.5 v
   <header class="top">
     <div class="titles">
       <h1 id="title">Run dashboard</h1>
-      <p class="facts" id="facts"></p>
+      <p class="daytime" id="daytime"></p>
     </div>
-    <div class="topbar">
-      <nav class="pager" aria-label="Rounds">
-        <button type="button" id="first">First</button>
-        <button type="button" id="prior">Prior</button>
-        <span class="where" id="where">No rounds yet</span>
-        <button type="button" id="next">Next</button>
-        <button type="button" id="current">Current</button>
-      </nav>
-      <div class="signal" id="signal">
-        <span class="lamp" aria-hidden="true"></span>
-        <span id="signal-text" aria-live="polite">Up to date</span>
-        <button type="button" id="latest" disabled>Go to most recent</button>
+    <div class="rows">
+      <div class="row">
+        <span class="k">Run</span>
+        <div class="v facts" id="facts"></div>
+        <div class="controls">
+          <button id="pause" type="button" class="small">Pause after this round</button>
+          <button id="end" type="button" class="small end">End the run</button>
+        </div>
       </div>
-      <div class="controls">
-        <button id="pause" type="button" class="small">Pause after this round</button>
-        <button id="end" type="button" class="small end">End the run</button>
+      <div class="row">
+        <span class="k">Viewing</span>
+        <nav class="v pager" aria-label="Rounds">
+          <button type="button" id="first">First</button>
+          <button type="button" id="prior">Prior</button>
+          <span class="where" id="where">No rounds yet</span>
+          <button type="button" id="next">Next</button>
+          <button type="button" id="current">Current</button>
+        </nav>
+        <span></span>
+      </div>
+      <div class="row" id="live-row">
+        <span class="k">Live</span>
+        <div class="v signal" id="signal">
+          <span class="lamp" aria-hidden="true"></span>
+          <span id="signal-text" aria-live="polite">Up to date</span>
+          <button type="button" id="latest" disabled>Go to most recent</button>
+        </div>
+        <span></span>
       </div>
     </div>
     <p class="said" id="said" aria-live="polite"></p>
@@ -960,12 +1048,17 @@ function commandList(cmds) {
     el("li", {class: c.refused ? "refused" : ""}, c.text, c.said ? el("span", {text: c.said}) : null)));
 }
 
-function runLine(d) {
+const cap1 = t => t ? t[0].toUpperCase() + t.slice(1) : t;
+
+// the header's Run row: its state in a word, the seed, how far it has got, and when the page loaded it
+function runFacts(d) {
   const r = d.run, cap = r.cap ? " of at most " + r.cap : "";
-  const state = r.ended ? "The run has ended." : r.stop === "end" ? "Ending after this round." :
-                r.stop === "pause" ? "Pausing after this round; /rounds resumes it." : "The run is going.";
+  const [tone, state, title] = r.ended ? ["ended", "Ended", "The run has ended."] :
+    r.stop === "end" ? ["pausing", "Ending after this round", "The round in progress finishes, then the run closes."] :
+    r.stop === "pause" ? ["pausing", "Pausing after this round", "/rounds or tools/rounds.py resumes it."] : ["going", "Going", "The run is going."];
   const played = r.played === 1 ? "1 round played" : r.played + " rounds played";
-  return "Seed " + d.seed + ". " + played + cap + ". " + state + (d.time ? " " + d.time[0].toUpperCase() + d.time.slice(1) + "." : "");
+  return [el("span", {class: "state " + tone, title, text: state}),
+          " · " + ["Seed " + d.seed, played + cap, loadedAt ? "Loaded " + loadedAt : null].filter(Boolean).join(" · ")];
 }
 
 function renderHappening(h, d) {
@@ -1053,50 +1146,81 @@ function stepsFold(item) {
   return d;
 }
 
-const CAME = {done: "done", partly: "partly done", failed: "failed a check", refused: "refused by someone",
-              out_of_reach: "out of reach", not_there: "reached for something that isn't there"};
+const BADGE = {done: ["good", "Done"], partly: ["part", "Partly done"], failed: ["bad", "Failed a check"],
+               refused: ["bad", "Refused by someone"], out_of_reach: ["part", "Out of reach"],
+               not_there: ["part", "Reached for something that isn't there"]};
 
-// a turn in three lines: who and what they decided; what came back to them; and, smaller, what it came to
+// a label in the margin and what it labels, as two cells of a .lg grid
+const kv = (k, ...v) => [el("div", {class: "k", text: k}), el("div", {class: "v"}, ...v.filter(x => x != null))];
+const rule = () => el("div", {class: "rule", role: "presentation"});
+
+// how the turn came out, always in words: the referee's outcome, or where the turn has got to
+function badge(item) {
+  const [tone, text] = item.outcome ? BADGE[item.outcome.result] || ["none", item.outcome.result] :
+    ["none", !item.do ? "Deciding" : item.story == null ? "Being played" : "No outcome recorded"];
+  return el("span", {class: "badge " + tone, text});
+}
+
+// a turn, its labels in the margin: what they decided (where, the options, their reasoning), what they did and what
+// came back, and the bookkeeping (what it came to, the ledger, and the folds)
 function turnCard(item) {
+  const name = el("h3", {tabindex: "0", title: only === item.name ? "Show everyone" : "Show only " + item.name, text: item.name});
+  const pick = () => { only = only === item.name ? null : item.name; draw(); };
+  name.addEventListener("click", pick);
+  name.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); pick(); } });
   const options = item.options && item.options.length ?
-    el("ul", {class: "options", "aria-label": "The options they weighed"}, ...item.options.map(o =>
-      el("li", {class: o.chosen ? "chosen" : ""}, o.text, o.for ? el("span", {text: " (for: " + o.for + ")"}) : null,
-         o.chosen ? el("b", {text: " chosen"}) : null))) : null;
-  const who = el("p", {class: "who", title: only === item.name ? "Show everyone" : "Show only " + item.name},
-    el("span", {text: [item.position ? "Turn " + item.position : null, "Round " + item.round].filter(Boolean).join(" · ") + " · "}),
-    item.name, el("span", {text: item.where ? " · " + item.where : ""}));
-  who.addEventListener("click", () => { only = only === item.name ? null : item.name; draw(); });
-  const decided = el("div", {class: "line l1"}, who, briefFold(item),
-    options ? el("span", {class: "label", text: "The options they weighed"}) : null, options,
-    item.journal ? el("span", {class: "label", text: "Their reasoning"}) : null,
-    item.journal ? el("p", {class: "why", text: item.journal}) : null,
-    ...(item.no_longer || []).map(x => el("p", {class: "cost", text: "No longer holds, they say: " + x.said +
-      (x.struck ? " (struck from what they've learned)" : " (not on their list)")})),
-    el("span", {class: "label", text: "What they did"}),
-    item.do ? el("p", {class: "do", text: item.do}) : el("p", {class: "waiting", text: "Deciding…"}));
+    el("ul", {class: "opts", "aria-label": "The options they weighed"}, ...item.options.map(o =>
+      el("li", {class: o.chosen ? "chosen" : ""}, o.chosen ? el("span", {class: "sr", text: "Chosen: "}) : null, o.text,
+         o.for ? el("span", {class: "for", text: " — for: " + o.for}) : null))) : null;
+  const place = item.place ? el("p", {class: "place"}, el("b", {text: item.place}),
+    item.time ? el("span", {text: " · " + item.time}) : null, item.weather ? el("span", {text: ", " + item.weather}) : null) : null;
   const voices = (item.voices || []).filter(v => v.agent === "npc").map(v => el("p", {class: "voice"}, el("b", {text: v.about}), quote(v.said)));
   const notes = (item.notes || []).map((n, i) => fold("tn:" + item.key + i, "What " + (n.seen_by.join(" and ") || "no one") + " saw", paragraphs(n.text)));
-  const back = item.do ? el("div", {class: "line l2"},
-    el("span", {class: "label", text: "What came back"}),
-    el("p", {class: "heard", text: (item.with ? "There with them: " + item.with + "." : "No one else there.") +
-      (item.heard_by.length ? " Their words were heard by " + item.heard_by.join(" and ") + "." : "")}),
-    ...voices,
-    item.story != null ? el("div", {class: "story open"}, ...item.story.split(/\n\s*\n/).map(t => el("p", {text: t}))) :
-      el("p", {class: "waiting", text: "Their turn is still being played."}),
-    ...notes) : null;
-  const small = [
-    item.outcome ? el("p", {class: "came"}, "Came to: ", el("b", {text: CAME[item.outcome.result] || item.outcome.result}),
-                      item.outcome.what ? ": " + item.outcome.what : "") : null,
-    item.changed ? el("p", {}, el("b", {class: "label", text: "For them "}), item.changed.replace(/^What changed: /, "")) : null,
-    ...(item.trades || []).map(x => el("p", {class: "trade", text: x})),
-    ...(item.money || []).map(x => el("p", {class: "trade", text: x})),
-    ...(item.made || []).map(x => el("p", {class: "trade", text: "New in the world: " + x})),
-    item.world_changes && item.world_changes.length ? el("div", {}, el("b", {class: "label", text: "In the world"}),
-      el("ul", {class: "changes"}, ...item.world_changes.map(x => el("li", {text: x})))) : null,
-    ...(item.chronicle || []).map(t => el("p", {class: "chron"}, el("b", {text: "Chronicle: "}), t))].filter(Boolean);
-  return el("article", {class: "turn", style: "--who:" + (inkOf[item.name] || "var(--slate)")},
-    decided, back, small.length ? el("div", {class: "line l3"}, ...small) : null);
+  const result = [
+    item.outcome && item.outcome.what ? el("p", {text: cap1(item.outcome.what) + "."}) : null,
+    item.changed ? el("p", {}, el("span", {class: "inl", text: "For them"}), item.changed.replace(/^What changed: /, "")) : null,
+    ...(item.chronicle || []).map(t => el("p", {}, el("span", {class: "inl", text: "Chronicle"}), t))].filter(Boolean);
+  const ledger = [...(item.trades || []), ...(item.money || []), ...(item.made || []).map(x => "New in the world: " + x),
+                  ...(item.world_changes || [])];
+  const also = [briefFold(item), ...notes].filter(Boolean);
+  const reasoning = [item.journal ? el("p", {class: "why", text: item.journal}) : null,
+    ...(item.no_longer || []).map(x => el("p", {class: "cost", text: "No longer holds, they say: " + x.said +
+      (x.struck ? " (struck from what they've learned)" : " (not on their list)")}))].filter(Boolean);
+  const rows = [
+    place ? kv("Where", place) : [], options ? kv("Weighed", options) : [], reasoning.length ? kv("Reasoning", ...reasoning) : [],
+    rule(),
+    kv("Did", item.do ? el("p", {class: "do", text: item.do}) : el("p", {class: "waiting", text: "Deciding…"})),
+    item.do ? kv("Came back",
+      el("p", {class: "heard", text: (item.with ? "There with them: " + item.with + "." : "No one else there.") +
+        (item.heard_by.length ? " Their words were heard by " + item.heard_by.join(" and ") + "." : "")}),
+      ...voices,
+      item.story != null ? el("div", {class: "story"}, ...item.story.split(/\n\s*\n/).map(t => el("p", {text: t}))) :
+        el("p", {class: "waiting", text: "Their turn is still being played."})) : [],
+    result.length || ledger.length || also.length ? rule() : [],
+    result.length ? kv("Result", el("div", {class: "result"}, ...result)) : [],
+    ledger.length ? kv("Ledger", el("ul", {class: "ledger"}, ...ledger.map(x => el("li", {text: x})))) : [],
+    also.length ? kv("Also", ...also) : []].flat();
+  return el("article", {class: "t2", style: "--who:" + (inkOf[item.name] || "var(--slate)")},
+    el("header", {class: "head"}, el("span", {class: "k", text: item.position ? "Turn " + item.position : ""}), name, badge(item)),
+    el("div", {class: "lg"}, ...rows));
 }
+
+// what came between turns, at a round's start or end, as rows in the margin grid: the chronicle, the world's
+// turn, what was made, money, the onlookers' notes and the memories condensed (the Engine view keeps renderBetween)
+function betweenRows(item) {
+  const chron = item.chronicle || [], world = item.world || [], made = item.made || [], money = item.money || [];
+  const notes = (item.notes || []).map((n, i) => fold("n:" + item.key + i, "What " + (n.seen_by.join(" and ") || "no one") + " saw", paragraphs(n.text)));
+  const memories = (item.memories || []).filter(m => !only || m.who === only).map((m, i) => fold("m:" + item.key + i,
+    m.who + "'s memory of rounds " + m.rounds.join("–") + ", condensed (" + count(m.text.length) + " characters, from " + m.replaced + " entries)",
+    el("div", {}, paragraphs(m.text), m.learned ? el("div", {class: "story"},
+      el("p", {text: "What they've learned" + (m.learned_given ? "" : " (left as it was)") + ":"}),
+      el("ul", {}, ...m.learned.map(x => el("li", {text: x})))) : null)));
+  return [chron.length ? kv("Chronicle", ...chron.map(t => el("p", {class: "chron", text: t}))) : [],
+    world.length ? kv("The world", el("ul", {class: "ledger"}, ...world.map(t => el("li", {text: t})))) : [],
+    made.length || money.length ? kv("Ledger", el("ul", {class: "ledger"}, ...[...made.map(t => "New in the world: " + t), ...money].map(t => el("li", {text: t})))) : [],
+    notes.length ? kv("Seen", ...notes) : [], memories.length ? kv("Memories", ...memories) : []].flat();
+}
+const between = rows => rows.length ? el("section", {class: "between2"}, el("div", {class: "lg"}, ...rows)) : null;
 
 // a turn backstage: its time, cost and model, the referee's commands, and the world agent's replies for it
 function backstageCard(item) {
@@ -1119,21 +1243,27 @@ function renderNarrative(d) {
   if (!d.feed.length || at == null) { box.replaceChildren(el("p", {class: "empty", text: "Nothing has happened yet. The first round starts with /rounds."})); return; }
   const chips = el("div", {class: "chips", role: "group", "aria-label": "Whose turns"},
     ...[null, ...d.people.map(p => p.name)].map(n => {
-      const b = el("button", {type: "button", "aria-pressed": String(only === n), style: n ? "--who:" + inkOf[n] : ""}, n || "Everyone");
+      const b = el("button", {type: "button", "aria-pressed": String(only === n), style: n ? "--who:" + inkOf[n] : ""},
+                   n ? el("i", {"aria-hidden": "true"}) : null, n || "Everyone");
       b.addEventListener("click", () => { only = n; draw(); });
       return b;
     }));
+  const RUN = {pause: "Pause asked", resume: "Resumed", end: "End asked", ended: "The run ended"};
   const out = shownRound(d).flatMap(item => {
     if (item.kind === "turn") return !only || item.name === only ? [turnCard(item)] : [];
-    if (item.kind === "round") return [el("p", {class: "marker", text: "Round " + item.round + ": " + item.order.join(", then ")}), renderBetween(item, false)];
-    if (item.kind === "round_end") return [el("p", {class: "marker", text: "Round " + item.round + " ends" + (item.world_turn ? ", and the world turns" : "")}), renderBetween(item, false)];
-    if (item.kind === "trade" || item.kind === "asleep") return [el("p", {class: "marker", text: item.text})];
-    if (item.kind === "run") return [el("p", {class: "marker", text: {pause: "Pause asked", resume: "Resumed", end: "End asked", ended: "The run ended"}[item.action]})];
-    if (item.kind === "ending") return [el("article", {class: "ending"},
-      el("p", {class: "who", text: "An ending, round " + item.round + (item.by ? ", by " + item.by + "'s turn" : "")}),
-      fold("te:" + item.key, "What everyone was told" + (item.heard_by.length ? " (" + item.heard_by.join(", ") + " by a note)" : ""), paragraphs(item.text)))];
+    if (item.kind === "round") return [el("div", {class: "rhead"},
+      el("div", {class: "num"}, "Round", el("b", {text: item.round})),
+      el("p", {class: "order", "aria-label": "Turn order"}, ...item.order.flatMap((n, i) => [i ? " → " : "", el("b", {style: "--who:" + (inkOf[n] || "var(--ink)"), text: n})]))),
+      between(betweenRows(item))];
+    if (item.kind === "round_end") return [between([...kv("Round " + item.round + " ends", item.world_turn ? el("p", {text: "And the world turns."}) : null), ...betweenRows(item)])];
+    if (item.kind === "trade") return [between(kv("Trade", el("p", {text: item.text})))];
+    if (item.kind === "asleep") return [between(kv("Asleep", el("p", {text: item.text})))];
+    if (item.kind === "run") return [between(kv("The run", el("p", {text: RUN[item.action]})))];
+    if (item.kind === "ending") return [between(kv("An ending",
+      el("p", {text: "Round " + item.round + (item.by ? ", by " + item.by + "'s turn." : ".")}),
+      fold("te:" + item.key, "What everyone was told" + (item.heard_by.length ? " (" + item.heard_by.join(", ") + " by a note)" : ""), paragraphs(item.text))))];
     return [];
-  });
+  }).filter(Boolean);
   box.replaceChildren(el("div", {class: "narrative"}, chips, ...out));
 }
 
@@ -1216,6 +1346,7 @@ function draw() {
   if (!d.game) {
     document.getElementById("title").textContent = "Run dashboard";
     document.getElementById("facts").textContent = "";
+    document.getElementById("daytime").textContent = "";
     document.getElementById("now").textContent = "";
     people.replaceChildren(el("p", {class: "empty", text: "No run yet. Start one with /newgame, then /rounds."}));
     for (const id of ["view-narrative", "happening", "meter", "backstage", "coverage", "world"]) document.getElementById(id).replaceChildren();
@@ -1229,7 +1360,8 @@ function draw() {
   d.people.forEach((p, i) => inkOf[p.name] = inks[i % inks.length]);
   document.title = d.game.title + ": round " + (at == null ? d.run.round : at);
   document.getElementById("title").textContent = d.game.title;
-  document.getElementById("facts").textContent = runLine(d) + (loadedAt ? " Loaded at " + loadedAt + "." : "");
+  document.getElementById("facts").replaceChildren(...runFacts(d));
+  document.getElementById("daytime").textContent = d.time ? cap1(d.time) + "." : "";
   drawPager(roundsIn(d));
   people.replaceChildren(...d.people.map(p => {
     const pct = p.max_hp ? Math.max(0, Math.min(100, 100 * p.hp / p.max_hp)) : 0;
@@ -1304,7 +1436,8 @@ async function load(toLatest) {
 
 function signal(state, text) {
   const box = document.getElementById("signal");
-  box.className = "signal" + (state ? " " + state : "");
+  box.className = "v signal" + (state ? " " + state : "");
+  document.getElementById("live-row").classList.toggle("lit", state === "lit");
   document.getElementById("signal-text").textContent = text;
   document.getElementById("latest").disabled = state !== "lit";
 }

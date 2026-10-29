@@ -1267,6 +1267,19 @@ class Engine(unittest.TestCase):
         self.assertIn("== TRADES\n  t1 r1 wren -> tam: gives worn_dagger, 1 coins; wants healing_tonic: accepted r2\n"
                       "  t2 r3 wren -> tam: gives shell_charm; wants nothing: accepted r4\n== ", out, "coins balanced, so nothing flagged")
 
+    def test_the_dashboard_sends_a_turns_place_time_and_weather_apart_even_when_a_place_name_holds_a_comma(self):
+        self.rpg("game", "switch", "wendleford")
+        brief = ("## Where you are\nFenn's, the Draper, morning on day 2, a grey sky, and a cold wind.\nWays on: southwest to Market Square.\n"
+                 "With you: Ida Fenn.\n")
+        code = ("import json, sys; sys.path.insert(0, 'tools'); import dashboard; print(json.dumps([dashboard.where_of(%r, %r), "
+                "dashboard.where_of(%r, %r)]))" % (brief, ["Fenn's", "Fenn's, the Draper", "Market Square"], brief, ["Market Square"]))
+        known, unknown = json.loads(self.run_py("-c", code).stdout)
+        self.assertEqual(known, {"where": "Fenn's, the Draper, morning on day 2, a grey sky, and a cold wind", "place": "Fenn's, the Draper",
+                                 "time": "morning on day 2", "weather": "a grey sky, and a cold wind", "with": "Ida Fenn"},
+                         "the longest place name that fits, then the time up to the next comma, then the weather")
+        self.assertEqual((unknown["place"], unknown["time"], unknown["weather"]), (unknown["where"], None, None),
+                         "a place the page doesn't know: the whole line, unsplit")
+
     def test_the_dashboard_feed_shows_each_trade_and_what_both_hold_after(self):
         self.three_players()
         self.rpg("newgame", seed=44)
