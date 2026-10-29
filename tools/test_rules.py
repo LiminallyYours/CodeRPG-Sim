@@ -3058,9 +3058,9 @@ print(json.dumps({"type": "result", "is_error": False, "result": "Round done.", 
         self.write("proposals/n.txt", "WANTED: a dry corner to sleep. Ask Dilly.")
         self.assertIn("there's no notice board here", self.rpg("post", "proposals/n.txt", as_="hester", ok=False))
         self.assertIn("PUT UP on the board at Market Square", self.rpg("post", "proposals/n.txt", as_="dilly"))
-        self.assertIn('On the notice board: "WANTED: a dry corner to sleep. Ask Dilly." (put up on day 1).',
-                      self.rpg("brief", "dilly"))
-        self.assertNotIn("On the notice board", self.rpg("brief", "hester"), "read only at the board")
+        self.assertIn('There\'s a notice board here: pin up anything you want people to know. On it: '
+                      '"WANTED: a dry corner to sleep. Ask Dilly." (put up on day 1)', self.rpg("brief", "dilly"))
+        self.assertNotIn("notice board here", self.rpg("brief", "hester"), "read only at the board")
         for i in range(8):
             self.write("proposals/n.txt", "FOR SALE: a lantern, number %d." % i)
             self.rpg("post", "proposals/n.txt", as_="dilly")
@@ -3084,6 +3084,41 @@ print(json.dumps({"type": "result", "is_error": False, "result": "Round done.", 
         square = self.dir / "games" / "wendleford" / "rooms" / "market_square.md"
         square.write_text(square.read_text().replace("board: yes", "board: maybe"))
         self.assertIn("board: yes or no", self.rpg("validate", "--game", "wendleford", ok=False))
+
+    def test_a_board_is_always_shown_with_the_notices_up_from_the_start_while_their_conditions_hold(self):
+        self.rpg("game", "switch", "wendleford")
+        square = self.dir / "games" / "wendleford" / "rooms" / "market_square.md"
+        start = square.read_text()
+        square.write_text(start.replace("board: yes\n", "board: yes\nnotices:\n  - REWARD for the box. A. Pollard, reeve. "
+                                        "(if not wage_box_found)\n  - Sewing wanted. Ida Fenn.\n", 1))
+        self.assertIn("CONTENT OK: wendleford", self.rpg("validate", "--game", "wendleford"))
+        self.rpg("newgame", seed=44)  # Dilly starts in the square, by the board; Hester at the smithy, which has none
+        invite = "There's a notice board here: pin up anything you want people to know. "
+        self.assertIn(invite + 'On it: "REWARD for the box. A. Pollard, reeve."; "Sewing wanted. Ida Fenn.".', self.rpg("brief", "dilly"))
+        self.assertNotIn("notice board here", self.rpg("brief", "hester"))
+        self.rpg("flag", "set", "wage_box_found", as_="dilly")
+        self.assertIn(invite + 'On it: "Sewing wanted. Ida Fenn.".', self.rpg("brief", "dilly"), "down once out of date")
+        self.assertIn('NOTICE BOARD: nothing put up. Up from the start: "Sewing wanted. Ida Fenn.". If the player',
+                      self.rpg("look", as_="dilly"))
+        self.assertIn("- market_square (Market Square): Sewing wanted. Ida Fenn.", self.rpg("world-brief", "turn", as_=False))
+        self.write("proposals/n.txt", "FOR SALE: a lantern.")
+        self.rpg("post", "proposals/n.txt", as_="dilly")
+        self.assertIn(invite + 'On it: "FOR SALE: a lantern." (put up on day 1); "Sewing wanted. Ida Fenn.".', self.rpg("brief", "dilly"))
+        self.assertIn('NOTICE BOARD: 1. "FOR SALE: a lantern." (Dilly Quickstep). Up from the start: ', self.rpg("look", as_="dilly"))
+        self.assertIn("TAKEN DOWN", self.rpg("post", "take", "1", as_="dilly"))
+        self.assertIn("REFUSED: usage: post take <n>", self.rpg("post", "take", "1", as_="dilly", ok=False),
+                      "a notice up from the start has no number: it stays up")
+        self.assertNotIn("Sewing wanted", json.dumps(self.save()), "read from content, never saved")
+        square.write_text(start.replace("board: yes\n", "board: yes\nnotices:\n  - REWARD for the box. (if not wage_box_found)\n", 1))
+        self.assertIn(invite + "Nothing is on it just now.", self.rpg("brief", "dilly"), "said even when bare")
+        square.write_text(start.replace("board: yes\n", "board: yes\nnotices:\n  - %s\n  - A hen. (if hen_lost)\n" % ("x" * 161), 1))
+        out = self.rpg("validate", "--game", "wendleford", ok=False)
+        self.assertIn("notices: each one short text, at most 160 characters (got 161)", out)
+        self.assertIn("hen_lost", out, "a condition on a flag nothing sets")
+        smithy = self.dir / "games" / "wendleford" / "rooms" / "smithy.md"
+        square.write_text(start)
+        smithy.write_text(smithy.read_text().replace("---\n", "---\nnotices:\n  - Tools mended.\n", 1))
+        self.assertIn("notices: only where there's a board", self.rpg("validate", "--game", "wendleford", ok=False))
 
     def test_in_a_world_with_needs_nobody_goes_below_1_health_and_a_nights_sleep_mends(self):
         self.rpg("game", "switch", "wendleford")

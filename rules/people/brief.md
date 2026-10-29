@@ -64,7 +64,8 @@ ways_on:         Ways on: {ways}.
 way:             {direction} to {place}
 with_you:        With you: {people}.
 no_one:          no one
-board:           On the notice board: {notices}.
+board:           There's a notice board here: pin up anything you want people to know. On it: {notices}.
+board_empty:     There's a notice board here: pin up anything you want people to know. Nothing is on it just now.
 notice:          "{text}" (put up on day {n})
 notice_undated:  "{text}"
 

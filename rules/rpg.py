@@ -616,6 +616,19 @@ def notices(state, room_id):
     return state["run"].get("boards", {}).get(room_id, [])
 
 
+def starting_notices(state, room_id):
+    """The notices a world put up from the start (a room's `notices:`), those whose condition holds now: read from
+    content each time, never saved, so each comes down when its condition stops holding."""
+    return content.visible(ent("rooms", room_id).get("notices") or [], condition_flags(state))
+
+
+def board_texts(state, room_id):
+    """Everything on a place's board for a reader: the notices put up, newest first, then those up from the start."""
+    return ([phrase("notice", text=n["text"], n=n["day"]) if n.get("day") else phrase("notice_undated", text=n["text"])
+             for n in reversed(notices(state, room_id))]
+            + [phrase("notice_undated", text=t) for t in starting_notices(state, room_id)])
+
+
 def put_up(state, room_id, text, by):
     """A notice on a place's board; the board keeps only its last few (balance.json world.notices_per_board)."""
     board = state["run"].setdefault("boards", {}).setdefault(room_id, [])
@@ -2219,9 +2232,11 @@ def cmd_look(args):
         print("ESTABLISHED HERE: %s" % " | ".join(notes))
     if has_board(room):  # newest first, numbered as `post take` takes them
         board = list(reversed(notices(state, room["id"])))
-        print("NOTICE BOARD: %s. If the player puts up a notice: `post <file>`; takes down their own: `post take <n>`." % (
+        start = starting_notices(state, room["id"])
+        print("NOTICE BOARD: %s%s. If the player puts up a notice: `post <file>`; takes down their own: `post take <n>`." % (
             "; ".join('%d. "%s" (%s)' % (i + 1, n["text"], state["players"][n["by"]]["name"] if n["by"] in state["players"]
-                                         else "put up off-screen") for i, n in enumerate(board)) or "nothing put up"))
+                                         else "put up off-screen") for i, n in enumerate(board)) or "nothing put up",
+            ". Up from the start: %s" % "; ".join('"%s"' % t for t in start) if start else ""))
     owner = stash_owner(state, room["id"])
     if owner:
         print("STASH: %s is %s's own place; what's left here only %s can take." % (
@@ -3320,8 +3335,8 @@ def cmd_world_brief(args):
         if boards:
             out += ["", "Notice boards (newest first). You may put up at most one notice, as a townsperson or a passing stranger",
                     "would, signed. Never offer work, goods or rewards the town doesn't already have."]
-            out += ["- %s (%s): %s" % (r, ent("rooms", r).get("name", r), " | ".join(n["text"] for n in reversed(notices(state, r)))
-                                       or "nothing put up") for r in boards] + [""]
+            out += ["- %s (%s): %s" % (r, ent("rooms", r).get("name", r), " | ".join(
+                [n["text"] for n in reversed(notices(state, r))] + starting_notices(state, r)) or "nothing put up") for r in boards] + [""]
         arriving = arrival_open(state)
         if arriving:
             out += ["", "Someone new may arrive today (at most one a day), only if it fits the",
@@ -3653,7 +3668,7 @@ def validate_game(kit=False, sim=False, strict=False):
         placing((w.get("clock") or {}).get(k), "world.md clock %s" % k)
     for r in content.ids("rooms"):
         room = content.load("rooms", r)
-        for key in ("exits", "items", "characters"):
+        for key in ("exits", "items", "characters", "notices"):
             values = room.get(key) or []
             for v in (values.values() if isinstance(values, dict) else values):
                 placing(content.split_condition(v)[1], "rooms/%s.md %s" % (r, key))
@@ -3721,6 +3736,17 @@ def validate_game(kit=False, sim=False, strict=False):
             problems.extend("%s: work: %s" % (where, x) for x in work_problems(room["work"]))
         if "board" in room and str(room["board"]).lower() not in ("yes", "no"):
             problems.append("%s: board: yes or no (a notice board people can put notices up on)" % where)
+        if room.get("notices") is not None:
+            if not has_board(room):
+                problems.append("%s: notices: only where there's a board (board: yes)" % where)
+            if not isinstance(room["notices"], list):
+                problems.append("%s: notices: a list of notices, each '- <text>' or '- <text> (if <condition>)'" % where)
+            else:
+                for n in room["notices"]:
+                    text = content.split_condition(n)[0]
+                    if not text or len(text) > generate.NOTICE_CHARS:
+                        problems.append("%s: notices: each one short text, at most %d characters (got %d)"
+                                        % (where, generate.NOTICE_CHARS, len(text)))
     for t in content.ids("tables"):
         table = content.load("tables", t)
         if not re.match(r"^\s*\d+\s+in\s+\d+\s*$", str(table.get("chance", ""))):
@@ -5586,7 +5612,7 @@ PHRASES = {
     "change_building": ("things",), "change_own": ("things",), "change_met": ("people",),
     "thinkback_voice": ("voice",), "thinkback_note": (), "learned_none": (), "time_on_day": ("time", "n"), "since_last": ("then", "now"),
     "rented": ("place", "n"), "paid_bed": ("place", "nights"), "tonight": (), "nights": ("n",), "let_ended": ("place",),
-    "board": ("notices",), "notice": ("text", "n"), "notice_undated": ("text",),
+    "board": ("notices",), "board_empty": (), "notice": ("text", "n"), "notice_undated": ("text",),
     "you_need": ("needs",), "you_want": ("wants",), "taken_on": (), "food_fed": (), "food_due": (), "food_hungry": (),
     "food_weak": (), "sleep_rested": (), "sleep_tired": (), "sleep_exhausted": (), "sleep_slept": (), "sleep_time": (),
 }
@@ -5864,10 +5890,9 @@ def pane_text(state):
                                                     for d, r in exits.items())))
     company = [c["name"] for c in v["characters_here"]] + [state["players"][o]["name"] for o in players_here(state)[1:]]
     lines.append(phrase("with_you", people=", ".join(company) if company else phrase("no_one")))
-    if has_board(ent("rooms", pl["location"])) and notices(state, pl["location"]):
-        lines.append(phrase("board", notices="; ".join(
-            phrase("notice", text=n["text"], n=n["day"]) if n.get("day") else phrase("notice_undated", text=n["text"])
-            for n in reversed(notices(state, pl["location"])))))
+    if has_board(ent("rooms", pl["location"])):  # always said, so people know they may pin something up
+        on_it = board_texts(state, pl["location"])
+        lines.append(phrase("board", notices="; ".join(on_it)) if on_it else phrase("board_empty"))
     lines += ["", phrase("you")] + ([phrase("you_are_named", name=pl["name"])] if is_blank(pid) else []) + [
               phrase("health", hp=stats["hp"], max_hp=stats["max_hp"],
                      stats=", ".join("%s %+d" % (labels.get(k, k.capitalize()), stat(state, pid, k)) for k in STATS)),
