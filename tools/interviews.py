@@ -745,7 +745,7 @@ def cmd_score(args):
     scores = json.loads(path.read_text(encoding="utf-8")) if path.is_file() else {"interviews": {}, "gist": {}}
     runner = Runner(suite, out, A, pages, ledger, 1)
     done = [iv for iv in plan_of(A, list(pages["people"]), pilot) if runner.status(iv) == "done" and (out / iv["path"]).is_file()]
-    lock = threading.Lock()
+    lock, stopped = threading.Lock(), []
 
     def one(iv):
         if iv["key"] in scores["interviews"] and "rows" in scores["interviews"][iv["key"]]:
@@ -759,6 +759,7 @@ def cmd_score(args):
             try:
                 ledger.allow()
             except Stop:
+                stopped.append(iv["key"])
                 return
             reply, cost, exact = talk.call(HELPERS[0], prompt if attempt == 1 else prompt + "\n\nYour last reply was not accepted (%s)." % why, HELPERS[1], agent=SCORER)
             ledger.add("score", iv["key"], HELPERS[0], HELPERS[1], cost, exact)
@@ -778,6 +779,7 @@ def cmd_score(args):
         try:
             ledger.allow()
         except Stop:
+            stopped.append(key)
             return
         reply, cost, exact = talk.call(HELPERS[0], gist_prompt(rubric, runner.name(ivs[0]["person"]), lines, by_repeat), HELPERS[1], agent=SCORER)
         ledger.add("gist", key, HELPERS[0], HELPERS[1], cost, exact)
@@ -800,6 +802,9 @@ def cmd_score(args):
     failed = [k for k, v in scores["interviews"].items() if "failed" in v]
     print("SCORED: %d interviews (%d failed), %d groups of repeats; $%.2f spent in all" % (
         len(scores["interviews"]), len(failed), len(scores["gist"]), ledger.total()))
+    if stopped:  # the cap is held to the one ledger, so a suite running alongside spends from it too
+        print("SCORING STOPPED at the cap: %d interviews or groups of repeats not scored; score again to go on" % len(stopped))
+        return 3
     return 0
 
 

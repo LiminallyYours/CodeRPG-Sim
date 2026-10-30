@@ -4629,6 +4629,7 @@ print(json.dumps({"type": "result", "is_error": False, "result": out, "total_cos
                                msg="what an interview under way has spent is in the total already, and isn't counted twice")
         self.write("suite/RUBRIC.md", "Score it.")
         run("run", "suite", "--cap", "0.15", "--workers", "1")
+        self.assertIn("SCORING STOPPED at the cap", run("score", "suite", "--cap", "0").stdout)
         run("score", "suite", "--cap", "5")  # beside an unfinished suite
         group_of = lambda iv: "%s/%s/%02d" % (iv["state"], iv["person"], iv["approach"])
         plan = interviews.plan_of(A, ["wren", "corin"])
