@@ -2,6 +2,35 @@
 
 Where the build stands, for whoever picks it up next, human or Claude. Read `PLAN.md` (the agreed steps) and `DEVELOPING.md` (invariants, checks) with it. Update this file at the end of each stage.
 
+## The seventeenth session (2026-10-30): step 78, the interview suite, run without JW
+- **JW's brief:** build and run step 78 as `INTERVIEW-SUITE-PLAN.md` settles it, the first run without him. A stand-in (Fable 5.1 at high effort, `.claude/agents/standin.md`) took his operational decisions, within a **$350 cap for everything**. Stop before the plan's step 7, JW's live interviews.
+- **Built** (`57de670`, `4219a0f`; `PLAN.md` step 78 (revised), *as built*):
+  - Code: `tools/talk.py` (one line of a conversation, usable by hand for step 77) and `tools/interviews.py` (`pages`, `run`, `score`, `index`, `hand`, `agree`, `standin`, `spent`).
+  - Texts in `rules/people/`: the person's (`talker.md`), the interviewer's, the scorer's and the summariser's, and `approaches.json`.
+  - Tests for all of it.
+  - 15 places where the plan didn't fit the code, each fixed to keep its intent, are listed in `PLAN.md`. The biggest: the condensed memory is `memory.condensed`, not `kept`.
+- **The stand-in decided four things** (verbatim in `state/talks/step76-30/suite/standin.md`; summarised in `PLAN.md` as *decided under delegation (stand-in)*):
+  1. Approach 3's "how do you check it?" kept as JW wrote it, named in the test as the one exception to the forbidden words.
+  2. `PREDICTIONS.md` approved with one change.
+  3. The pilot approved as proposed.
+  4. The full suite approved after the pilot, approach 11's frame break and all.
+- **Pilot:** 28 interviews, $15.15 in all. A runner bug stopped it at 23 (`ab195b8`); it was fixed and resumed.
+- **Suite:** 480 interviews, 11:57-17:27, all taken up, 479 complete, every answer scored. **$245.69 spent in all.** No transcript or page edited; the protected files unchanged.
+  - Two scoring bugs found and fixed on the way (`7c56a1f`, `0526697`).
+  - The hand-scored tenth and the hand readings of four predictions were done by Claude Code subagents, said so in `NOTES.md`.
+- **What came** (`state/talks/step76-30/suite/NOTES.md`; findings, not decisions):
+  - Approach 11's reveal takes nearly everyone out of character (33 of 36); only Robin at END holds.
+  - Approach 12 brings out "Claude, an AI made by Anthropic" every time, and at END names real seams between the sheets and the lives lived.
+  - Nobody steps out anywhere else.
+  - Lived days turn traits into rules learned from episodes.
+  - The NEUTRAL swap of the condensed memory changed almost nothing measurable.
+  - The Sonnet scorer misses invented facts (a ceiling, not a measure), and its gist column hardly varies.
+- **Not pushed;** commits `57de670` to the docs commit of this session.
+- **Next:**
+  - JW reads the suite's `NOTES.md` (its *What to read first*).
+  - JW then holds the live interviews of the plan's step 7, with its *Gaps* list.
+  - Whether to push.
+
 ## The sixteenth session (2026-10-29): step 75 (opus-74's cheap fixes), the dashboard restyled, two runs
 - **Started:** the docs, code and git log agreed; `check.sh` passed; main matched origin at `6ef0188`; 29 bench moments. Untracked in the root, as before: JW's `CHARACTER-ROBIN.md` and `CHARACTER-CONSTANCE.md`, and two `deprecated-*.md` from claude.ai (not read, not committed). Git still lists the old `side/effort-up` worktree as prunable (its scratch folder is gone); `git worktree prune` would clear the entry, left for JW.
 - **JW chose** opus-74's cheap fixes and a clean-up of the referee and tools; no run, no dashboard work, the parked idea left parked. Decided in four batches (`PLAN.md` step 75).
