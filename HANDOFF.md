@@ -26,8 +26,14 @@ Where the build stands, for whoever picks it up next, human or Claude. Read `PLA
   - The NEUTRAL swap of the condensed memory changed almost nothing measurable.
   - The Sonnet scorer misses invented facts (a ceiling, not a measure), and its gist column hardly varies.
 - **Pushed** at JW's word at the end of the session (the build `57de670` through the docs).
+- **Then step 79, personality tests** (proposed by Claude Code, taken up by JW, and run under his delegation, "use your judgement on all of the above"; `PERSONALITY-TESTS-PLAN.md`, `PLAN.md` step 79):
+  - **The test:** JW's BFI-2 and PID-5 read to the cast by a visitor from the capital: 190 sittings, **$49.45**.
+  - **The sheets take,** and nobody scores disagreeable (the model's warmth as a floor).
+  - **Twenty days and the three page swaps barely move a self-report.** Claude Code's theory about where narrowing lives is not supported; behaviour in play remains the measure.
+  - **The frame held throughout;** Hobb refused once, in character.
+  - **Findings:** `state/talks/step76-30/inventory/NOTES.md`.
 - **Next:**
-  - JW reads the suite's `NOTES.md` (its *What to read first*).
+  - JW reads the suite's `NOTES.md` (its *What to read first*) and the personality tests' `NOTES.md`.
   - JW then holds the live interviews of the plan's step 7, with its *Gaps* list.
   - Whether to push.
 

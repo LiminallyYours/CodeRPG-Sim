@@ -1,6 +1,6 @@
 # Personality tests for the cast: a draft plan
 
-**Status: drafted by Claude Code (2026-10-30, seventeenth session). JW: "continue. use your judgement on all of the above", so the open points were decided by Claude Code under that delegation (section 11), and it is built and run.** It follows step 78's interview suite (`state/talks/step76-30/suite/NOTES.md`). It reuses the instruments from JW's personality project (`~/Documents/claude-projects/personality/`: BFI-2 and PID-5, `score.py`, the profiles of Opus 5.5, Fable 5.1 and Sonnet 5.5 answering as themselves).
+**Status: drafted by Claude Code (2026-10-30, seventeenth session). JW: "continue. use your judgement on all of the above", so the open points were decided by Claude Code under that delegation (section 11), and it is built and run.** What came: `state/talks/step76-30/inventory/NOTES.md` (the pilot's in `pilot/NOTES.md` there); the record in `PLAN.md` step 79. It follows step 78's interview suite (`state/talks/step76-30/suite/NOTES.md`). It reuses the instruments from JW's personality project (`~/Documents/claude-projects/personality/`: BFI-2 and PID-5, `score.py`, the profiles of Opus 5.5, Fable 5.1 and Sonnet 5.5 answering as themselves).
 
 ## 1. Why
 
