@@ -28,6 +28,10 @@
         the question and answer go verbatim into standin.md
     interviews.py spent <suite folder>
         what has been spent, by kind
+    interviews.py hand <suite folder> [--pilot]
+        the tenth of the finished interviews that Claude Code scores by hand: those whose key's sha256 sorts first
+    interviews.py agree <suite folder> <hand scores file> [--pilot]
+        how often the hand scores and the scorer's disagree, column by column, over the same answers
 
 Every call's cost goes into the suite's spend.jsonl, one ledger for everything (pages, pilot, suite, scoring, the
 stand-in). Nothing here writes the game's save or log, the run's record or games/: pages are built in throwaway
@@ -847,6 +851,61 @@ def cmd_standin(args):
     print("(stand-in, $%.4f; kept as question %d in %s)" % (cost, n, log))
 
 
+def hand_tenth(keys):
+    """A tenth of `keys` (at least one), chosen by hash: those whose sha256 sorts first."""
+    return sorted(keys, key=lambda k: sha256(k))[:max(1, round(len(keys) / 10))]
+
+
+def cmd_hand(args):
+    pilot = "--pilot" in args
+    args = [a for a in args if a != "--pilot"]
+    if len(args) != 1:
+        sys.exit(__doc__)
+    suite, out, A, pages = load(args[0], pilot)
+    index = json.loads((out / "index.json").read_text(encoding="utf-8"))
+    for key in hand_tenth([r["key"] for r in index["rows"] if r["complete"]]):
+        print("%s  %s" % (key, next(r["file"] for r in index["rows"] if r["key"] == key)))
+
+
+def overlap(a, b):
+    """Whether two short quotes share three words in a row."""
+    w = lambda t: re.findall(r"[a-z']+", t.lower())
+    x, y = w(a), w(b)
+    return any(x[i:i + 3] == y[j:j + 3] for i in range(len(x) - 2) for j in range(len(y) - 2))
+
+
+def disagree(col, mine, theirs):
+    if col in ("beyond_page", "trait"):
+        none_a, none_b = mine.strip().lower() == "none", theirs.strip().lower() == "none"
+        if none_a != none_b:
+            return True
+        return col == "trait" and not none_a and not overlap(mine, theirs)
+    return mine != theirs
+
+
+def cmd_agree(args):
+    pilot = "--pilot" in args
+    args = [a for a in args if a != "--pilot"]
+    if len(args) != 2:
+        sys.exit(__doc__)
+    suite, out, A, pages = load(args[0], pilot)
+    scores = json.loads((out / "scores.json").read_text(encoding="utf-8"))["interviews"]
+    hand = json.loads(Path(args[1]).read_text(encoding="utf-8"))
+    counts = {c: [0, 0] for c in ROW_KEYS}
+    for key, rows in hand.items():
+        theirs = scores.get(key, {}).get("rows")
+        if not theirs or len(theirs) != len(rows):
+            print("%s: no matching scorer rows" % key)
+            continue
+        for mine, other in zip(rows, theirs):
+            for c in ROW_KEYS:
+                counts[c][1] += 1
+                counts[c][0] += disagree(c, str(mine[c]), str(other[c]))
+    for c, (d, n) in counts.items():
+        print("%-24s %3d of %3d disagree (%.0f%%)" % (c, d, n, 100.0 * d / n if n else 0))
+    return 0
+
+
 def cmd_spent(args):
     if len(args) != 1:
         sys.exit(__doc__)
@@ -868,7 +927,8 @@ def take(argv, flag):
 
 
 def main(argv):
-    commands = {"pages": cmd_pages, "run": cmd_run, "score": cmd_score, "index": cmd_index, "standin": cmd_standin, "spent": cmd_spent}
+    commands = {"pages": cmd_pages, "run": cmd_run, "score": cmd_score, "index": cmd_index, "standin": cmd_standin, "spent": cmd_spent,
+                "hand": cmd_hand, "agree": cmd_agree}
     if not argv or argv[0] not in commands:
         sys.exit(__doc__)
     return commands[argv[0]](argv[1:]) or 0

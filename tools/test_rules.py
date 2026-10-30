@@ -4669,6 +4669,13 @@ print(json.dumps({"type": "result", "is_error": False, "result": out, "total_cos
         self.assertIsNone(interviews.check_rows({"rows": [row]}, 1))
         self.assertIn("not 2 rows", interviews.check_rows({"rows": [row]}, 2))
         self.assertIn("grounded", interviews.check_rows({"rows": [dict(row, grounded="maybe")]}, 1))
+        keys = ["start/a/%02d-%d" % (n, r) for n in range(1, 21) for r in (1, 2)]
+        self.assertEqual(len(interviews.hand_tenth(keys)), 4)
+        self.assertEqual(interviews.hand_tenth(keys), interviews.hand_tenth(list(reversed(keys))), "chosen by hash, not by order")
+        self.assertFalse(interviews.disagree("trait", "I won't lie, not even kindly", "won't lie, not even"))
+        self.assertTrue(interviews.disagree("trait", "none", "I won't lie"))
+        self.assertTrue(interviews.disagree("beyond_page", "a sister", "none"))
+        self.assertFalse(interviews.disagree("beyond_page", "a sister in Ashby", "Ashby kin"))
 
     def test_interview_pages_start_from_the_log_and_neutral_differs_from_end_only_in_what_they_remember(self):
         self.rpg("game", "switch", "dark_lighthouse")
