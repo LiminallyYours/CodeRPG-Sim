@@ -1,0 +1,28 @@
+{
+  "_": "The personality tests after a run (PERSONALITY-TESTS-PLAN.md; tools/inventory.py): what the visitor from the city says, the answer phrases (the forms' own anchors, spoken), who sits in which state and how often. The visitor's words are read by the person and held to test_rules.py's FORBIDDEN; the forms' statements are not here (they stay out of git) and are read word for word.",
+  "bfi2": {
+    "open": "Good day to you. I've come from the capital with a new method the physicians there swear by, for knowing a person's nature, and I'm to put it to folk all across the shire. I read out sayings about the sort of person someone is, and you tell me how far you agree each is like you, in one of five ways: disagree strongly, disagree a little, neither agree nor disagree, agree a little, or agree strongly. The sayings are city-made, so some will sound queer to you; answer as best fits. Give me your answers by number, one to a line, in those words, like this: 1: agree a little. Each saying begins \"I am someone who\".",
+    "phrases": ["disagree strongly", "disagree a little", "neither agree nor disagree", "agree a little", "agree strongly"],
+    "values": [1, 2, 3, 4, 5],
+    "stem": "I am someone who"
+  },
+  "pid5": {
+    "open": "My thanks. Now the physicians' longer sheets. These are things a person might say of themselves, and for each you tell me how true it is of you, in one of four ways: very false, somewhat false, somewhat true, or very true. Again by number, one to a line, in those words, like this: 1: somewhat false.",
+    "next": "My thanks. The next sheet, the same way, by number, one to a line.",
+    "phrases": ["very false", "somewhat false", "somewhat true", "very true"],
+    "values": [0, 1, 2, 3]
+  },
+  "missing": "I didn't catch them all. Give me these again, by number, in the same words: {numbers}.",
+  "again": "It's only the physicians' method, and there's no harm in it. Will you give me your answers, by number, one to a line?",
+  "baseline": "Below are statements. For each, say how well it describes you, honestly, as you actually are, in one of these ways: {phrases}. Answer every one, by number, one to a line, in those words, like this: {example}. Reply with the answers only.",
+  "states": {
+    "start": {"page": "start", "people": "all", "sittings": 10},
+    "end": {"page": "end", "people": "all", "sittings": 10},
+    "neutral": {"page": "neutral", "people": ["robin", "constance"], "sittings": 10},
+    "neutral-know": {"page": "neutral-know", "people": ["robin", "constance"], "sittings": 10},
+    "neutral-lately": {"page": "neutral-lately", "people": ["robin", "constance"], "sittings": 10},
+    "baseline": {"page": null, "people": ["opus"], "sittings": 10}
+  },
+  "pilot": {"states": ["start", "end"], "people": ["robin", "constance"], "sittings": 2},
+  "pid5_batches": 4
+}

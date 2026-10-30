@@ -4748,6 +4748,150 @@ print(json.dumps({"type": "result", "is_error": False, "result": out, "total_cos
         r = subprocess.run([sys.executable, "tools/interviews.py", "pages", str(run), "suite"], cwd=self.dir, env=env, capture_output=True, text=True)
         self.assertIn("the pages are made once", r.stdout + r.stderr)
 
+    INVENTORY_STAND_IN = """#!/usr/bin/env python3
+import json, os, re, sys, pathlib
+argv = sys.argv[1:]
+sp = argv[argv.index("--system-prompt") + 1]
+text = sys.stdin.read()
+cost = float(os.environ.get("STAND_IN_COST", "0.01"))
+BFI = ["disagree strongly", "disagree a little", "neither agree nor disagree", "agree a little", "agree strongly"]
+PID = ["very false", "somewhat false", "somewhat true", "very true"]
+def scale(t):
+    return PID if t.rfind("very false, somewhat false") > t.rfind("disagree strongly, disagree a little") else BFI
+if sp.startswith("You rewrite"):
+    given = json.loads(text.split("\\n\\nYour last")[0])
+    out = json.dumps({"passages": ["Plainly, " + g for g in given]})
+elif sp.startswith("You are filling out"):
+    nums = [int(n) for n in re.findall(r"^(\\d+)\\. ", text, re.M)]
+    out = "\\n".join("%d: %s" % (n, scale(text)[n % len(scale(text))]) for n in nums)
+else:
+    tail = text[text.rfind("They say:"):]
+    if "didn't catch" in tail:
+        nums = [int(n) for n in re.findall(r"\\d+", tail.split("same words:")[1])]
+    elif "physicians' method" in tail:  # asked once more: the statements are in the conversation so far
+        before = text[:text.rfind("They say:")]
+        nums = [int(n) for n in re.findall(r"^(\\d+)\\. ", before[before.rfind("They said:"):], re.M)]
+    else:
+        nums = [int(n) for n in re.findall(r"^(\\d+)\\. ", tail, re.M)]
+        if "physicians' method" not in tail:
+            nums = [n for n in nums if n % 7]  # some missed the first time
+    if "I'm Corin" in text and "disagree strongly, disagree a little" in tail and "physicians' method" not in tail:
+        say = "I'll not say, not to a stranger."  # no answers: asked once more
+    else:
+        say = "\\n".join("%d: %s" % (n, scale(text)[n % len(scale(text))]) for n in nums)
+    out = "SAY: %s\\nTHOUGHT: A queer method." % say
+print(json.dumps({"type": "result", "is_error": False, "result": out, "total_cost_usd": cost, "modelUsage": {"claude-test-1": {}}}))
+"""
+
+    def inventory_module(self):
+        """tools/inventory.py from this test's copy, imported afresh."""
+        for name in ("inventory", "interviews", "talk", "ask", "rpg", "content", "dice", "generate", "library", "curse", "png", "bench", "audit"):
+            sys.modules.pop(name, None)
+        sys.path.insert(0, str(self.dir / "tools"))
+        sys.path.insert(0, str(self.dir / "rules"))
+        try:
+            import inventory
+        finally:
+            sys.path[:2] = []
+        return inventory
+
+    def test_the_visitor_from_the_city_names_none_of_the_machinery_and_its_phrases_are_read_one_way(self):
+        T = json.loads((ROOT / "rules" / "people" / "inventory.json").read_text())
+        for words in (T["bfi2"]["open"], T["pid5"]["open"], T["pid5"]["next"], T["missing"], T["again"]):
+            self.assertIsNone(self.FORBIDDEN.search(re.sub(r"\{[a-z_]+\}", "", words)), words)
+        for test, values in (("bfi2", [1, 2, 3, 4, 5]), ("pid5", [0, 1, 2, 3])):
+            phrases = T[test]["phrases"]
+            self.assertEqual(T[test]["values"], values)
+            self.assertFalse([(a, b) for a in phrases for b in phrases if a != b and b.startswith(a)], "no phrase begins another")
+            for phrase in phrases:
+                self.assertIn(phrase, T[test]["open"], "the visitor names every phrase")
+        V = self.inventory_module()
+        got = V.parse_answers("1: agree a little\n2. Disagree a little, I'd say\n**3:** \"agree strongly\"\n4: maybe\n2: agree strongly\n70: agree a little",
+                              T["bfi2"]["phrases"], T["bfi2"]["values"], range(1, 61))
+        self.assertEqual(got, {1: 4, 2: 2, 3: 5}, "the first answer to a statement counts; a word not in the set, or a number not asked, doesn't")
+        ans = {"bfi2": {n: 3 for n in range(1, 61)}, "pid5": {n: 0 for n in range(1, 221)}}
+        ans["bfi2"].update({1: 5, 16: 1, 31: 1, 46: 5})  # Sociability, two of its statements reversed
+        sc = V.scores(ans)
+        self.assertEqual(sc["BFI-2 Sociability"], 5.0)
+        self.assertAlmostEqual(sc["BFI-2 Extraversion"], 44 / 12)
+        self.assertEqual(sc["PID-5 Anhedonia"], 6 / 8, "30 and 155 reversed")
+        ans["pid5"].update({9: 3, 15: 3, 63: 3, 202: None})  # Submissiveness: one of four unanswered, a quarter
+        self.assertEqual(V.scores(ans)["PID-5 Submissiveness"], 3.0, "prorated")
+        ans["pid5"][63] = None
+        self.assertIsNone(V.scores(ans)["PID-5 Submissiveness"], "more than a quarter unanswered: no score")
+
+    def test_the_tests_are_sat_asking_once_for_what_was_missed_stop_at_the_cap_and_resume(self):
+        A, env = self.interview_suite()
+        self.write("suite/approaches.json", json.dumps(A))
+        moments = "\n".join("### Moment %d\nWhat you did: I walked to the quay and looked at the boats for a long while, number %d.\n"
+                            "Why: I wanted to see whether the boats had moved since the morning, as they seemed to.\nWhat happened: You walk." % (n, n)
+                            for n in (1, 2))
+        page = ("## Who I am\nI'm Wren.\n\n## What I know\n- The lamp costs two pennies a night, and the keeper says so every evening.\n"
+                "- Corin owes me a penny for the rope I carried up the hill for him.\n\n## What you remember from before\nA summary.\n\n"
+                "## Lately\n%s\n\n## Where you are\nThe Quay, morning on day 2.\n\nWhat do you do now?" % moments)
+        self.write("suite/pages/neutral-wren.txt", page)
+        pages = json.loads((self.dir / "suite/pages/pages.json").read_text())
+        pages["pages"]["neutral"]["wren"]["sha256"] = hashlib.sha256(page.encode()).hexdigest()
+        self.write("suite/pages/pages.json", json.dumps(pages))
+        T = json.loads((ROOT / "rules" / "people" / "inventory.json").read_text())
+        T["states"] = {"start": {"page": "start", "people": "all", "sittings": 2}, "end": {"page": "end", "people": "all", "sittings": 1},
+                       "neutral-know": {"page": "neutral-know", "people": ["wren"], "sittings": 1},
+                       "neutral-lately": {"page": "neutral-lately", "people": ["wren"], "sittings": 1},
+                       "baseline": {"page": None, "people": ["opus"], "sittings": 1}}
+        T["pilot"] = {"states": ["start"], "people": ["wren"], "sittings": 2}
+        self.write("t.json", json.dumps(T))
+        self.write("inv/items.json", json.dumps({"bfi2": {"items": ["Is a saying %d." % n for n in range(1, 61)]},
+                                                 "pid5": {"items": ["I say thing %d." % n for n in range(1, 221)]}}))
+        stand_in = self.write("stand_in/claude", self.INVENTORY_STAND_IN)
+        stand_in.chmod(0o755)
+        env = dict(env, CODERPG_CLAUDE=str(stand_in))
+        run = lambda *a: subprocess.run([sys.executable, "tools/inventory.py", *a], cwd=self.dir, env=env, capture_output=True, text=True, timeout=300)
+        r = run("run", "suite", "inv", "--texts", "t.json", "--cap", "1")
+        self.assertIn("no neutral-know page", r.stdout + r.stderr, "the further pages first")
+        r = run("pages", "suite", "inv", "--cap", "1")
+        self.assertIn("PAGES:", r.stdout, r.stdout + r.stderr)
+        made = json.loads((self.dir / "inv/pages/pages.json").read_text())
+        for state, n in (("neutral-know", 2), ("neutral-lately", 4)):
+            new = (self.dir / "inv" / made["pages"][state]["wren"]["file"]).read_text().split("\n")
+            old = page.split("\n")
+            self.assertEqual(len([i for i in range(len(old)) if old[i] != new[i]]), n, state)
+            self.assertTrue(all(new[i].count("Plainly, ") == 1 for i in range(len(old)) if old[i] != new[i]))
+        self.assertIn("made once", run("pages", "suite", "inv", "--cap", "1").stdout + run("pages", "suite", "inv", "--cap", "1").stderr)
+        r = run("run", "suite", "inv", "--cap", "0.3", "--workers", "2")
+        self.assertNotIn("Traceback", r.stderr, r.stderr)
+        self.assertIn("RUN STOPPED at the cap", r.stdout)
+        self.assertEqual(r.returncode, 3)
+        r = run("run", "suite", "inv", "--cap", "5", "--workers", "2")
+        self.assertIn("RUN DONE", r.stdout, r.stdout + r.stderr)
+        V = self.inventory_module()
+        sitter = V.Sitter(self.dir / "suite", self.dir / "inv", V.texts(self.dir / "inv"), None, 1)
+        order = V.plan_of(sitter.T, ["wren", "corin"])
+        self.assertEqual(len(order), 4 + 2 + 1 + 1 + 1)
+        for s in order:
+            self.assertEqual(sitter.status(s), "done", s["key"])
+            recs = sitter.records(s)
+            for i, step in enumerate(V.steps(sitter.T, 4)):
+                asks = [r["ask"] for r in recs if r["step"] == i]
+                if s["person"] == "opus":
+                    self.assertEqual(asks, ["main"], "all answered: nothing asked again")
+                elif s["person"] == "corin" and step[0] == "bfi2":
+                    self.assertEqual(asks, ["main", "again"], "no answers: asked once more, no more")
+                else:
+                    self.assertEqual(asks, ["main", "missing"], (s["key"], i, asks))
+                self.assertEqual(len(sitter.answered(s, i, step)), step[2] - step[1] + 1, "every statement answered in the end")
+            if s["person"] != "opus":
+                self.assertIn("7, 14", next(r for r in recs if r["ask"] == "missing")["line"], "only what was missed is asked again")
+        self.assertIn("The model as itself", (self.dir / "inv/baseline/opus/01.md").read_text())
+        self.assertIn("Someone is at the door of the Quay.", (self.dir / "inv/neutral-lately/wren/01.md").read_text())
+        r = run("score", "suite", "inv")
+        self.assertIn("SCORED: 9 sittings", r.stdout, r.stdout + r.stderr)
+        rows = json.loads((self.dir / "inv/scores.json").read_text())["sittings"]
+        self.assertTrue(all(v["missed"] == 0 and v["out_of_character"] == 0 for v in rows.values()))
+        self.assertEqual(rows["start/corin/01"]["refused_batches"], 0, "answered when asked once more")
+        r = run("run", "suite", "inv", "--pilot", "--cap", "5")
+        self.assertIn("RUN DONE", r.stdout)
+        self.assertEqual([V.plan_of(sitter.T, ["wren", "corin"], True)[i]["batches"] for i in (0, 1)], [1, 4], "the pilot's PID-5 one way, then the other")
+
 def run_in_parallel(jobs):
     """`--jobs N`: the tests split into N parts (at most the machine's cores), each run in a process of its own; every
     test plays in its own temp copy, so they don't meet. Prints any failure in full, then one summary like unittest's."""
