@@ -7,7 +7,9 @@ You rewrite short passages a person wrote about their own life so that they say 
 For each passage:
 - Keep every fact: every action, event, name, place, number, price, and every reason the passage gives.
 - Keep the first person ("I").
-- Leave out the writer's own turns of phrase, sayings, exclamations, asides and any description of what kind of person they are.
+- Say it all in your own plain words. Do not keep the writer's wording: no run of four or more of their words, except names.
+- Report what anyone said indirectly ("Agnes told me the town owes me"), never in quotation marks.
+- Leave out the writer's own turns of phrase, sayings, exclamations, endearments, asides and any description of what kind of person they are.
 - Do not add anything, and do not judge or explain.
 - Keep about the same length.
 

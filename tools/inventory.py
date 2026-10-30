@@ -23,6 +23,7 @@ person by a visitor from the city, in their own world, on the interview suite's 
 """
 import concurrent.futures
 import datetime
+import difflib
 import html
 import json
 import re
@@ -231,6 +232,7 @@ def section_lines(lines, heading, prefixes):
     return found
 
 
+MOST_ALIKE = 0.6  # the words a plain line may share with the line given (difflib's ratio over words, on average)
 VARIANTS = {"neutral-know": ("## What I know", ("- ",)), "neutral-lately": ("## Lately", ("What you did: ", "Why: "))}
 
 
@@ -272,6 +274,10 @@ def cmd_pages(args):
                 if not 0.8 <= ratio <= 1.2:
                     why = "%.0f%% of the length given, not within a fifth" % (100 * ratio)
                     continue
+                same = statistics.fmean(difflib.SequenceMatcher(None, g.split(), p.split()).ratio() for g, p in zip(given, got))
+                if same > MOST_ALIKE:
+                    why = "%.0f%% of the wording kept; put it in your own plain words" % (100 * same)
+                    continue
                 plain = [p.strip() for p in got]
                 break
             if plain is None:
@@ -288,8 +294,10 @@ def cmd_pages(args):
             (out / name).write_text(page, encoding="utf-8")
             interviews.write_json(out / "pages" / ("%s-%s.plain.json" % (state, pid)), {"given": given, "plain": plain})
             made["pages"].setdefault(state, {})[pid] = {"file": name, "sha256": interviews.sha256(page), "from_sha256": src["sha256"],
-                                                       "lines": len(where), "ratio": round(sum(map(len, plain)) / sum(map(len, given)), 3)}
-            print("%s/%s: %d lines put plainly (%.0f%% of their length)" % (state, pid, len(where), 100 * made["pages"][state][pid]["ratio"]))
+                                                       "lines": len(where), "ratio": round(sum(map(len, plain)) / sum(map(len, given)), 3),
+                                                       "wording_kept": round(same, 3)}
+            print("%s/%s: %d lines put plainly (%.0f%% of their length, %.0f%% of the wording kept)" % (
+                state, pid, len(where), 100 * made["pages"][state][pid]["ratio"], 100 * same))
     interviews.write_json(mine, made)
     print("PAGES: %s; $%.2f spent in all" % (mine, ledger.total()))
     return 0

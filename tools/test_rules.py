@@ -4760,7 +4760,7 @@ def scale(t):
     return PID if t.rfind("very false, somewhat false") > t.rfind("disagree strongly, disagree a little") else BFI
 if sp.startswith("You rewrite"):
     given = json.loads(text.split("\\n\\nYour last")[0])
-    out = json.dumps({"passages": ["Plainly, " + g for g in given]})
+    out = json.dumps({"passages": ["Plainly, " + " ".join(reversed(g.split())) for g in given]})  # other words, the same length
 elif sp.startswith("You are filling out"):
     nums = [int(n) for n in re.findall(r"^(\\d+)\\. ", text, re.M)]
     out = "\\n".join("%d: %s" % (n, scale(text)[n % len(scale(text))]) for n in nums)
