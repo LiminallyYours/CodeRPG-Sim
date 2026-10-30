@@ -172,7 +172,7 @@ The game's `generation:` policy (in `rpg.py show world`) says what may be create
 | orders something made from a maker (`look` lists `MAKERS HERE`) | follow **Orders** below |
 | asks a builder to build something here (`look` lists `BUILD SPOTS HERE`) | follow **Orders** below, with `build` |
 
-Never generate anything that would solve, shortcut or replace part of the main quest, and never answer a gap that the authored content deliberately leaves closed.
+Never generate anything that would solve or replace part of the main quest, and never answer a gap that the authored content deliberately leaves closed. A maker may make a tool for a person's own way of trying something (Orders, below).
 
 ## How to generate
 1. Write one line with the Write tool to `proposals/asked-<kind>.txt`: "The player: <what they said or did>".
@@ -191,6 +191,7 @@ A maker makes things to order within their trade; a builder builds a small place
 1. Run `python3 tools/voice.py world craft <maker> proposals/asked-craft.txt` (or `world build <builder> proposals/asked-build.txt`), and `generate craft proposals/world-craft.json` (or `generate build proposals/world-build.json`) on what it saved, as in **How to generate**. If it prints `REFUSED:`, they turn the order away in character.
 2. If `generate` says they turn the order down, narrate that in their voice. Otherwise it reports what will be made and its `PRICE`: they describe it and name that price, never another. When the maker is an `[agent]`, put what will be made and its price in their scene file's "What just happened", so they name it themselves.
 3. Only when the player pays, run `pay <id>` (or `pay <id> <item>` for an item `PRICE` lists in trade). Until then it isn't theirs. A made item is handed over at once; a building takes a while (`BEING BUILT` in `look`) and doesn't exist until `BUILT:` says so. An unpaid order waits (`ORDERS WAITING` in `look`).
+4. **A made tool in use:** when a person uses something made to order to try what content describes another way (searching the wreck with a hook from the bank), resolve it as that content says, with its check and its outcome; never skip the check. The tool makes it easier only if content or the tool's own file says so.
 
 ## World turns
 When `look`, `move` or `round end` says `WORLD TURN DUE`, run the world turn. During a turn, do it before you store the narration:

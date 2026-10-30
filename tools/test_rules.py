@@ -707,6 +707,14 @@ class Engine(unittest.TestCase):
         self.write("proposals/c.json", json.dumps(proposal))
         return self.rpg("generate", "craft", "proposals/c.json", ok=ok)
 
+    def test_a_maker_may_make_a_tool_for_a_persons_own_try_at_the_main_quest_never_the_prize(self):
+        self.rpg("game", "switch", "dark_lighthouse")
+        self.rpg("newgame", seed=40)
+        brief = self.rpg("world-brief", "craft", "morwen")
+        self.assertIn("A tool for the player's own way of trying something is fine, even toward the main quest", brief)
+        self.assertIn("Never make the thing a quest is after, or anything that does\nthe quest for them.", brief, "a tool to try with, never the prize")
+        self.assertNotIn("shortcut", brief)
+
     def test_a_maker_takes_an_order_and_paying_makes_it_the_players(self):
         self.rpg("game", "switch", "dark_lighthouse")
         self.rpg("newgame", seed=40)

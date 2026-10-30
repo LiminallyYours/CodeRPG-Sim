@@ -3385,9 +3385,10 @@ def cmd_world_brief(args):
         trade = next((t for h, t in content.sections(ch["body"]) if re.fullmatch(r"What \w+ makes?", h)), "")
         if trade:
             out.append("Their trade: " + " ".join(trade.split()))
-        out += ["Keep the player's idea, and their name for it if they gave one. It is modest: nothing beyond its kind,",
-                "and nothing the main quest needs. If the request is outside the trade, or would solve or shortcut the main",
-                "quest, turn it down instead.",
+        out += ["Keep the player's idea, and their name for it if they gave one. It is modest: nothing beyond its kind.",
+                "A tool for the player's own way of trying something is fine, even toward the main quest: they still have",
+                "to use it, and the rules decide if it works. Never make the thing a quest is after, or anything that does",
+                "the quest for them. If the request is outside the trade, turn it down instead.",
                 'JSON: {"id": "<new_id>", "name": "<name>", "description": "<one or two sentences>", "tier": "<%s>"}' % "|".join(makes(maker)),
                 'or, to turn it down: {"refuse": "<why, in a few words>"}']
         run["ordering"] = order_asked(state, maker, "craft")
