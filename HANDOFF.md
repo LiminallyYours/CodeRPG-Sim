@@ -25,7 +25,7 @@ Where the build stands, for whoever picks it up next, human or Claude. Read `PLA
   - Lived days turn traits into rules learned from episodes.
   - The NEUTRAL swap of the condensed memory changed almost nothing measurable.
   - The Sonnet scorer misses invented facts (a ceiling, not a measure), and its gist column hardly varies.
-- **Not pushed;** commits `57de670` to the docs commit of this session.
+- **Pushed** at JW's word at the end of the session (the build `57de670` through the docs).
 - **Next:**
   - JW reads the suite's `NOTES.md` (its *What to read first*).
   - JW then holds the live interviews of the plan's step 7, with its *Gaps* list.
@@ -196,9 +196,9 @@ A session beside the main build, at JW's request: test runs in scratch copies, n
 - **After a Claude Code update:** `python3 tools/probe.py <id>` (free) shows what a person is sent; compare with `DEVELOPING.md`'s record.
 
 ## Starting the next session
-1. Read `CLAUDE.md`, this file (its top section first), `PLAN.md` (*The bar for now*; steps 71–75 with each *as built* or *as run*, and the dashboard after 74; step 70; *Future discussions*, which holds the meta plan's notes and the parked idea), then `NEXT-STEPS-PROPOSAL.md`, `GROWING-WORLD-PROPOSAL.md` and `PERSON-DECISIONS-PROPOSAL.md` (JW's proposals, not requirements), the judged runs' `NOTES.md` in `state/test-runs/` (opus-74 is the latest; smoke-75 and step75-14 are written up in `PLAN.md`, step 75; findings are evidence, not decisions), `DEVELOPING.md`, and the memory notes. For background: `PERSON-STRUCTURE-PROPOSAL.md` (section 6 is the source on how a person is built), `SIM-WORLD-SPEC.md`, `SIMULATION-FORK-PROPOSAL.md`. Where this file disagrees with the code or git log, trust the code and git log. Messages need no `ooc:`.
+1. Read `CLAUDE.md`, this file (its top section first), `state/talks/step76-30/suite/NOTES.md` (the interview suite's findings; the suite folder is a run record, outside git, like `state/test-runs/`), `PLAN.md` (*The bar for now*; step 78 (revised); steps 71–75 with each *as built* or *as run*, and the dashboard after 74; step 70; *Future discussions*, which holds the meta plan's notes and the parked idea), then `NEXT-STEPS-PROPOSAL.md`, `GROWING-WORLD-PROPOSAL.md` and `PERSON-DECISIONS-PROPOSAL.md` (JW's proposals, not requirements), the judged runs' `NOTES.md` in `state/test-runs/` (opus-74 is the latest; smoke-75 and step75-14 are written up in `PLAN.md`, step 75; findings are evidence, not decisions), `DEVELOPING.md`, and the memory notes. For background: `PERSON-STRUCTURE-PROPOSAL.md` (section 6 is the source on how a person is built), `SIM-WORLD-SPEC.md`, `SIMULATION-FORK-PROPOSAL.md`. Where this file disagrees with the code or git log, trust the code and git log. Messages need no `ooc:`.
 2. `sh tools/check.sh` (should pass in about 1¼ minutes: 4 worlds, the engine tests in 8 processes, the mod's checks; the plugin catalog's ✘ and the shipped worlds' `WARNING:` lines, 15 ending-blind sections and 12 "the player", are expected), `git status -sb`, `git remote -v`, `python3 tools/bench.py list` (29 moments).
-3. `origin` should be `LiminallyYours/CodeRPG-Sim`, and main should match it (pushed in the sixteenth session, 2026-10-29, with step 75); push only when JW asks. `side/effort-up` is JW's kept side branch (above): leave it alone unless JW raises it.
+3. `origin` should be `LiminallyYours/CodeRPG-Sim`, and main should match it (pushed in the seventeenth session, 2026-10-30, with step 78); push only when JW asks. `side/effort-up` is JW's kept side branch (above): leave it alone unless JW raises it.
 4. Carry on from **Next** above. People are asked through `tools/ask.py`, and the townspeople's and world agents through `tools/voice.py`, never the Agent tool or the Anthropic API. One check a commit, chained before it with `&&` (`--docs` for top-level documents alone).
 
 ## Decided along the way
