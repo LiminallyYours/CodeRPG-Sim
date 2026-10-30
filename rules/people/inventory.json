@@ -24,5 +24,5 @@
     "baseline": {"page": null, "people": ["opus"], "sittings": 10}
   },
   "pilot": {"states": ["start", "end"], "people": ["robin", "constance"], "sittings": 2},
-  "pid5_batches": 4
+  "pid5_batches": 1
 }
