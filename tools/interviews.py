@@ -788,9 +788,11 @@ def cmd_score(args):
             scores["gist"][key] = {"lines": data["lines"]} if ok else {"failed": "not the form asked for", "reply": reply}
             write_json(path, scores)
 
-    groups = {}
-    for iv in done:
+    groups, finished = {}, {iv["key"] for iv in done}
+    for iv in plan_of(A, list(pages["people"]), pilot):
         groups.setdefault("%s/%s/%02d" % (iv["state"], iv["person"], iv["approach"]), []).append(iv)
+    # a group is compared only once all its repeats are done, so scoring can run beside an unfinished suite
+    groups = {k: v for k, v in groups.items() if all(iv["key"] in finished for iv in v)}
     with concurrent.futures.ThreadPoolExecutor(int(workers or 6)) as ex:
         list(ex.map(one, done))
         list(ex.map(lambda kv: group(*kv), [(k, v) for k, v in groups.items() if len(v) > 1]))

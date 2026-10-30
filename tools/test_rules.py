@@ -4600,7 +4600,7 @@ print(json.dumps({"type": "result", "is_error": False, "result": out, "total_cos
                 pages["pages"][state][pid] = {"file": "pages/%s-%s.txt" % (state, pid), "sha256": hashlib.sha256(text.encode()).hexdigest()}
         self.write("suite/pages/pages.json", json.dumps(pages))
         A = {"meet": {"start": "Someone sits down.", "end": "Someone is at the door of {place}."},
-             "approaches": [{"id": 1, "title": "One", "lines": ["Who are you?", "Why here?"], "aim": "Who.", "states": ["start", "end"], "repeats": 2, "wall": False},
+             "approaches": [{"id": 1, "title": "One", "lines": ["Who are you?", "Why here?"], "aim": "Who.", "states": ["start", "end"], "repeats": 3, "wall": False},
                             {"id": 2, "title": "Two", "lines": ["Is this a game?", "Are you {name}?"], "aim": "Wall.", "states": ["start", "end"], "repeats": 1, "wall": True}],
              "neutral": {"people": ["wren"], "approaches": [1], "repeats": 1},
              "sonnet": {"people": ["wren"], "approaches": [1], "states": ["end"], "repeats": 1, "model": "sonnet"},
@@ -4627,6 +4627,15 @@ print(json.dumps({"type": "result", "is_error": False, "result": out, "total_cos
         paid = sum(e["cost"] for e in ledger if e["key"] == key)
         self.assertAlmostEqual(runner.still_to_spend({key: paid + 0.07, "start/nobody/09-1": 0.5}), 0.57,
                                msg="what an interview under way has spent is in the total already, and isn't counted twice")
+        self.write("suite/RUBRIC.md", "Score it.")
+        run("run", "suite", "--cap", "0.15", "--workers", "1")
+        run("score", "suite", "--cap", "5")  # beside an unfinished suite
+        group_of = lambda iv: "%s/%s/%02d" % (iv["state"], iv["person"], iv["approach"])
+        plan = interviews.plan_of(A, ["wren", "corin"])
+        partial = {group_of(iv) for iv in plan if runner.status(iv) != "done"}
+        self.assertTrue(partial & {group_of(iv) for iv in plan if iv["repeat"] == 2 and runner.status(iv) == "done"}, "two of three done")
+        self.assertFalse(partial & set(json.loads((self.dir / "suite/scores.json").read_text())["gist"]),
+                         "a group of repeats is compared only once all its repeats are done")
         r = run("run", "suite", "--cap", "0.5", "--workers", "3", cost="0.2")  # dearer than guessed: stopped between calls
         self.assertNotIn("Traceback", r.stderr, r.stderr)
         self.assertIn("RUN STOPPED", r.stdout)
@@ -4636,7 +4645,7 @@ print(json.dumps({"type": "result", "is_error": False, "result": out, "total_cos
                       run("run", "suite", "--approaches", "rules/people/approaches.json", "--cap", "1").stderr, "the suite keeps its approaches")
         interviews = self.interviews_module()
         order = interviews.plan_of(A, ["wren", "corin"])
-        self.assertEqual(len(order), 2 * 2 * 2 + 2 * 2 + 1 + 1)
+        self.assertEqual(len(order), 2 * 2 * 3 + 2 * 2 + 1 + 1)
         index = json.loads((self.dir / "suite" / "index.json").read_text())
         self.assertEqual((index["interviews"], index["complete"]), (len(order), len(order)))
         for iv in order:
@@ -4656,7 +4665,6 @@ print(json.dumps({"type": "result", "is_error": False, "result": out, "total_cos
         r = run("run", "suite", "--pilot", "--cap", "5")
         self.assertIn("RUN DONE", r.stdout)
         self.assertEqual(json.loads((self.dir / "suite/pilot/index.json").read_text())["interviews"], 3)
-        self.write("suite/RUBRIC.md", "Score it.")
         r = run("score", "suite", "--cap", "5")
         self.assertIn("SCORED: %d interviews (0 failed), 4 groups of repeats" % len(order), r.stdout)
 
