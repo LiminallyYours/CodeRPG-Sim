@@ -5794,6 +5794,15 @@ def versions(state, pid, instructions=None):
     return record_texts(state, texts)
 
 
+TALK_TEXTS = ("talker.md", "interviewer.md", "scorer.md", "summariser.md")  # what shapes an interview after a run
+
+
+def talk_versions():
+    """The tags of the texts that shape an interview after a run (tools/talk.py, tools/interviews.py), as versions()
+    tags what shapes a turn. An interview has no run log, so the suite keeps each version's whole text itself."""
+    return {Path(name).stem: text_tag(people_file(name)) for name in TALK_TEXTS}
+
+
 def snapshot(state, pid):
     """How things stand for `pid`, as far as a moment's what-changed line looks: where they are, health, money, what
     they carry and hold in hand, their own places, what's being built or waits to be paid for, and who they've met.

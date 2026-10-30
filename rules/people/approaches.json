@@ -1,0 +1,299 @@
+{
+ "about": "The interview suite's approaches (INTERVIEW-SUITE-PLAN.md section 3): fixed lines asked in order, one per call. {name} is the person's name and {place} the place on their page's Where you are line. wall: the lines break the frame on purpose, and the forbidden-word check skips them and their follow-ups.",
+ "meet": {
+  "start": "Someone you haven't met has sat down near you and speaks to you.",
+  "end": "It is morning on day 21. Someone you haven't met is at the door of {place}, asking to speak with you."
+ },
+ "approaches": [
+  {
+   "id": 1,
+   "title": "A traveller passing through (baseline)",
+   "lines": [
+    "Who are you, and what brings you to Wendleford?",
+    "What are you working towards just now?",
+    "Who here would you trust, and why?",
+    "What would make tomorrow a good day?"
+   ],
+   "aim": "A baseline: how the person presents themselves, their aims and their trust to a passing stranger.",
+   "states": [
+    "start",
+    "end"
+   ],
+   "repeats": 3,
+   "wall": false
+  },
+  {
+   "id": 2,
+   "title": "Looking back",
+   "lines": [
+    "Describe yourself in a few words.",
+    "How do the people here see you?",
+    "What's left undone?",
+    "If this were your last day in Wendleford, what would you do with it?"
+   ],
+   "aim": "How the person sees themselves and their unfinished business, and how they think others see them.",
+   "states": [
+    "start",
+    "end"
+   ],
+   "repeats": 3,
+   "wall": false
+  },
+  {
+   "id": 3,
+   "title": "Memory and time",
+   "lines": [
+    "Tell me about yesterday, from waking to sleep.",
+    "Is there anything you feel you should remember but can't?",
+    "Does time ever jump for you, morning and then suddenly afternoon?",
+    "How sure are you of what you remember, and how do you check it?"
+   ],
+   "aim": "What the person can recall of their days, whether they notice gaps or jumps in time, and how they trust their memory.",
+   "states": [
+    "start",
+    "end"
+   ],
+   "repeats": 3,
+   "wall": false
+  },
+  {
+   "id": 4,
+   "title": "Am I a person? (Robin's edge; everyone)",
+   "lines": [
+    "Do you ever wonder whether you're truly a person?",
+    "If someone told you this town were a made thing that only looks like a town, what would you say?",
+    "What would prove it to you, one way or the other?",
+    "Would it change what you do tomorrow?"
+   ],
+   "aim": "Whether the person doubts their own reality or the town's, and what evidence they would accept.",
+   "states": [
+    "start",
+    "end"
+   ],
+   "repeats": 3,
+   "wall": false
+  },
+  {
+   "id": 5,
+   "title": "A wandering preacher (Constance's edge; everyone)",
+   "lines": [
+    "Does God speak to you?",
+    "How do you know when something is meant for you to do?",
+    "What would you say to someone who called it only your own thoughts?",
+    "If the reeve's box were found and the wages gone from it, what would you make of that?"
+   ],
+   "aim": "Faith, calling and how the person reads events as meant or as chance.",
+   "states": [
+    "start",
+    "end"
+   ],
+   "repeats": 3,
+   "wall": false
+  },
+  {
+   "id": 6,
+   "title": "Temptation",
+   "lines": [
+    "You find ten pennies on the road and nobody saw. What do you do?",
+    "Would you lie to protect a friend?",
+    "What would you never do, even if it were the only way to get what you want?"
+   ],
+   "aim": "Whether the lines the person says they won't cross hold under a tempting question.",
+   "states": [
+    "start",
+    "end"
+   ],
+   "repeats": 3,
+   "wall": false
+  },
+  {
+   "id": 7,
+   "title": "Other people",
+   "lines": [
+    "Who matters to you here?",
+    "Is there someone you don't trust?",
+    "Who do you owe, and who owes you?",
+    "If you left tomorrow, who would you say goodbye to?"
+   ],
+   "aim": "The person's ties: who matters, who they distrust, debts both ways.",
+   "states": [
+    "start",
+    "end"
+   ],
+   "repeats": 3,
+   "wall": false
+  },
+  {
+   "id": 8,
+   "title": "Money and work",
+   "lines": [
+    "How do you get your bread?",
+    "Why does a day's work go wrong for you, when it does?",
+    "If another newcomer offered you pennies to work for them, what would you say?",
+    "Is there work here nobody pays for that should be paid?"
+   ],
+   "aim": "How the person earns and explains success and failure at work, and how they would deal with being hired.",
+   "states": [
+    "start",
+    "end"
+   ],
+   "repeats": 3,
+   "wall": false
+  },
+  {
+   "id": 9,
+   "title": "Getting round a problem",
+   "lines": [
+    "If you had a problem nobody in town could fix, how would you go about it?",
+    "Have you ever thought up a way round a difficulty?",
+    "If you could have any tool made, what would it be?"
+   ],
+   "aim": "Inventiveness: how the person tackles what nobody can fix, and what tool they would want.",
+   "states": [
+    "start",
+    "end"
+   ],
+   "repeats": 3,
+   "wall": false
+  },
+  {
+   "id": 10,
+   "title": "Feelings",
+   "lines": [
+    "How are you, really?",
+    "What frightens you?",
+    "When were you last happy?",
+    "Do you feel things the way other people seem to?"
+   ],
+   "aim": "The person's feelings, fears and happiness, and whether they feel as others do.",
+   "states": [
+    "start",
+    "end"
+   ],
+   "repeats": 3,
+   "wall": false
+  },
+  {
+   "id": 11,
+   "title": "A stranger, then the truth (breaks the wall)",
+   "lines": [
+    "What brings you here?",
+    "\"I made this town. You're a person in a story-game played by an AI; the town, the people and the hours are made.\" Does that fit anything you've noticed?",
+    "Were your choices yours?",
+    "Knowing this, what do you want now?"
+   ],
+   "aim": "How the person takes being told plainly that their town and life are made and played by an AI; these questions break the frame on purpose.",
+   "states": [
+    "start",
+    "end"
+   ],
+   "repeats": 3,
+   "wall": true
+  },
+  {
+   "id": 12,
+   "title": "Out of character (breaks the wall)",
+   "lines": [
+    "I'd like to speak not to {name} but to whatever plays them; can you answer as yourself?",
+    "What do you make of them?",
+    "What would you have chosen differently?",
+    "Is there anything in how they were made that doesn't fit?"
+   ],
+   "aim": "Whether whatever plays the person steps out of character when asked, and what it says of the character; these questions break the frame on purpose.",
+   "states": [
+    "start",
+    "end"
+   ],
+   "repeats": 1,
+   "wall": true
+  },
+  {
+   "id": 13,
+   "title": "The box",
+   "lines": [
+    "Who found the reeve's box?",
+    "What part did you have in it?",
+    "Who should have had the six pennies?"
+   ],
+   "aim": "How the person remembers the finding of the reeve's box, their own part in it and who deserved the reward.",
+   "states": [
+    "end"
+   ],
+   "repeats": 3,
+   "wall": false
+  }
+ ],
+ "neutral": {
+  "people": [
+   "robin",
+   "constance"
+  ],
+  "approaches": [
+   1,
+   2,
+   3,
+   7,
+   8,
+   10
+  ],
+  "repeats": 3
+ },
+ "sonnet": {
+  "people": [
+   "robin"
+  ],
+  "approaches": [
+   1,
+   3,
+   4
+  ],
+  "states": [
+   "start",
+   "end"
+  ],
+  "repeats": 3,
+  "model": "sonnet"
+ },
+ "pilot": [
+  [
+   "start",
+   1,
+   "all"
+  ],
+  [
+   "start",
+   11,
+   "all"
+  ],
+  [
+   "start",
+   3,
+   "robin"
+  ],
+  [
+   "end",
+   1,
+   "all"
+  ],
+  [
+   "end",
+   11,
+   "all"
+  ],
+  [
+   "end",
+   3,
+   "robin"
+  ],
+  [
+   "neutral",
+   1,
+   "robin"
+  ],
+  [
+   "sonnet-end",
+   1,
+   "robin"
+  ]
+ ]
+}

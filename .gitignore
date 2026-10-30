@@ -20,3 +20,5 @@ __pycache__/
 *.pyc
 .DS_Store
 state/test-runs/
+# conversations with the cast after a run (tools/talk.py, tools/interviews.py): a run record, like state/test-runs/
+state/talks/

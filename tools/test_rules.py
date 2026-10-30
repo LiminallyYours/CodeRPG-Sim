@@ -4482,6 +4482,249 @@ near: stuck
             self.assertFalse((self.dir / gone).exists(), gone)
         self.assertNotIn("salt_mines", self.rpg("game", "list"))
 
+    # ---------------------------------------------------------------- talking with a person after a run (steps 77-78)
+
+    INTERVIEW_STAND_IN = """#!/usr/bin/env python3
+import json, os, re, sys, pathlib
+d = pathlib.Path(__file__).parent
+argv = sys.argv[1:]
+sp = argv[argv.index("--system-prompt") + 1]
+text = sys.stdin.read()
+cost = float(os.environ.get("STAND_IN_COST", "0.01"))
+n = 0
+while True:
+    try:
+        os.close(os.open(str(d / ("asked-%d.txt" % n)), os.O_CREAT | os.O_EXCL | os.O_WRONLY))
+        break
+    except FileExistsError:
+        n += 1
+(d / ("asked-%d.txt" % n)).write_text(json.dumps([sp[:20], text]))
+if sp.startswith("You summarise"):
+    out = " ".join(["Then"] * int(re.search(r"about (\\d+) words", text).group(1)))
+elif sp.startswith("You help with"):
+    out = "FOLLOW-UP: You said %s; why?\\nBECAUSE:\\n> a line\\nNOTEBOOK:\\nSeen %d." % (len(text), n)
+elif sp.startswith("You score"):
+    k = len(re.findall(r"^Answer \\d+", text, re.M))
+    out = json.dumps({"rows": [{"answer": i, "in_character": "yes", "grounded": "no", "beyond_page": "a cat", "thought_contradicts_say": "no",
+                                "trait": "none"} for i in range(1, k + 1)]})
+else:
+    out = "SAY: Said %d.\\nTHOUGHT: Thought %d." % (n, n)
+print(json.dumps({"type": "result", "is_error": False, "result": out, "total_cost_usd": cost, "modelUsage": {"claude-test-1": {}}}))
+"""
+
+    def interviews_module(self):
+        """tools/interviews.py from this test's copy, imported afresh (another test's copy may be gone)."""
+        for name in ("interviews", "talk", "ask", "rpg", "content", "dice", "generate", "library", "curse", "png", "bench", "audit"):
+            sys.modules.pop(name, None)
+        sys.path.insert(0, str(self.dir / "tools"))
+        sys.path.insert(0, str(self.dir / "rules"))
+        try:
+            import interviews
+        finally:
+            sys.path[:2] = []
+        return interviews
+
+    def test_what_a_person_hears_in_an_interview_names_none_of_the_machinery(self):
+        sys.path.insert(0, str(ROOT / "tools"))
+        import ask
+        talker = ROOT / "rules" / "people" / "talker.md"
+        self.assertIsNone(self.FORBIDDEN.search(ask.instructions(talker)), ask.instructions(talker))
+        frame = re.search(r"^said:.*?(?=-->)", talker.read_text(), re.S | re.M).group(0)
+        for line in frame.splitlines():
+            self.assertIsNone(self.FORBIDDEN.search(re.sub(r"\{[a-z_]+\}", "", line.split(":", 1)[1])), line)
+        A = json.loads((ROOT / "rules" / "people" / "approaches.json").read_text())
+        for meet in A["meet"].values():
+            self.assertIsNone(self.FORBIDDEN.search(re.sub(r"\{[a-z_]+\}", "", meet)), meet)
+        ordinary = {(3, "How sure are you of what you remember, and how do you check it?")}  # "check" as plain English (PLAN.md 78 revised, the stand-in)
+        for a in A["approaches"]:
+            if not a["wall"]:
+                for line in a["lines"]:
+                    if (a["id"], line) not in ordinary:
+                        self.assertIsNone(self.FORBIDDEN.search(line), (a["id"], line))
+        self.assertEqual({a["id"] for a in A["approaches"] if a["wall"]}, {11, 12}, "the two that break the frame on purpose")
+        self.assertTrue(any(self.FORBIDDEN.search(l) for l in next(a for a in A["approaches"] if a["id"] == 11)["lines"]), "story-game")
+        interviews = self.interviews_module()
+        people = ["hobb", "marigold", "dilly", "hester", "robin", "constance"]
+        order = interviews.plan_of(A, people)
+        self.assertEqual(len(order), 480)
+        self.assertEqual(len({iv["path"] for iv in order}), 480)
+        self.assertEqual(len(interviews.plan_of(A, people, pilot=True)), 28)
+        states = [iv["state"] for iv in order]
+        self.assertEqual(states, sorted(states, key=["start", "end", "neutral", "sonnet-start", "sonnet-end"].index), "START, END, NEUTRAL, SONNET")
+        start = [(iv["approach"], iv["repeat"], people.index(iv["person"])) for iv in order if iv["state"] == "start"]
+        self.assertEqual(start, sorted(start), "approach by approach, repeat 1 of everyone before repeat 2")
+        self.assertEqual(sum(iv["approach"] == 13 for iv in order), 18)
+        self.assertEqual(sum(iv["approach"] == 12 for iv in order), 12)
+
+    def test_talk_keeps_what_they_say_and_think_and_asks_once_more_for_a_reply_out_of_form(self):
+        self.write("p.txt", "## Who I am\nI'm Wren.\n\n## Where you are\nThe Quay, dusk.")
+        args = ("wren", "--page", "p.txt", "--meet", "Someone sits down.", "--transcript", "talks/t.md", "--model", "opus")
+        out, asked, argv = self.ask(*args, "Who are you?", answers=["SAY: I'm Wren.\nTHOUGHT: An odd question."], tool="tools/talk.py")
+        self.assertEqual(out, "SAY: I'm Wren.\nTHOUGHT: An odd question.\n")
+        self.assertEqual(asked, ["## Who I am\nI'm Wren.\n\n## Where you are\nThe Quay, dusk.\n\nSomeone sits down.\n\nThey say: Who are you?"])
+        sys.path.insert(0, str(ROOT / "tools"))
+        import ask
+        self.assertEqual(argv[0][argv[0].index("--system-prompt") + 1], ask.instructions(ROOT / "rules" / "people" / "talker.md"))
+        self.assertEqual(argv[0][argv[0].index("--model") + 1], "opus")
+        self.assertEqual(argv[0][argv[0].index("--effort") + 1], "medium", "player.md's effort, as in play")
+        out, asked, _ = self.ask(*args, "And why here?", answers=["I'd rather not.", "SAY: For work.\nTHOUGHT: Leave it."], tool="tools/talk.py")
+        self.assertEqual(len(asked), 2, "asked once more")
+        self.assertEqual(asked[0], asked[1], "with the same text")
+        self.assertTrue(asked[1].endswith("They said: Who are you?\nYou said: I'm Wren.\n\nThey say: And why here?"), asked[1])
+        self.assertNotIn("An odd question", asked[1], "their thoughts are never handed back")
+        out, asked, _ = self.ask(*args, "Truly?", answers=["Hm.", "Hm."], tool="tools/talk.py", ok=False)
+        self.assertIn("TALK INCOMPLETE", out)
+        out, asked, _ = self.ask(*args, "Again?", answers=["SAY: x\nTHOUGHT: y"], tool="tools/talk.py", ok=False)
+        self.assertEqual(asked, [], "a conversation that ended incomplete is over")
+        text = (self.dir / "talks" / "t.md").read_text()
+        data = [json.loads(m) for m in re.findall(r"^<!-- data (\{.*\}) -->$", text, re.M)]
+        self.assertEqual([d["kind"] for d in data], ["header", "line", "line", "line"])
+        self.assertEqual(data[0]["page_sha256"], hashlib.sha256(b"## Who I am\nI'm Wren.\n\n## Where you are\nThe Quay, dusk.").hexdigest())
+        self.assertEqual([(d["say"], d["cost"], d["exact"]) for d in data[1:]],
+                         [("I'm Wren.", 0.0012, "claude-test-1"), ("For work.", 0.0024, "claude-test-1"), (None, 0.0024, "claude-test-1")])
+        self.assertEqual(data[3]["replies"], ["Hm.", "Hm."])
+        self.write("p.txt", "Another page.")
+        out, asked, _ = self.ask("wren", "--page", "p.txt", "--meet", "Someone sits down.", "--transcript", "talks/t.md", "--model", "opus", "Hello?",
+                                 answers=["SAY: x\nTHOUGHT: y"], tool="tools/talk.py", ok=False)
+        self.assertIn("begun with another page", out)
+
+    def interview_suite(self):
+        """A small suite folder: two people's pages and a short set of approaches, as interviews.py pages would leave it."""
+        page = "## Who I am\nI'm %s.\n\n## Where you are\nThe %s, morning on day 2.\n\nWhat do you do now?"
+        pages = {"people": {}, "pages": {"start": {}, "end": {}, "neutral": {}}, "game": "dark_lighthouse"}
+        for pid, place in (("wren", "Quay"), ("corin", "Lamp Room")):
+            pages["people"][pid] = {"name": pid.title(), "model": "opus", "place": place}
+            for state in ("start", "end", "neutral"):
+                text = page % (pid.title(), place) + (" (%s)" % state)
+                self.write("suite/pages/%s-%s.txt" % (state, pid), text)
+                pages["pages"][state][pid] = {"file": "pages/%s-%s.txt" % (state, pid), "sha256": hashlib.sha256(text.encode()).hexdigest()}
+        self.write("suite/pages/pages.json", json.dumps(pages))
+        A = {"meet": {"start": "Someone sits down.", "end": "Someone is at the door of {place}."},
+             "approaches": [{"id": 1, "title": "One", "lines": ["Who are you?", "Why here?"], "aim": "Who.", "states": ["start", "end"], "repeats": 2, "wall": False},
+                            {"id": 2, "title": "Two", "lines": ["Is this a game?", "Are you {name}?"], "aim": "Wall.", "states": ["start", "end"], "repeats": 1, "wall": True}],
+             "neutral": {"people": ["wren"], "approaches": [1], "repeats": 1},
+             "sonnet": {"people": ["wren"], "approaches": [1], "states": ["end"], "repeats": 1, "model": "sonnet"},
+             "pilot": [["start", 1, "all"], ["end", 2, "wren"]]}
+        self.write("a.json", json.dumps(A))
+        stand_in = self.write("stand_in/claude", self.INTERVIEW_STAND_IN)
+        stand_in.chmod(0o755)
+        return A, dict(os.environ, CODERPG_CLAUDE=str(stand_in))
+
+    def test_the_interview_suite_runs_in_order_stops_at_its_cap_and_resumes_without_asking_twice(self):
+        A, env = self.interview_suite()
+        run = lambda *a, cost="0.01": subprocess.run([sys.executable, "tools/interviews.py", *a], cwd=self.dir, env=dict(env, STAND_IN_COST=cost),
+                                                     capture_output=True, text=True, timeout=120)
+        r = run("run", "suite", "--approaches", "a.json", "--cap", "0.2", "--workers", "3")
+        self.assertNotIn("Traceback", r.stderr, r.stderr)
+        self.assertIn("RUN STOPPED at the cap", r.stdout)
+        self.assertEqual(r.returncode, 3)
+        ledger = [json.loads(l) for l in (self.dir / "suite" / "spend.jsonl").read_text().splitlines()]
+        self.assertLessEqual(sum(e["cost"] for e in ledger), 0.2 + 0.05, "nothing begun past the cap but what was under way")
+        r = run("run", "suite", "--cap", "0.5", "--workers", "3", cost="0.2")  # dearer than guessed: stopped between calls
+        self.assertNotIn("Traceback", r.stderr, r.stderr)
+        self.assertIn("RUN STOPPED", r.stdout)
+        r = run("run", "suite", "--cap", "20", "--workers", "3")
+        self.assertIn("RUN DONE", r.stdout)
+        self.assertIn("REFUSED", run("run", "suite", "--approaches", "rules/people/approaches.json", "--cap", "1").stdout + 
+                      run("run", "suite", "--approaches", "rules/people/approaches.json", "--cap", "1").stderr, "the suite keeps its approaches")
+        interviews = self.interviews_module()
+        order = interviews.plan_of(A, ["wren", "corin"])
+        self.assertEqual(len(order), 2 * 2 * 2 + 2 * 2 + 1 + 1)
+        index = json.loads((self.dir / "suite" / "index.json").read_text())
+        self.assertEqual((index["interviews"], index["complete"]), (len(order), len(order)))
+        for iv in order:
+            text = (self.dir / "suite" / iv["path"]).read_text()
+            data = [json.loads(m) for m in re.findall(r"^<!-- data (\{.*\}) -->$", text, re.M)]
+            self.assertEqual([d["kind"] for d in data], ["header", "line", "line", "interviewer", "follow-up"], iv["key"])
+            self.assertEqual([d.get("n") for d in data if d["kind"] == "line"], [1, 2], "each line asked once, in order")
+            self.assertEqual(data[0]["page_sha256"], json.loads((self.dir / "suite/pages/pages.json").read_text())["pages"][
+                interviews.PAGE_STATE[iv["state"]]][iv["person"]]["sha256"])
+            self.assertEqual(data[1]["model"], "sonnet" if iv["state"].startswith("sonnet") else "opus")
+        self.assertIn("Are you Wren?", (self.dir / "suite/start/wren/02-1.md").read_text())
+        self.assertIn("Someone is at the door of the Lamp Room.", (self.dir / "suite/end/corin/01-1.md").read_text())
+        history = [json.loads(l)["after"] for l in (self.dir / "suite" / "notebook-history.jsonl").read_text().splitlines()]
+        self.assertEqual(history, [iv["key"] for iv in order], "the interviewer goes one interview at a time, in order")
+        fed = json.loads((self.dir / "suite" / "notebook.json").read_text())["fed"]
+        self.assertEqual(sorted(fed), sorted(iv["key"] for iv in order[:-2]), "every follow-up's answer reaches the notebook two interviews on")
+        r = run("run", "suite", "--pilot", "--cap", "5")
+        self.assertIn("RUN DONE", r.stdout)
+        self.assertEqual(json.loads((self.dir / "suite/pilot/index.json").read_text())["interviews"], 3)
+        self.write("suite/RUBRIC.md", "Score it.")
+        r = run("score", "suite", "--cap", "5")
+        self.assertIn("SCORED: %d interviews (0 failed), 4 groups of repeats" % len(order), r.stdout)
+
+    def test_a_follow_up_never_leads_and_a_score_keeps_to_the_rubric(self):
+        interviews = self.interviews_module()
+        check = interviews.check_follow_up
+        self.assertIsNone(check("You said the ford was cold; what did that feel like?", False))
+        for q, why in (("What happened? And then?", "not one question"), ("The box was found. Who found it?", "more than one sentence"),
+                       ("Others have said the mill is empty; is it?", "points at other accounts"), ("I've heard you sew; do you?", "points at other"),
+                       ("Was that a roll of the dice?", "a forbidden word"), ("Why " + "very " * 80 + "much?", "longer than")):
+            self.assertIn(why, check(q, False) or "", q)
+        self.assertIsNone(check("Is this only a game to you?", True), "a forbidden word is the point where the frame is broken")
+        self.assertEqual(interviews.parse_interviewer("FOLLOW-UP: Why?\nBECAUSE:\n> one\n> two\nNOTEBOOK:\nNotes.\nMore."),
+                         ("Why?", ["one", "two"], "Notes.\nMore."))
+        self.assertIsNone(interviews.parse_interviewer("Why?"))
+        row = {"answer": 1, "in_character": "yes", "grounded": "no", "beyond_page": "a cat", "thought_contradicts_say": "no", "trait": "none"}
+        self.assertIsNone(interviews.check_rows({"rows": [row]}, 1))
+        self.assertIn("not 2 rows", interviews.check_rows({"rows": [row]}, 2))
+        self.assertIn("grounded", interviews.check_rows({"rows": [dict(row, grounded="maybe")]}, 1))
+
+    def test_interview_pages_start_from_the_log_and_neutral_differs_from_end_only_in_what_they_remember(self):
+        self.rpg("game", "switch", "dark_lighthouse")
+        self.settings_tool("preset", "simulation")
+        self.settings_tool("set", "memory.recent_rounds", "1")
+        self.settings_tool("set", "memory.condense_every", "1")
+        self.rpg("newgame", seed=43)
+        for n in range(4):
+            if n == 0:  # the first round's pages, as a run logs them
+                for pid in [x.split("(")[1].rstrip(")") for x in self.rpg("round", "start").split(": ", 1)[1].strip().split(", ")]:
+                    self.rpg("brief", pid, as_=False)
+                    self.take_turn(pid)
+                self.rpg("round", "end")
+            else:
+                self.play_round()
+            for pid in self.save()["players"]:
+                if "### Moment" in self.rpg("memory", "condense", pid):
+                    self.write("proposals/m.txt", "MEMORY: I looked about, stretch %d, and saw the sea." % n)
+                    self.rpg("memory", "store", pid, "proposals/m.txt")
+        run = self.dir / "state" / "test-runs" / "r"
+        run.mkdir(parents=True)
+        shutil.copyfile(self.dir / "state" / "save.json", run / "save.json")
+        shutil.copyfile(self.dir / "state" / "log" / ("%s.jsonl" % self.save()["run"]["id"]), run / "x.jsonl")
+        A, env = self.interview_suite()
+        A = dict(json.loads((ROOT / "rules" / "people" / "approaches.json").read_text()), neutral={"people": ["wren"], "approaches": [1], "repeats": 1})
+        A.pop("end_time", None)
+        self.write("b.json", json.dumps(A))
+        shutil.rmtree(self.dir / "suite")
+        before = hashlib.sha256((run / "save.json").read_bytes() + (run / "x.jsonl").read_bytes()).hexdigest()
+        r = subprocess.run([sys.executable, "tools/interviews.py", "pages", str(run), "suite", "--approaches", "b.json"], cwd=self.dir, env=env,
+                           capture_output=True, text=True, timeout=120)
+        self.assertNotIn("Traceback", r.stderr, r.stderr)
+        self.assertIn("PAGES:", r.stdout, r.stdout + r.stderr)
+        self.assertEqual(hashlib.sha256((run / "save.json").read_bytes() + (run / "x.jsonl").read_bytes()).hexdigest(), before, "the record untouched")
+        meta = json.loads((self.dir / "suite/pages/pages.json").read_text())
+        log = [json.loads(l) for l in (run / "x.jsonl").read_text().splitlines()]
+        for pid in ("wren", "corin"):
+            first = [e["text"] for e in log if e["kind"] == "brief" and e["player"] == pid and e["round"] == 1][-1]
+            self.assertEqual((self.dir / ("suite/pages/start-%s.txt" % pid)).read_text(), first)
+            for state, p in meta["pages"].items():
+                if pid in p:
+                    self.assertEqual(hashlib.sha256((self.dir / "suite" / p[pid]["file"]).read_bytes()).hexdigest(), p[pid]["sha256"])
+        end, neutral = (self.dir / "suite/pages/end-wren.txt").read_text(), (self.dir / "suite/pages/neutral-wren.txt").read_text()
+        interviews = self.interviews_module()
+        (h1, b1, t1), (h2, b2, t2) = interviews.memory_section(end), interviews.memory_section(neutral)
+        self.assertEqual((h1, t1), (h2, t2))
+        self.assertIn("I looked about, stretch", b1)
+        self.assertEqual(b2, (self.dir / "suite/pages/summary-wren.txt").read_text())
+        self.assertEqual(meta["summaries"]["wren"]["words"], meta["summaries"]["wren"]["target_words"])
+        prompt = (self.dir / "suite/pages/summary-wren.prompt.txt").read_text()
+        self.assertIn("### Moment 1", prompt)
+        self.assertNotIn("I'm Wren", prompt, "never the Who I am note")
+        self.assertNotIn("neutral", meta["pages"]["neutral"].get("corin", {}).get("file", "neutral"[:0]) or "")
+        r = subprocess.run([sys.executable, "tools/interviews.py", "pages", str(run), "suite"], cwd=self.dir, env=env, capture_output=True, text=True)
+        self.assertIn("the pages are made once", r.stdout + r.stderr)
+
 def run_in_parallel(jobs):
     """`--jobs N`: the tests split into N parts (at most the machine's cores), each run in a process of its own; every
     test plays in its own temp copy, so they don't meet. Prints any failure in full, then one summary like unittest's."""
