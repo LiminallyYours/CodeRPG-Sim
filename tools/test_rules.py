@@ -4620,6 +4620,13 @@ print(json.dumps({"type": "result", "is_error": False, "result": out, "total_cos
         self.assertEqual(r.returncode, 3)
         ledger = [json.loads(l) for l in (self.dir / "suite" / "spend.jsonl").read_text().splitlines()]
         self.assertLessEqual(sum(e["cost"] for e in ledger), 0.2 + 0.05, "nothing begun past the cap but what was under way")
+        interviews = self.interviews_module()
+        runner = interviews.Runner(self.dir / "suite", self.dir / "suite", A, json.loads((self.dir / "suite/pages/pages.json").read_text()),
+                                   interviews.Ledger(self.dir / "suite"), 1)
+        key = interviews.plan_of(A, ["wren", "corin"])[0]["key"]
+        paid = sum(e["cost"] for e in ledger if e["key"] == key)
+        self.assertAlmostEqual(runner.still_to_spend({key: paid + 0.07, "start/nobody/09-1": 0.5}), 0.57,
+                               msg="what an interview under way has spent is in the total already, and isn't counted twice")
         r = run("run", "suite", "--cap", "0.5", "--workers", "3", cost="0.2")  # dearer than guessed: stopped between calls
         self.assertNotIn("Traceback", r.stderr, r.stderr)
         self.assertIn("RUN STOPPED", r.stdout)

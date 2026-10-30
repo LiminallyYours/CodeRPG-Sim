@@ -564,6 +564,14 @@ class Runner:
         inter = [e["cost"] for e in es if e["what"] == "interviewer"]
         return (len(approach(self.A, iv["approach"])["lines"]) + 1) * reply + (sum(inter) / len(inter) if inter else 0.1)
 
+    def still_to_spend(self, reserved):
+        """What the interviews under way may still cost: each one's estimate less what it has spent already (that is
+        in the ledger's total), never below nothing."""
+        spent = {}
+        for e in self.ledger.entries():
+            spent[e["key"]] = spent.get(e["key"], 0) + e["cost"]
+        return sum(max(0.0, est - spent.get(key, 0)) for key, est in list(reserved.items()))
+
     def run(self, order, cap):
         self.ledger.stop_line = self.ledger.total() + cap
         place = {iv["key"]: g for g, iv in enumerate(order)}
@@ -580,8 +588,9 @@ class Runner:
             while submitted < len(todo) and submitted < pos + 2 * self.workers and stopped is None:
                 iv = todo[submitted]
                 est = self.estimate(iv)
-                if self.ledger.total() + sum(reserved.values()) + est > self.ledger.stop_line:
-                    stopped = "the cap: $%.2f spent, $%.2f under way, $%.2f for the next" % (self.ledger.total(), sum(reserved.values()), est)
+                under_way = self.still_to_spend(reserved)
+                if self.ledger.total() + under_way + est > self.ledger.stop_line:
+                    stopped = "the cap: $%.2f spent, $%.2f still to spend on what's under way, $%.2f for the next" % (self.ledger.total(), under_way, est)
                     break
                 reserved[iv["key"]] = est
                 fixed[submitted] = pool.submit(self.fixed_part, iv) if self.status(iv) == "open" else None
