@@ -4839,6 +4839,7 @@ print(json.dumps({"type": "result", "is_error": False, "result": out, "total_cos
                        "neutral-lately": {"page": "neutral-lately", "people": ["wren"], "sittings": 1},
                        "baseline": {"page": None, "people": ["opus"], "sittings": 1}}
         T["pilot"] = {"states": ["start"], "people": ["wren"], "sittings": 2}
+        T["pid5_batches"] = 4  # the batches, each asked again once
         self.write("t.json", json.dumps(T))
         self.write("inv/items.json", json.dumps({"bfi2": {"items": ["Is a saying %d." % n for n in range(1, 61)]},
                                                  "pid5": {"items": ["I say thing %d." % n for n in range(1, 221)]}}))
